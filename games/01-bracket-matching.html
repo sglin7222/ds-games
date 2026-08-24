@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>括號堆疊闖關 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺。 */
+.custom{display:flex;gap:6px;flex:0 1 260px}
+.custom input{flex:1}
+
+/* 字元帶 */
+.rail{overflow-x:auto;overflow-y:hidden;padding:4px 2px 0}
+.track{position:relative;display:inline-block;min-width:100%}
+.tape{display:flex;gap:6px;padding-bottom:2px}
+.cell{position:relative;flex:0 0 auto;width:42px;display:flex;flex-direction:column;
+  align-items:center;gap:3px}
+.cell .idx{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+.cell .box{width:42px;height:46px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:22px;font-weight:700;
+  background:var(--sunken);color:var(--ink-faint);
+  border:1.5px solid var(--line-soft);border-radius:8px;
+  transition:background var(--dur),color var(--dur),border-color var(--dur),
+             transform var(--dur),box-shadow var(--dur)}
+.cell[data-state="done"] .box{color:var(--ink-soft)}
+.cell[data-state="matched"] .box{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.cell[data-state="open"] .box{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.cell[data-state="bad"] .box{background:var(--alarm-soft);border-color:var(--alarm);color:var(--alarm)}
+.cell.is-now .box{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-width:2px}
+.cell.is-now .idx{color:var(--ink);font-weight:700}
+.cell .head{position:absolute;top:-4px;width:0;height:0;
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:6px solid var(--ink);opacity:0;transition:opacity var(--dur)}
+.cell.is-now .head{opacity:1}
+.arcs{display:block}
+
+/* 堆疊塔 */
+.tower{display:flex;flex-direction:column-reverse;justify-content:flex-start;gap:5px;
+  min-height:262px;padding:10px;background:var(--sunken);
+  border:1px dashed var(--line);border-radius:8px}
+.slab{position:relative;display:flex;align-items:center;justify-content:center;height:40px;
+  background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:6px;
+  font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent)}
+.slab .at{position:absolute;left:8px;font-size:10px;font-weight:500;color:var(--ink-faint)}
+.slab .top-tag{position:absolute;right:8px;font-size:9.5px;letter-spacing:.12em;
+  font-weight:700;color:var(--ink-soft)}
+.slab.is-doomed{background:var(--alarm-soft);border-color:var(--alarm);color:var(--alarm)}
+.tower-empty{margin:auto;font-size:13px;color:var(--ink-faint);text-align:center}
+.tower-base{margin-top:6px;text-align:center;font-family:var(--font-mono);font-size:10px;
+  letter-spacing:.14em;color:var(--ink-faint);border-top:2px solid var(--line);padding-top:5px}
+
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">01 · 堆疊</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 01 · Stack</p>
+    <h1>括號堆疊闖關</h1>
+    <p class="lede">一個字元一個字元往右走，看堆疊怎麼把左括號疊高、又怎麼在遇到右括號時把最上面那個吐出來配對。這是堆疊最經典、也最容易一眼看懂的用途。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>堆疊 Stack</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>時間</span><b>O(n)</b></div>
+      <div class="fact"><span>空間</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列、迴圈</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上有一條字串和一座堆疊塔。指標從最左邊往右走，每走一格，堆疊就會有反應。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>從上方挑一個<b>關卡</b>，或自己輸入一串括號。</li>
+            <li>按 <b>下一步</b> 一格一格走；也可以按 <b>自動播放</b> 讓它自己跑。</li>
+            <li>邊走邊看四件事同步變化：字元顏色、下方配對弧線、右邊堆疊塔、演算法高亮行。</li>
+            <li>隨時可以 <b>上一步</b> 倒回去，看不懂的地方反覆走。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>每碰到一個括號，先<b>不告訴你答案</b>，由你選：推入、彈出、還是判定失敗。</li>
+            <li>答對得分，<b>連續答對</b>會有額外加分；答錯會立刻說明正確答案和理由。</li>
+            <li>一關結束會結算正確率，可以直接跳下一關。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>堆疊的 LIFO 特性</b> —— 後進先出。為什麼「後開的括號要先關」剛好就是這個規則。</li>
+            <li><b>push 與 pop 兩個動作</b> —— 什麼時候該推入、什麼時候該彈出，以及為什麼只需要看頂端。</li>
+            <li><b>為什麼不能只用計數器</b> —— 這是本頁最重要的一個觀念，第 03 段會用 <code>([)]</code> 這個反例打破它。</li>
+            <li><b>三種失敗情形的完整分類</b> —— 右括號太多、種類不符、左括號沒關完。少判一種就是錯的程式。</li>
+            <li><b>複雜度分析</b> —— 為什麼掃一遍就夠，時間是 O(n)。</li>
+            <li><b>把演算法讀成畫面</b> —— 程式碼跑到第幾行，畫面就在做什麼，兩者對起來看。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用演示模式走完 <b>(())</b> 和 <b>{[()]}</b> 建立直覺，再切闖關模式從 <b>([)]</b> 開始。那一關幾乎所有人第一次都會答錯。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看堆疊怎麼動。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="40" placeholder="自己輸入字串…" aria-label="自訂字串">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">輸入字串</h3>
+            <span class="panel-note" id="tapeNote"></span>
+          </div>
+
+          <div class="rail" id="rail">
+            <div class="track" id="track">
+              <div class="tape" id="tape"></div>
+              <svg class="arcs" id="arcs" height="56" width="100" aria-hidden="true"></svg>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">堆疊 Stack</h3>
+              <span class="panel-note" id="stackNote">size 0</span>
+            </div>
+            <div class="tower" id="tower"></div>
+            <div class="tower-base">BOTTOM 堆疊底部</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">演算法</h3>
+              <span class="panel-note">O(n)</span>
+            </div>
+            <ol class="algo" id="algo"></ol>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把教學用的視覺化全部拿掉，這個演算法本體就是這樣——第 03 段講的東西，一行不多一行不少：</p>
+                <pre class="code">#include &lt;stack&gt;
+#include &lt;string&gt;
+using namespace std;
+
+bool isBalanced(const string&amp; s) {
+    stack&lt;char&gt; st;
+    for (char c : s) {
+        if (c == '(' || c == '[' || c == '{') {
+            st.push(c);                               <i>// 左括號 → 推入</i>
+        } else if (c == ')' || c == ']' || c == '}') {
+            if (st.empty()) return false;             <i>// 失敗①：右括號太多</i>
+            char open = (c == ')') ? '(' : (c == ']') ? '[' : '{';
+            if (st.top() != open) return false;       <i>// 失敗②：種類不符</i>
+            st.pop();                                 <i>// 配對成功，這一對結案</i>
+        }
+        <i>// 其他字元：什麼都不做</i>
+    }
+    return st.empty();                                <i>// 失敗③：左括號沒關完</i>
+}</pre>
+        <p>十行左右。遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」——這是教學程式和生產程式的差別。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從問題定義走到完整演算法，中間每一個判斷為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一個字串，裡面可能有 <code>( ) [ ] { }</code> 六種括號和其他任意字元。判斷所有括號是否「完全匹配」——每個左括號都有對應的右括號、種類相同、而且不能交錯。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">字串</th><th>結果</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">(())</td><td style="color:var(--jade);font-weight:700">合法</td><td>內層先關，外層後關</td></tr>
+              <tr><td class="mono">()[]{}</td><td style="color:var(--jade);font-weight:700">合法</td><td>三對各自獨立，互不影響</td></tr>
+              <tr><td class="mono">([)]</td><td style="color:var(--alarm);font-weight:700">不合法</td><td>交錯了。<code>[</code> 比 <code>(</code> 晚開，卻比它晚關</td></tr>
+              <tr><td class="mono">(()</td><td style="color:var(--alarm);font-weight:700">不合法</td><td>有一個 <code>(</code> 到最後都沒關</td></tr>
+              <tr><td class="mono">())(</td><td style="color:var(--alarm);font-weight:700">不合法</td><td>第 2 格的 <code>)</code> 沒有對象</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：用數的不行</h3>
+        <p>很多人第一個想法是「左括號數 = 右括號數就好」。這個想法會在兩個地方壞掉。</p>
+        <ul class="bullets no">
+          <li><b>順序沒管到</b> —— <code>)(</code> 左右各一個，數量相等，但顯然不合法。補救辦法是「掃描過程中計數不能變成負的」。</li>
+          <li><b>種類沒管到</b> —— <code>([)]</code> 每種括號都恰好一左一右，計數從頭到尾也沒有變負，但它就是不合法。<b>不管怎麼加強計數器都救不了這一個。</b></li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">計數器只記得「還有幾個沒關」，記不得「還沒關的<b>是誰</b>、以什麼<b>順序</b>排隊」。而 <code>([)]</code> 的錯誤，恰恰就藏在這個順序裡。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：後開的一定先關</h3>
+        <p>把合法字串攤開來看，會發現一條鐵律：<b>任何時候遇到右括號，它要配的一定是「目前還沒關的左括號裡，最晚出現的那一個」。</b></p>
+        <p>以 <code>{[()]}</code> 走到第 3 格的 <code>)</code> 為例，此時還沒關的有 <code>{</code>、<code>[</code>、<code>(</code>。這個 <code>)</code> 不可能去配 <code>{</code> 或 <code>[</code>——如果它跳過 <code>(</code> 去配別人，<code>(</code> 就永遠被關在外面出不來了。所以它只能配最晚出現的 <code>(</code>。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">「最晚進來的最先出去」就是 <b>後進先出（LIFO）</b>，而後進先出正是堆疊的定義。所以這題用堆疊不是巧合，是問題結構本身逼出來的。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <p>準備一個空堆疊，由左往右掃過字串。每個字元只有三種可能：</p>
+        <ol class="steps">
+          <li><b>是左括號</b> —— 推入堆疊（push）。意思是「這個還在等它的另一半，先記著」。</li>
+          <li><b>是右括號</b> —— 只跟堆疊<b>頂端</b>比對。<br>
+              頂端如果是同種左括號 → 彈出（pop），這一對結案。<br>
+              堆疊如果是空的、或頂端種類不對 → 立刻失敗，不用再掃下去。</li>
+          <li><b>不是括號</b> —— 直接略過，堆疊不動。</li>
+        </ol>
+        <p>掃完之後還要做<b>最後一次檢查</b>：堆疊必須是空的。如果還有東西，代表那些左括號到最後都沒被關掉。</p>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">迴圈結束後那一行 <b>「堆疊必須為空」</b> 是初學者最常忘記寫的。忘了它，<code>(((</code> 會被判成合法。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>三種失敗，缺一不可</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>失敗種類</th><th>發生時機</th><th class="mono">例子</th><th>白話</th></tr></thead>
+            <tbody>
+              <tr><td><b>堆疊已空</b></td><td>遇到右括號，但堆疊沒東西</td><td class="mono">())(</td><td>右括號太多了</td></tr>
+              <tr><td><b>種類不符</b></td><td>頂端的左括號跟這個右括號不是同一種</td><td class="mono">([)]</td><td>括號交錯了</td></tr>
+              <tr><td><b>剩餘未關</b></td><td>字串掃完了，堆疊還有東西</td><td class="mono">(()</td><td>左括號沒關完</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>前兩種在迴圈裡發現，第三種在迴圈結束後發現。三種都要判，程式才是對的。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：<code>{[()]}</code></h3>
+        <p>考試要你在紙上追蹤時，就是畫這張表。堆疊由左到右代表由底到頂。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th class="mono">i</th><th class="mono">字元</th><th>動作</th><th class="mono">堆疊（底→頂）</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0</td><td class="mono">—</td><td class="mono">—</td><td>建立空堆疊</td><td class="mono" style="color:var(--ink-faint)">（空）</td></tr>
+              <tr><td class="mono">1</td><td class="mono">0</td><td class="mono">{</td><td style="color:var(--accent)">push</td><td class="mono">{</td></tr>
+              <tr><td class="mono">2</td><td class="mono">1</td><td class="mono">[</td><td style="color:var(--accent)">push</td><td class="mono">{ [</td></tr>
+              <tr><td class="mono">3</td><td class="mono">2</td><td class="mono">(</td><td style="color:var(--accent)">push</td><td class="mono">{ [ (</td></tr>
+              <tr><td class="mono">4</td><td class="mono">3</td><td class="mono">)</td><td style="color:var(--jade)">頂端是 ( → pop</td><td class="mono">{ [</td></tr>
+              <tr><td class="mono">5</td><td class="mono">4</td><td class="mono">]</td><td style="color:var(--jade)">頂端是 [ → pop</td><td class="mono">{</td></tr>
+              <tr><td class="mono">6</td><td class="mono">5</td><td class="mono">}</td><td style="color:var(--jade)">頂端是 { → pop</td><td class="mono" style="color:var(--ink-faint)">（空）</td></tr>
+              <tr><td class="mono">7</td><td class="mono">—</td><td class="mono">—</td><td>掃完，檢查堆疊</td><td style="color:var(--jade);font-weight:700">空 → 成功</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>注意堆疊的高度變化：先一路長到 3，再一路降回 0。這個「先上後下」的形狀，就是巢狀結構在堆疊上的樣子——也就是遊戲畫面裡弧線越畫越高、又收回來的原因。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O(n)</b> —— 每個字元只被看一次，每次做的事（push、pop、比對）都是固定成本。</li>
+          <li><b>空間 O(n)</b> —— 最壞情況是 <code>((((…</code> 全部是左括號，堆疊會長到跟字串一樣高。</li>
+          <li><b>不需要回頭</b> —— 這是堆疊解法最漂亮的地方：指標永遠往前，從不倒退，一遍就掃完。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「遇到右括號就去堆疊裡找有沒有同種的」</b> —— 錯。只能看頂端。往下找等於允許交錯，<code>([)]</code> 會被誤判成合法。</li>
+          <li><b>「先掃一遍算數量，再掃一遍檢查」</b> —— 沒必要，也不夠。一遍就能做完，而且數量對了也不代表合法。</li>
+          <li><b>「發現錯誤還要繼續掃完」</b> —— 不用。三種失敗只要碰到一種就能直接回傳失敗，這叫提前終止。</li>
+          <li><b>「堆疊要存右括號」</b> —— 不用。右括號用完即丟，只有左括號需要「等待」，所以只有它需要被記住。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>這個頁面最重要的一個決定是：<b>使用者按「開始」之前，整段過程就已經全部算好了。</b></p>
+        <div class="arch">
+          <div class="node" data-k="in">輸入字串 <small>"{[()]}"</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(s) <small>把整串跑完一次</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是一個「當下的完整快照」</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <h4>為什麼這樣設計</h4>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必為了「倒退」去寫反向操作堆疊的邏輯，那是錯誤最多的地方。</li>
+          <li><b>畫面函式變單純</b> —— 給同一個 step，畫出來一定一樣，不依賴之前發生過什麼。好懂也好除錯。</li>
+          <li><b>演算法和畫面完全分離</b> —— <code>buildSteps</code> 裡沒有半行畫面程式碼，它就是純粹的括號匹配演算法，可以單獨拿去用。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每一步都存一份堆疊快照，最壞情況記憶體是 <b>O(n²)</b>。教學規模（幾十個字元）完全沒問題，但真實工程不會這樣寫——真實版本只要一個布林值答案，不需要留下過程。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>資料層</b></td>
+                <td class="mono">buildSteps(s)</td>
+                <td>唯一真正跑演算法的地方。輸入字串，輸出一整個步驟陣列。</td>
+              </tr>
+              <tr>
+                <td><b>狀態</b></td>
+                <td class="mono">S</td>
+                <td>一個物件裝所有狀態：目前字串、目前第幾步、模式、分數。全站只有這一份。</td>
+              </tr>
+              <tr>
+                <td><b>畫面層</b></td>
+                <td class="mono">paintTape / drawArcs<br>renderTower / paintAlgo<br>paintSay / paintLog</td>
+                <td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。</td>
+              </tr>
+              <tr>
+                <td><b>導覽</b></td>
+                <td class="mono">goto / next / prev<br>startPlay / stopPlay</td>
+                <td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td>
+              </tr>
+              <tr>
+                <td><b>闖關</b></td>
+                <td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td>
+                <td>出題、對答案、計分。它不碰演算法，只是「先不給看下一步」而已。</td>
+              </tr>
+              <tr>
+                <td><b>載入</b></td>
+                <td class="mono">loadString / loadLevel<br>setMode</td>
+                <td>換題目、換模式，重建 steps 並歸零。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <p>不管使用者做什麼，路徑都是同一條。這是整個程式最好記的部分：</p>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintTape<small>字元顏色</small></div>
+            <div class="node">drawArcs<small>配對弧線</small></div>
+            <div class="node">renderTower<small>堆疊塔</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">重點</span>
+          <span class="txt">六個畫面函式<b>誰都不知道別人存在</b>。要加第七塊畫面，就多寫一個函式掛進 <code>render()</code>，其他一行都不用改。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <p>整個程式就靠這個物件串起來。每個欄位都是為了餵給某一塊畫面：</p>
+        <pre class="code">{
+  <b>kind</b>:        <i>// start / push / pop / skip / error / done</i>
+               <i>// → 決定顏色、徽章文字、歷程標籤</i>
+  <b>i</b>:           <i>// 指標在第幾格 → 字元帶的三角形指標</i>
+  <b>ch</b>:          <i>// 這一格的字元</i>
+  <b>stackBefore</b>: <i>// 動作前的堆疊快照</i>
+  <b>stackAfter</b>:  <i>// 動作後的堆疊快照 → 堆疊塔直接畫這個</i>
+  <b>match</b>:       <i>// pop 時，配到的左括號在第幾格 → 畫弧線用</i>
+  <b>line</b>:        <i>// 演算法要高亮第幾行</i>
+  <b>title, msg</b>:  <i>// 說明面板的標題與內文</i>
+  <b>why</b>:         <i>// 錯誤種類：empty / mismatch / leftover</i>
+}</pre>
+        <p>注意 <code>stackAfter</code> 是<b>快照</b>不是參考——每一步都複製一份新的陣列。這正是「可以自由倒退」的代價與底氣。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加一種新括號（例如 <code>&lt;&gt;</code>）</td><td>檔案最上面的 <code>OPEN</code> 和 <code>CLOSE</code> 兩張對照表</td><td>2 行</td></tr>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{s:"字串", n:"關卡名"}</code></td><td>1 行</td></tr>
+              <tr><td>改演算法顯示的文字</td><td><code>CODE</code> 陣列；記得同步調整 step 的 <code>line</code> 編號</td><td>少量</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>850</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次，全部頁面生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 01 括號堆疊闖關</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var OPEN  = {"(":1,"[":1,"{":1};
+  var CLOSE = {")":"(","]":"[","}":"{"};
+
+  var LEVELS = [
+    {s:"(())",         n:"暖身：巢狀"},
+    {s:"()[]{}",       n:"並列三對"},
+    {s:"{[()]}",       n:"三層包覆"},
+    {s:"([)]",         n:"陷阱：交錯"},
+    {s:"(()",          n:"少了右括號"},
+    {s:"())(",         n:"多了右括號"},
+    {s:"a(b[c]{d})e",  n:"混入非括號"},
+    {s:"{[(())]}[]()", n:"魔王關"}
+  ];
+
+  var CODE = [
+    "function check(s):",
+    "    stack ← 空堆疊",
+    "    for c in s:",
+    "        if c 是左括號:",
+    "            stack.push(c)",
+    "        else if c 是右括號:",
+    "            if stack 為空 → 失敗",
+    "            top ← stack.pop()",
+    "            if 不成對(top, c) → 失敗",
+    "    if stack 不為空 → 失敗",
+    "    return 成功"
+  ];
+
+  var BADGE = {start:"START", push:"PUSH", pop:"POP", skip:"SKIP", error:"ERROR", done:"DONE"};
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var S = {
+    str:"", steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:-1,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* ---------- 資料層：把整串一次跑完 ---------- */
+  function buildSteps(s){
+    var steps = [], stack = [], i, c, before, top, broke = false;
+    var snap = function(a){ return a.map(function(o){ return {ch:o.ch, idx:o.idx}; }); };
+
+    steps.push({kind:"start", i:-1, stackAfter:[], line:2,
+      title:"建立一個空堆疊",
+      msg:"堆疊一開始是空的。接下來從第 0 個字元開始，由左往右掃過去。"});
+
+    for(i=0;i<s.length;i++){
+      c = s[i];
+      before = snap(stack);
+      if(OPEN[c]){
+        stack.push({ch:c, idx:i});
+        steps.push({kind:"push", i:i, ch:c, stackBefore:before, stackAfter:snap(stack), line:5,
+          title:"推入 " + c,
+          msg:"第 " + i + " 格是左括號 <b>" + esc(c) + "</b>，它還在等自己的另一半 —— 推進堆疊，堆疊高度變成 " + stack.length + "。"});
+      } else if(CLOSE[c]){
+        if(stack.length === 0){
+          steps.push({kind:"error", i:i, ch:c, stackBefore:before, stackAfter:before, line:7, why:"empty",
+            title:"堆疊是空的",
+            msg:"遇到右括號 <b>" + esc(c) + "</b>，但堆疊裡沒有任何等待配對的左括號 —— 這是多出來的右括號，字串不合法。"});
+          broke = true; break;
+        }
+        top = stack[stack.length-1];
+        if(CLOSE[c] === top.ch){
+          stack.pop();
+          steps.push({kind:"pop", i:i, ch:c, match:top.idx, matchCh:top.ch,
+            stackBefore:before, stackAfter:snap(stack), line:8,
+            title:"配對成功 " + top.ch + c,
+            msg:"右括號 <b>" + esc(c) + "</b> 跟堆疊頂端的 <b>" + esc(top.ch) + "</b>（第 " + top.idx + " 格）同一種 —— 彈出，這一對結案，堆疊剩 " + stack.length + "。"});
+        } else {
+          steps.push({kind:"error", i:i, ch:c, stackBefore:before, stackAfter:before, line:9, why:"mismatch",
+            match:top.idx, matchCh:top.ch,
+            title:"種類不符",
+            msg:"堆疊頂端是 <b>" + esc(top.ch) + "</b>（第 " + top.idx + " 格），卻遇到 <b>" + esc(c) + "</b>。兩者不成對 —— 括號交錯了，不合法。"});
+          broke = true; break;
+        }
+      } else {
+        steps.push({kind:"skip", i:i, ch:c, stackBefore:before, stackAfter:before, line:3,
+          title:"略過 " + c,
+          msg:"<b>" + esc(c) + "</b> 不是括號，對配對沒有影響，直接看下一格。"});
+      }
+    }
+
+    if(!broke){
+      if(stack.length > 0){
+        steps.push({kind:"error", i:s.length, stackBefore:snap(stack), stackAfter:snap(stack), line:10, why:"leftover",
+          title:"還有沒關掉的左括號",
+          msg:"字串掃完了，但堆疊裡還剩 " + stack.length + " 個左括號沒有被關掉 —— 不合法。"});
+      } else {
+        steps.push({kind:"done", i:s.length, stackBefore:[], stackAfter:[], line:11,
+          title:"全部配對成功",
+          msg:"掃到結尾，堆疊剛好清空 —— 每個左括號都找到了正確的另一半，括號完全匹配。"});
+      }
+    }
+    return steps;
+  }
+
+  /* ---------- 畫面層：字元帶 ---------- */
+  function renderTape(){
+    var tape = $("tape");
+    tape.innerHTML = "";
+    for(var i=0;i<S.str.length;i++){
+      var cell = document.createElement("div");
+      cell.className = "cell";
+      var idx = document.createElement("span");
+      idx.className = "idx"; idx.textContent = i;
+      var box = document.createElement("span");
+      box.className = "box"; box.textContent = S.str[i];
+      var head = document.createElement("span");
+      head.className = "head";
+      cell.appendChild(idx); cell.appendChild(box); cell.appendChild(head);
+      tape.appendChild(cell);
+    }
+    $("tapeNote").textContent = "長度 " + S.str.length;
+  }
+
+  function matchedUpTo(k){
+    var out = [], j, st;
+    for(j=1;j<=k && j<S.steps.length;j++){
+      st = S.steps[j];
+      if(st.kind === "pop") out.push({a:st.match, b:st.i, depth:st.stackBefore.length});
+    }
+    return out;
+  }
+
+  function paintTape(){
+    var st = S.steps[S.cur];
+    var cells = $("tape").children;
+    var i, pairs = matchedUpTo(S.cur), openNow = {}, matched = {};
+    var stackNow = st.stackAfter || [];
+    for(i=0;i<stackNow.length;i++) openNow[stackNow[i].idx] = 1;
+    for(i=0;i<pairs.length;i++){ matched[pairs[i].a] = 1; matched[pairs[i].b] = 1; }
+
+    for(i=0;i<cells.length;i++){
+      var cell = cells[i], state = "";
+      if(matched[i]) state = "matched";
+      else if(openNow[i]) state = "open";
+      else if(st.i >= 0 && i < st.i) state = "done";
+      else if(st.i >= S.str.length) state = "done";
+      if(st.kind === "error"){
+        if(st.why === "leftover" && openNow[i]) state = "bad";
+        if(i === st.i) state = "bad";
+        if(st.why === "mismatch" && i === st.match) state = "bad";
+      }
+      cell.setAttribute("data-state", state);
+      cell.classList.toggle("is-now", i === st.i);
+    }
+    drawArcs(pairs, st);
+    scrollToCurrent(st.i);
+  }
+
+  function scrollToCurrent(i){
+    if(i < 0 || i >= S.str.length) return;
+    var rail = $("rail"), cell = $("tape").children[i];
+    if(!cell || rail.scrollWidth <= rail.clientWidth) return;
+    var target = cell.offsetLeft - rail.clientWidth/2 + cell.offsetWidth/2;
+    rail.scrollTo({left: Math.max(0, target), behavior: reduce ? "auto" : "smooth"});
+  }
+
+  function centerOf(i){
+    var cell = $("tape").children[i];
+    return cell ? cell.offsetLeft + cell.offsetWidth/2 : null;
+  }
+
+  function drawArcs(pairs, st){
+    var svg = $("arcs"), tape = $("tape");
+    var w = Math.max(tape.scrollWidth, 100), maxD = 1, i, parts = [];
+    for(i=0;i<pairs.length;i++) if(pairs[i].depth > maxD) maxD = pairs[i].depth;
+    var bad = (st.kind === "error" && st.why === "mismatch");
+    if(bad && st.stackBefore) maxD = Math.max(maxD, st.stackBefore.length);
+    var h = Math.min(20 + maxD*13, 92);
+    svg.setAttribute("width", w);
+    svg.setAttribute("height", h);
+
+    for(i=0;i<pairs.length;i++){
+      var p = pairs[i], x1 = centerOf(p.a), x2 = centerOf(p.b);
+      if(x1 == null || x2 == null) continue;
+      var dip = Math.min(6 + p.depth*11, h - 6);
+      parts.push('<path d="M '+x1+' 2 Q '+((x1+x2)/2)+' '+(dip*2)+' '+x2+' 2" fill="none" stroke="var(--jade)" stroke-width="1.8" stroke-linecap="round" opacity="'+(0.95 - p.depth*0.08)+'"/>');
+      parts.push('<circle cx="'+x1+'" cy="2" r="2.4" fill="var(--jade)"/>');
+      parts.push('<circle cx="'+x2+'" cy="2" r="2.4" fill="var(--jade)"/>');
+    }
+    if(bad){
+      var xa = centerOf(st.match), xb = centerOf(st.i);
+      if(xa != null && xb != null){
+        var d2 = Math.min(6 + st.stackBefore.length*11, h - 6);
+        parts.push('<path d="M '+xa+' 2 Q '+((xa+xb)/2)+' '+(d2*2)+' '+xb+' 2" fill="none" stroke="var(--alarm)" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"/>');
+      }
+    }
+    svg.innerHTML = parts.join("");
+  }
+
+  /* ---------- 畫面層：堆疊塔 ---------- */
+  function renderTower(){
+    var st = S.steps[S.cur], items = st.stackAfter || [], tower = $("tower");
+    tower.innerHTML = "";
+    var doomed = (st.kind === "error" && st.why === "leftover");
+    if(items.length === 0){
+      var e = document.createElement("div");
+      e.className = "tower-empty";
+      e.textContent = st.kind === "done" ? "清空了 ✓" : "（空）";
+      tower.appendChild(e);
+    } else {
+      for(var i=0;i<items.length;i++){
+        var slab = document.createElement("div");
+        slab.className = "slab" + (doomed ? " is-doomed" : "");
+        var at = document.createElement("span");
+        at.className = "at"; at.textContent = "@" + items[i].idx;
+        slab.appendChild(at);
+        slab.appendChild(document.createTextNode(items[i].ch));
+        if(i === items.length-1){
+          var tag = document.createElement("span");
+          tag.className = "top-tag"; tag.textContent = "TOP";
+          slab.appendChild(tag);
+        }
+        tower.appendChild(slab);
+      }
+    }
+    $("stackNote").textContent = "size " + items.length;
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", kind);
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j=1;j<=S.cur;j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", st.kind);
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = (st.i >= 0 && st.i < S.str.length) ? ("[" + st.i + "] " + st.ch) : "—";
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "stack " + (st.stackAfter ? st.stackAfter.length : 0);
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintTape(); renderTower(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 850);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ S.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 闖關 ---------- */
+  function nextQuizIndex(){
+    var k = S.cur;
+    while(k+1 < S.steps.length && S.steps[k+1].kind === "skip") k++;
+    return k+1 < S.steps.length ? k+1 : -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadString(S.str, S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+
+    if(st.kind === "done" || (st.kind === "error" && st.why === "leftover")){
+      q.innerHTML = "字串已經掃完，堆疊裡還有 <b>" + (st.stackBefore ? st.stackBefore.length : 0) + "</b> 個東西。最後的結果是？";
+      opts.innerHTML = "";
+      addOpt(opts, "配對成功", "VALID", "ok");
+      addOpt(opts, "配對失敗", "INVALID", "no");
+    } else {
+      q.innerHTML = "第 <b>" + st.i + "</b> 格是 <b>" + esc(st.ch) + "</b> —— 接下來該做什麼？";
+      opts.innerHTML = "";
+      addOpt(opts, "推入堆疊", "PUSH", "push");
+      addOpt(opts, "彈出配對", "POP", "pop");
+      addOpt(opts, "判定失敗", "ERROR", "error");
+    }
+  }
+
+  function addOpt(host, label, sub, answer){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.setAttribute("data-a", answer);
+    b.innerHTML = esc(label) + "<small>" + sub + "</small>";
+    b.addEventListener("click", function(){ answerQuiz(answer); });
+    host.appendChild(b);
+  }
+
+  function labelOf(a){
+    return {push:"推入堆疊", pop:"彈出配對", error:"判定失敗", ok:"配對成功", no:"配對失敗"}[a] || a;
+  }
+
+  function answerQuiz(ans){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct;
+    if(st.kind === "done") correct = "ok";
+    else if(st.kind === "error" && st.why === "leftover") correct = "no";
+    else correct = st.kind;
+
+    S.asked++;
+    var win = (ans === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + labelOf(correct) + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 載入 ---------- */
+  function loadString(s, levelIdx){
+    stopPlay();
+    S.str = s;
+    S.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    S.steps = buildSteps(s);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    renderTape();
+    paintChips();
+    render();
+    $("rail").scrollLeft = 0;
+  }
+  function loadLevel(i){ loadString(LEVELS[i].s, i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.s;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著字串上的指標，猜猜下一步堆疊該做什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadString(S.str, S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = $("customInput").value.trim();
+    if(v) loadString(v, -1);
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  window.addEventListener("resize", function(){
+    if(S.steps.length) drawArcs(matchedUpTo(S.cur), S.steps[S.cur]);
+  });
+
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

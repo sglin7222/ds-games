@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>以 Prompt 為中心的資料結構教學</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4f46e5;
+            --secondary: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+            line-height: 1.8;
+            color: var(--text);
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page {
+            background: white;
+            margin-bottom: 40px;
+            padding: 60px 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 30px;
+            text-align: center;
+            border-bottom: 4px solid var(--primary);
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 32px;
+            color: var(--primary);
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-left: 6px solid var(--primary);
+            padding-left: 20px;
+        }
+
+        h3 {
+            font-size: 22px;
+            color: var(--secondary);
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .prompt-box {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary);
+            font-family: "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .skill-template {
+            background-color: #f0f4ff;
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .skill-template h4 {
+            color: var(--primary);
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .week-block {
+            background-color: #ecfdf5;
+            border-left: 4px solid var(--success);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .week-block h3 {
+            color: var(--success);
+            margin-top: 0;
+        }
+
+        .example {
+            background-color: #fffbeb;
+            border-left: 4px solid var(--warning);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .example strong {
+            color: var(--warning);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 12px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .comparison-item {
+            border: 2px solid var(--border);
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .page-number {
+            text-align: center;
+            color: var(--secondary);
+            font-size: 12px;
+            margin-top: 30px;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 封面 -->
+        <div class="page">
+            <div style="text-align: center; padding: 100px 0;">
+                <h1 style="border: none;">以 Prompt 為中心的資料結構教學</h1>
+                <h3 style="color: var(--secondary); font-weight: 400; margin-bottom: 30px;">
+                    用 AI Prompt 來學習、設計、實現、優化
+                </h3>
+                <div style="margin-top: 80px;">
+                    <p style="font-size: 18px; margin: 15px 0;">
+                        <strong>核心理念：</strong><br>
+                        每個學習階段都有對應的 Prompt 模板<br>
+                        學生通過對話 Claude 來完成任務<br>
+                        不背概念，用 Prompt 直接做事
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 核心教學方法 -->
+        <div class="page">
+            <h1 style="text-align: left; border: none; border-bottom: 4px solid var(--primary);">教學方法：5 類 Prompt 模板</h1>
+
+            <h2>1️⃣ 理解類 Prompt：問 AI 為什麼</h2>
+
+            <div class="skill-template">
+                <h4>📚 Skill：理解資料結構</h4>
+                <p><strong>何時使用：</strong> 課堂開始，想理解一個新的資料結構</p>
+                <div class="prompt-box">你是資料結構講師。用簡單的例子解釋 Stack。
+不要講 Python 語法，講：
+- 為什麼叫「棧」？真實生活的例子？
+- 什麼時候用 Stack 而不是列表？
+- Stack 最重要的性質是什麼？
+
+用日常語言，不要用術語。</div>
+            </div>
+
+            <div class="example">
+                <strong>✅ 學生說：</strong> 複製上面的 prompt 發給 Claude<br>
+                <strong>Claude 回答：</strong> 用自助餐盤子的例子解釋 LIFO...<br>
+                <strong>學生收穫：</strong> 深層理解，不是死記
+            </div>
+
+            <h2>2️⃣ 設計類 Prompt：告訴 AI 你要什麼</h2>
+
+            <div class="skill-template">
+                <h4>🎯 Skill：設計資料結構接口</h4>
+                <p><strong>何時使用：</strong> 要實現一個資料結構前，先設計它</p>
+                <div class="prompt-box">我要設計一個 Stack 類。請幫我：
+
+1. 列出 Stack 需要的所有操作（方法）
+2. 每個方法的時間複雜度應該是多少？
+3. 邊界情況有哪些？（空棧、單元素...）
+4. 內部怎樣存儲數據最有效？
+
+用表格列出方法名、功能、時間複雜度。</div>
+            </div>
+
+            <div class="example">
+                <strong>✅ 學生的好處：</strong> 不是盲目寫代碼，而是先有清晰的設計
+            </div>
+
+            <h2>3️⃣ 實現類 Prompt：讓 AI 寫代碼</h2>
+
+            <div class="skill-template">
+                <h4>💻 Skill：實現資料結構</h4>
+                <p><strong>何時使用：</strong> 設計好了，開始寫代碼</p>
+                <div class="prompt-box">用 Python 實現一個 Stack 類。
+
+需求：
+- 方法：push、pop、peek、is_empty、size
+- push/pop 時間複雜度必須是 O(1)
+- 內部用 list 存儲
+- 每個方法都有完整的文檔字符串
+- 邊界情況的處理（空棧時 pop 應該返回 None）
+
+給我完整可運行的代碼。</div>
+            </div>
+
+            <div class="example">
+                <strong>✅ 流程：</strong><br>
+                1. 複製 prompt → 2. Claude 給代碼 → 3. 粘貼到編輯器 → 4. 測試
+            </div>
+
+            <h2>4️⃣ 應用類 Prompt：用資料結構解決問題</h2>
+
+            <div class="skill-template">
+                <h4>🚀 Skill：應用資料結構</h4>
+                <p><strong>何時使用：</strong> 會用 Stack 後，用它去做真實的事</p>
+                <div class="prompt-box">用剛才的 Stack 實現一個 TextEditor 類。
+
+功能：
+- type(text)：鍵入文本
+- undo()：撤回最後一次編輯
+- get_content()：取得當前內容
+
+需要用 Stack 存儲編輯歷史。
+完整代碼，包括測試。</div>
+            </div>
+
+            <div class="page-number">- 第 1 頁 -</div>
+        </div>
+
+        <!-- 審查類 Prompt -->
+        <div class="page">
+            <h2>5️⃣ 審查類 Prompt：讓 AI 幫你改進代碼</h2>
+
+            <div class="skill-template">
+                <h4>🔍 Skill：代碼審查和優化</h4>
+                <p><strong>何時使用：</strong> 代碼寫完了，要改進</p>
+                <div class="prompt-box">幫我審查這段代碼：
+
+[粘貼你的代碼]
+
+檢查點：
+1. 有 bug 嗎？邊界情況處理得對嗎？
+2. 時間複雜度對嗎？
+3. 代碼清晰嗎？有冗餘嗎？
+4. 能優化嗎？有更好的方案嗎？
+5. 文檔字符串夠清楚嗎？
+
+逐項評論。</div>
+            </div>
+
+            <div class="example">
+                <strong>✅ 典型對話：</strong><br>
+                <strong>學生：</strong> 「這個 pop 方法有什麼問題嗎？」<br>
+                <strong>Claude：</strong> 「如果棧是空的會報錯...」<br>
+                <strong>學生：</strong> 「改一下。」<br>
+                <strong>Claude：</strong> [改進的代碼]
+            </div>
+
+            <h2>完整的一週流程</h2>
+
+            <table>
+                <tr>
+                    <th>階段</th>
+                    <th>用什麼 Prompt</th>
+                    <th>學生做什麼</th>
+                    <th>時間</th>
+                </tr>
+                <tr>
+                    <td><strong>理解</strong></td>
+                    <td>理解類 Prompt</td>
+                    <td>與 Claude 討論 Stack 是什麼</td>
+                    <td>30 分鐘</td>
+                </tr>
+                <tr>
+                    <td><strong>設計</strong></td>
+                    <td>設計類 Prompt</td>
+                    <td>讓 Claude 幫你設計接口</td>
+                    <td>30 分鐘</td>
+                </tr>
+                <tr>
+                    <td><strong>實現</strong></td>
+                    <td>實現類 Prompt</td>
+                    <td>複製 prompt，得到代碼</td>
+                    <td>30 分鐘</td>
+                </tr>
+                <tr>
+                    <td><strong>應用</strong></td>
+                    <td>應用類 Prompt</td>
+                    <td>用 Stack 做一個應用</td>
+                    <td>1 小時</td>
+                </tr>
+                <tr>
+                    <td><strong>審查</strong></td>
+                    <td>審查類 Prompt</td>
+                    <td>讓 Claude 評論你的代碼</td>
+                    <td>1 小時</td>
+                </tr>
+            </table>
+
+            <div class="page-number">- 第 2 頁 -</div>
+        </div>
+
+        <!-- 6週計劃 -->
+        <div class="page">
+            <h1>6 週完整 Prompt 教學計劃</h1>
+
+            <div class="week-block">
+                <h3>第 1-2 週：Stack（棧）- Prompt 模板集合</h3>
+
+                <p><strong>課堂流程：</strong> 理解 → 設計 → 實現 → 應用 → 審查</p>
+
+                <div style="margin-top: 20px;">
+                    <h4>📚 Prompt 1：理解 Stack</h4>
+                    <div class="prompt-box">你是大學教授。用非技術性語言解釋 Stack：
+- 盤子堆棧的例子
+- 為什麼後進先出很重要
+- 生活中哪些東西像 Stack
+- Stack 和 Queue 的區別（用日常例子）
+
+不要講代碼，講概念。</div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>🎯 Prompt 2：設計 Stack 接口</h4>
+                    <div class="prompt-box">請為 Stack 設計一個完整的接口。
+
+輸出格式：
+表格，包括：
+- 方法名稱
+- 功能描述
+- 參數和返回值
+- 時間複雜度
+- 邊界情況
+
+要求：push、pop、peek、size、is_empty。</div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>💻 Prompt 3：實現 Stack</h4>
+                    <div class="prompt-box">用 Python 實現 Stack 類：
+
+[上面的設計表格]
+
+要求：
+- 實現所有方法
+- 時間複雜度必須符合設計
+- 完整的文檔字符串
+- 邊界情況：空棧時 pop() 返回 None
+- 可運行的代碼</div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>🚀 Prompt 4：應用場景 1 - 撤回功能</h4>
+                    <div class="prompt-box">用 Stack 實現一個 EditHistory 類：
+
+功能：
+- add_edit(text)：記錄編輯
+- undo()：撤回最後編輯
+- get_current()：取得當前內容
+
+例子：
+editor.add_edit("Hello")  → "Hello"
+editor.add_edit(" World") → "Hello World"
+editor.undo()             → "Hello"
+
+完整代碼 + 測試。</div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>🚀 Prompt 5：應用場景 2 - 括號匹配</h4>
+                    <div class="prompt-box">用 Stack 實現括號匹配函數：
+
+def is_balanced(s: str) -> bool:
+    檢查括號是否匹配
+    "{[()]}" → True
+    "{[(])}" → False
+
+用 Stack 實現，不用其他方法。
+完整代碼 + 測試。</div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>🔍 Prompt 6：審查代碼</h4>
+                    <div class="prompt-box">審查我的 Stack 實現：
+
+[粘貼你的代碼]
+
+檢查：
+1. 有 bug 嗎？
+2. 邊界情況處理得對嗎？
+3. 時間複雜度對嗎？
+4. 代碼清晰度如何？
+5. 能優化嗎？
+
+逐項評論，給出改進建議。</div>
+                </div>
+
+                <p style="margin-top: 20px;"><strong>✅ 第 1-2 週結果：</strong> 完全理解 Stack，寫過 3 個應用，代碼被審查過</p>
+            </div>
+
+            <div class="page-number">- 第 3 頁 -</div>
+        </div>
+
+        <!-- 第 2-3 週 -->
+        <div class="page">
+            <div class="week-block">
+                <h3>第 2-3 週：Queue（佇列）- 同樣的 Prompt 模式</h3>
+
+                <div style="margin-top: 20px;">
+                    <h4>📚 Prompt 1：理解 Queue</h4>
+                    <div class="prompt-box">解釋 Queue（佇列）：
+- 銀行排隊的例子
+- 為什麼先進先出很重要
+- Queue vs Stack 的區別
+- 真實應用：消息隊列、任務隊列、BFS
+- 為什麼 Queue 用 deque 而不是 list
+
+用日常語言，不要代碼。</div>
+                </div>
+
+                <h4>🎯 Prompt 2：設計 Queue 接口</h4>
+                <div class="prompt-box">為 Queue 設計接口：
+- enqueue（入隊）
+- dequeue（出隊）
+- peek
+- size
+- is_empty
+
+表格格式，包括時間複雜度。</div>
+
+                <h4>💻 Prompt 3：實現 Queue</h4>
+                <div class="prompt-box">用 Python 實現 Queue：
+- 內部必須用 deque（不能用 list）
+- enqueue/dequeue 時間複雜度是 O(1)
+- 完整的文檔字符串
+- 邊界情況處理</div>
+
+                <h4>🚀 Prompt 4：應用場景 1 - 任務隊列</h4>
+                <div class="prompt-box">用 Queue 實現 TaskQueue 和 TaskScheduler：
+
+TaskQueue：管理待執行任務
+TaskScheduler：依次執行任務
+
+例子：
+scheduler.submit("分析", data)
+scheduler.submit("保存", data)
+scheduler.process_all()  // 按順序執行
+
+完整代碼 + 測試。</div>
+
+                <h4>🚀 Prompt 5：應用場景 2 - BFS 算法</h4>
+                <div class="prompt-box">用 Queue 實現 BFS（廣度優先搜尋）：
+
+def bfs(graph, start):
+    用 Queue 實現 BFS
+    返回節點訪問順序
+
+圖的例子：
+A → B, C
+B → D
+C → E
+
+BFS 結果：A, B, C, D, E
+
+完整代碼 + 測試。</div>
+
+                <h4>🔍 Prompt 6：性能對比</h4>
+                <div class="prompt-box">比較 List vs Deque 的性能：
+
+在 Queue 中：
+1. 用 list 實現，pop(0) 做 dequeue
+2. 用 deque 實現，popleft() 做 dequeue
+
+對 100,000 個元素分別測試。
+測量時間，說明為什麼 deque 快。</div>
+
+                <p style="margin-top: 20px;"><strong>✅ 第 2-3 週結果：</strong> 理解 Queue，實現 3 個應用，理解性能差異</p>
+            </div>
+
+            <div class="page-number">- 第 4 頁 -</div>
+        </div>
+
+        <!-- 第 3-4 週 -->
+        <div class="page">
+            <div class="week-block">
+                <h3>第 3-4 週：Hash Table（雜湊表）與會話系統</h3>
+
+                <h4>📚 Prompt 1：理解雜湊表</h4>
+                <div class="prompt-box">解釋雜湊表和雜湊函數：
+- 字典/電話簿的例子
+- 為什麼查詢這麼快？O(1)
+- 雜湊函數的概念
+- 碰撞是什麼？怎樣解決？
+- Hash Table vs List 的性能對比
+
+用例子，不要數學公式。</div>
+
+                <h4>💻 Prompt 2：實現 HashTable</h4>
+                <div class="prompt-box">用 Python dict 實現一個簡單的 HashTable：
+
+功能：
+- put(key, value)
+- get(key)
+- remove(key)
+- contains(key)
+- keys()
+- values()
+
+要求：
+- 文檔字符串
+- 邊界情況
+- 時間複雜度
+
+內部用 dict 實現。</div>
+
+                <h4>🎯 Prompt 3：設計會話管理系統</h4>
+                <div class="prompt-box">設計一個會話管理系統：
+
+需求：
+- 支持 1000 個並發用戶
+- 快速查詢用戶會話
+- 每個會話有獨立的數據
+
+問題：
+1. 用什麼資料結構存儲會話？
+2. 為什麼用 HashTable 而不是 List？
+3. 時間複雜度對比
+
+畫出系統架構圖。</div>
+
+                <h4>💻 Prompt 4：實現 SessionCache</h4>
+                <div class="prompt-box">用 HashTable（雜湊表）實現 SessionCache：
+
+功能：
+- create_session(user_id)
+- get_session(user_id)
+- delete_session(user_id)
+- get_all_sessions()
+
+每個 session 包含：
+- user_id
+- conversation_stack（之前做的 Stack）
+- task_queue（之前做的 Queue）
+- 元數據
+
+完整代碼。</div>
+
+                <h4>🚀 Prompt 5：性能測試</h4>
+                <div class="prompt-box">測試 SessionCache 的性能：
+
+1. 建立 10,000 個會話
+2. 隨機查詢 1000 次
+3. 測量查詢時間
+
+對比：
+- 用 list 線性搜尋：O(n)
+- 用 dict（hash）：O(1)
+
+畫出性能曲線。</div>
+
+                <p style="margin-top: 20px;"><strong>✅ 第 3-4 週結果：</strong> 理解雜湊表，實現會話系統，看到性能差異</p>
+            </div>
+
+            <div class="page-number">- 第 5 頁 -</div>
+        </div>
+
+        <!-- 第 4-6 週 -->
+        <div class="page">
+            <div class="week-block">
+                <h3>第 4-6 週：AI Agent 系統 - 從設計到部署</h3>
+
+                <h4>🎯 Prompt 1：設計系統架構</h4>
+                <div class="prompt-box">設計一個 AI 對話系統的架構：
+
+系統要有三層：
+1. 前端：用戶界面
+2. API：REST 端點
+3. 後端邏輯：Agent + 資料結構
+
+需要多少個 API 端點？
+- 會話管理：建立、刪除、查詢
+- 對話：發送消息、取歷史、撤回
+- 統計：活躍會話、消息數
+
+用 Mermaid 圖或文字描述架構。</div>
+
+                <h4>💻 Prompt 2：實現 ConversationAgent</h4>
+                <div class="prompt-box">用 Claude API 實現 ConversationAgent：
+
+功能：
+- 管理對話棧（之前做的 Stack）
+- 呼叫 Claude API 生成回應
+- 支持撤回操作
+
+Prompt 給出：
+- 從 Anthropic 導入客戶端方式
+- API 密鑰設置
+- 消息格式
+- 完整工作代碼</div>
+
+                <h4>🎯 Prompt 3：實現多會話管理</h4>
+                <div class="prompt-box">用 SessionCache 實現 MultiSessionAgent：
+
+功能：
+- 為不同用戶建立獨立會話
+- 快速查詢用戶的 Agent
+- 會話隔離（一個用戶不能看到另一個用戶的對話）
+
+代碼架構：
+class MultiSessionAgent:
+    agents = {}  // 用 SessionCache
+
+    def generate_response(user_id, input):
+        // 為該用戶生成回應
+
+完整代碼。</div>
+
+                <h4>💻 Prompt 4：實現 FastAPI 端點</h4>
+                <div class="prompt-box">用 FastAPI 實現 REST API：
+
+端點列表：
+POST   /sessions/{id}              建立會話
+GET    /sessions/{id}              查詢會話
+DELETE /sessions/{id}              刪除會話
+POST   /sessions/{id}/messages     發送消息
+GET    /sessions/{id}/history      取歷史
+POST   /sessions/{id}/undo         撤回
+DELETE /sessions/{id}/clear        清空
+GET    /sessions                   所有會話
+GET    /stats                      統計
+
+給出完整的代碼框架。</div>
+
+                <h4>🎨 Prompt 5：前端代碼</h4>
+                <div class="prompt-box">建立一個聊天前端：
+
+HTML 結構：
+- 左邊：會話列表
+- 右邊：聊天窗口
+- 下面：消息輸入框
+
+功能：
+- 建立會話
+- 發送消息
+- 顯示歷史
+- 撤回
+- 清空
+
+用 HTML + CSS + JavaScript。</div>
+
+                <h4>🔄 Prompt 6：集成和測試</h4>
+                <div class="prompt-box">測試完整系統：
+
+1. 啟動後端
+2. 打開前端
+3. 測試場景：
+   - 建立會話
+   - 發送消息
+   - 撤回
+   - 切換會話
+   - 檢查會話隔離
+
+性能測試：
+- 支持多少並發用戶？
+- 查詢速度？
+- API 響應時間？</div>
+
+                <p style="margin-top: 20px;"><strong>✅ 第 4-6 週結果：</strong> 完整的 AI Agent 系統，前後端集成，能處理多用戶</p>
+            </div>
+
+            <div class="page-number">- 第 6 頁 -</div>
+        </div>
+
+        <!-- 最後 -->
+        <div class="page">
+            <div style="text-align: center; padding: 80px 20px;">
+                <h1 style="border: none;">Prompt 教學的優勢</h1>
+
+                <div style="margin-top: 60px; text-align: left; max-width: 700px; margin-left: auto; margin-right: auto;">
+                    <div style="background-color: #ecfdf5; padding: 20px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0;"><strong>✅ 1. 學生不背語法</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">所有代碼都是 Claude 寫的。學生專注設計思維。</p>
+                    </div>
+
+                    <div style="background-color: #ecfdf5; padding: 20px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0;"><strong>✅ 2. 清晰的 Prompt 模板</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">每週都有 6 個 Prompt。學生複製粘貼，得到結果。</p>
+                    </div>
+
+                    <div style="background-color: #ecfdf5; padding: 20px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0;"><strong>✅ 3. AI 協作方式</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">理解 → 設計 → 讓 AI 寫 → 審查 → 改進。這是未來工作方式。</p>
+                    </div>
+
+                    <div style="background-color: #ecfdf5; padding: 20px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0;"><strong>✅ 4. 完整的項目</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">6 週後，每個學生都有一個能跑的 AI Agent 系統。</p>
+                    </div>
+
+                    <div style="background-color: #ecfdf5; padding: 20px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0;"><strong>✅ 5. 可檢驗的學習成果</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">不是背題，而是能設計、能優化、能審查代碼。</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 80px; border-top: 2px solid var(--border); padding-top: 30px;">
+                    <p style="font-size: 16px; margin: 0;">
+                        <strong>6 週 × 5 種 Prompt 模板 = 30 個實戰項目</strong>
+                    </p>
+                    <p style="margin-top: 15px; color: var(--secondary);">
+                        學生通過對話 Claude，從零到一個完整的系統
+                    </p>
+                </div>
+            </div>
+
+            <div class="page-number">- 第 7 頁 -</div>
+        </div>
+
+    </div>
+</body>
+</html>

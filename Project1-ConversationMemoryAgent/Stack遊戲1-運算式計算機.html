@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>運算式計算機 - Stack 的招牌應用</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:linear-gradient(135deg,#0f172a 0%,#312e81 100%);
+  min-height:100vh; padding:20px; color:#e2e8f0;
+}
+.wrap { max-width:1200px; margin:0 auto; }
+.card { background:#fff; color:#1e293b; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.35); padding:28px; margin-bottom:22px; }
+h1 { font-size:32px; text-align:center; color:#312e81; margin-bottom:6px; }
+.sub { text-align:center; color:#64748b; font-size:14px; margin-bottom:20px; }
+h2 { font-size:20px; color:#312e81; margin:24px 0 12px; border-left:5px solid #6366f1; padding-left:12px; }
+
+.controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom:14px; }
+button { padding:10px 16px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s; }
+button:hover { background:#4f46e5; transform:translateY(-2px); }
+button:disabled { background:#cbd5e1; cursor:not-allowed; transform:none; }
+button.alt { background:#10b981; } button.alt:hover { background:#059669; }
+button.warn { background:#64748b; } button.warn:hover { background:#475569; }
+button.tiny { padding:6px 12px; font-size:13px; background:#e2e8f0; color:#334155; font-weight:700; }
+button.tiny:hover { background:#cbd5e1; }
+.ctl { display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:700; color:#334155; }
+input[type=range] { width:110px; }
+input[type=text] {
+  font-family:Consolas,monospace; font-size:20px; font-weight:700; padding:12px 16px;
+  border:3px solid #c7d2fe; border-radius:10px; width:100%; color:#312e81; text-align:center;
+}
+input[type=text]:focus { outline:none; border-color:#6366f1; }
+
+/* 進度條 */
+.phasebar { display:flex; gap:0; margin:18px 0 8px; }
+.ph { flex:1; padding:12px; text-align:center; font-weight:800; font-size:15px; background:#f1f5f9; color:#94a3b8; border:3px solid #e2e8f0; }
+.ph:first-child { border-radius:10px 0 0 10px; }
+.ph:last-child { border-radius:0 10px 10px 0; border-left:none; }
+.ph.on { background:#6366f1; border-color:#6366f1; color:#fff; }
+.ph.on.e { background:#f59e0b; border-color:#f59e0b; }
+
+/* token 條 */
+.tokens { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:16px 0; min-height:52px; }
+.tk {
+  min-width:42px; padding:10px 12px; border-radius:8px; background:#f1f5f9; border:2px solid #e2e8f0;
+  font-family:Consolas,monospace; font-size:20px; font-weight:800; color:#475569; text-align:center; transition:.15s;
+}
+.tk.now { background:#6366f1; border-color:#4338ca; color:#fff; transform:translateY(-4px) scale(1.08); box-shadow:0 6px 14px rgba(99,102,241,.4); }
+.tk.past { background:#e0e7ff; border-color:#c7d2fe; color:#6366f1; }
+.tk.op { color:#b45309; }
+.tk.past.op { color:#f59e0b; }
+
+.stage { display:grid; grid-template-columns:1fr 260px; gap:22px; align-items:start; }
+@media(max-width:900px){ .stage { grid-template-columns:1fr; } }
+
+.panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; }
+.plabel { font-size:12px; font-weight:800; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+
+/* Stack 視覺 */
+.stackbox {
+  display:flex; flex-direction:column-reverse; justify-content:flex-start; gap:4px;
+  min-height:260px; background:#fff; border:2px solid #e2e8f0; border-top:none;
+  border-radius:0 0 10px 10px; padding:10px; position:relative;
+}
+.topmark { font-size:11px; font-weight:800; color:#f59e0b; text-align:center; padding:4px; background:#fffbeb; border:2px solid #e2e8f0; border-bottom:none; border-radius:10px 10px 0 0; }
+.sitem {
+  padding:10px; border-radius:6px; background:#fef3c7; color:#92400e; font-weight:800;
+  font-family:Consolas,monospace; font-size:18px; text-align:center; border:2px solid #fde68a;
+}
+.sitem.top { background:#f59e0b; color:#fff; border-color:#d97706; box-shadow:0 4px 10px rgba(245,158,11,.35); }
+.sitem.num { background:#d1fae5; color:#065f46; border-color:#a7f3d0; }
+.sitem.num.top { background:#10b981; color:#fff; border-color:#059669; }
+.empty { text-align:center; color:#cbd5e1; font-size:13px; padding:20px 0; font-weight:700; }
+
+/* 輸出區 */
+.outbox { display:flex; gap:6px; flex-wrap:wrap; background:#fff; border:2px solid #e2e8f0; border-radius:10px; padding:14px; min-height:70px; align-items:flex-start; }
+.oitem { padding:8px 12px; border-radius:6px; background:#e0e7ff; color:#3730a3; font-weight:800; font-family:Consolas,monospace; font-size:18px; }
+.oitem.fresh { background:#6366f1; color:#fff; }
+.oitem.now { background:#f59e0b; color:#fff; transform:translateY(-3px); }
+.oitem.done { background:#e2e8f0; color:#94a3b8; }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.stat .k { font-size:11px; color:#64748b; font-weight:700; }
+.stat .v { font-size:22px; font-weight:800; color:#312e81; }
+.stat.hl .v { color:#059669; }
+
+.msg { text-align:center; font-size:16px; font-weight:800; min-height:28px; margin:12px 0; color:#334155; }
+.msg.good { color:#059669; } .msg.bad { color:#dc2626; } .msg.pop { color:#b45309; }
+
+.answer { text-align:center; font-family:Consolas,monospace; font-size:34px; font-weight:800; color:#059669; margin:10px 0; min-height:44px; }
+
+.code { background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-family:Consolas,monospace; font-size:13px; line-height:1.75; overflow-x:auto; white-space:pre; }
+.code .hi { color:#fbbf24; font-weight:700; }
+.code .cm { color:#64748b; }
+.note { background:#eef2ff; border-left:5px solid #6366f1; padding:14px 18px; border-radius:8px; margin:14px 0; color:#3730a3; font-size:14px; line-height:1.8; }
+.note b { color:#312e81; }
+.note code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; font-size:13px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+@media(max-width:800px){ .two { grid-template-columns:1fr; } }
+.box { border:2px solid #e2e8f0; border-radius:10px; padding:16px; }
+.box.a { border-color:#6366f1; background:#eef2ff; }
+.box.b { border-color:#f59e0b; background:#fffbeb; }
+.box h4 { margin-bottom:8px; font-size:16px; }
+.box.a h4 { color:#4338ca; } .box.b h4 { color:#b45309; }
+.box ul { margin-left:18px; font-size:13px; line-height:1.9; color:#475569; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+th { background:#312e81; color:#fff; padding:10px; text-align:left; }
+td { padding:10px; border-bottom:1px solid #e2e8f0; }
+tr:nth-child(even) td { background:#f8fafc; }
+td code, th code { font-family:Consolas,monospace; }
+
+/* 題目解說 / 解法解說 */
+.qbox { background:#fffbeb; border:2px solid #fde68a; border-radius:12px; padding:18px 22px; margin:14px 0; }
+.qbox h4 { color:#b45309; font-size:17px; margin-bottom:10px; }
+.qbox p, .qbox li { font-size:14px; line-height:1.9; color:#78350f; }
+.qbox ul, .qbox ol { margin:8px 0 8px 22px; }
+.io { display:grid; grid-template-columns:96px 1fr; gap:8px 12px; margin:12px 0; font-size:14px; align-items:center; }
+.io b { color:#92400e; }
+.io span { font-family:Consolas,monospace; color:#334155; background:#fff; border:1px solid #fde68a; border-radius:6px; padding:6px 10px; }
+ol.steps { margin:12px 0 12px 24px; font-size:14px; line-height:2; color:#334155; }
+ol.steps b { color:#312e81; }
+ol.steps li { margin-bottom:6px; }
+table.hand th, table.hand td { font-family:Consolas,monospace; font-size:13px; padding:7px 9px; }
+table.hand th { background:#4338ca; }
+table.hand td.zh { font-family:"Microsoft JhengHei","微軟正黑體",sans-serif; }
+table.hand tr.last td { background:#d1fae5 !important; font-weight:800; }
+.wrong { background:#fef2f2; border-left:5px solid #ef4444; padding:14px 18px; border-radius:8px; margin:14px 0; color:#991b1b; font-size:14px; line-height:1.9; }
+.wrong b { color:#7f1d1d; }
+.wrong code { background:#0f172a; color:#fca5a5; padding:2px 8px; border-radius:4px; font-size:13px; }
+.wrong ol { margin-left:22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>🧮 運算式計算機：中序 → 後序 → 求值</h1>
+    <p class="sub">課本上最經典的 Stack 應用 —— 調度場演算法（Shunting-yard）。<br>電腦其實看不懂 <code>3+4*2</code>，它得先翻譯一次。</p>
+
+    <div style="max-width:560px;margin:0 auto 12px;">
+      <input type="text" id="expr" value="3+4*2/(1-5)^2">
+    </div>
+    <div class="controls">
+      <span style="font-size:13px;font-weight:700;color:#64748b;">範例：</span>
+      <button class="tiny" onclick="setExpr('3+4*2/(1-5)^2')">3+4*2/(1-5)^2</button>
+      <button class="tiny" onclick="setExpr('(1+2)*(3+4)')">(1+2)*(3+4)</button>
+      <button class="tiny" onclick="setExpr('2^3^2')">2^3^2（右結合）</button>
+      <button class="tiny" onclick="setExpr('10-2-3')">10-2-3（左結合）</button>
+      <button class="tiny" onclick="setExpr('((2+3)*4-6)/2')">((2+3)*4-6)/2</button>
+    </div>
+
+    <div class="controls">
+      <button class="alt" id="btnRun" onclick="toggleRun()">▶ 開始</button>
+      <button class="warn" onclick="stepFwd()">⏭ 下一步</button>
+      <button class="warn" onclick="stepBack()">⏮ 上一步</button>
+      <button onclick="rebuild()">🔄 重來</button>
+      <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="70"></div>
+    </div>
+
+    <div class="phasebar">
+      <div class="ph on" id="ph1">① 中序 → 後序（Stack 裝運算子）</div>
+      <div class="ph e"  id="ph2">② 後序求值（Stack 裝數字）</div>
+    </div>
+
+    <div class="tokens" id="tokens"></div>
+    <div class="msg" id="msg">按「開始」，或改上面的算式（支援 + - * / ^ 和括號）</div>
+
+    <div class="stage">
+      <div>
+        <div class="panel">
+          <div class="plabel" id="outLabel">📤 輸出：後序表示法（Postfix / RPN）</div>
+          <div class="outbox" id="outbox"></div>
+          <div class="answer" id="answer"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="topmark">↑ top（下一個彈出的）</div>
+        <div class="stackbox" id="stackbox"></div>
+        <div class="stats">
+          <div class="stat"><div class="k">步驟</div><div class="v" id="sStep">0</div></div>
+          <div class="stat"><div class="k">Stack 深度</div><div class="v" id="sDepth">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📋 題目解說</h2>
+
+    <div class="qbox">
+      <h4>運算式求值（Expression Evaluation）</h4>
+      <p>給你一個<b>字串</b>形式的中序運算式，請算出它的值。</p>
+      <ul>
+        <li>可能出現：非負數（含小數、多位數）、<code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code>、小括號</li>
+        <li>優先級：<code>^</code> &gt; <code>*</code> <code>/</code> &gt; <code>+</code> <code>-</code>；<code>^</code> 是<b>右結合</b>，其餘<b>左結合</b></li>
+        <li>括號可以任意巢狀，深度不限</li>
+        <li>不可以用 Python 的 <code>eval()</code>（那等於沒寫）</li>
+      </ul>
+
+      <div class="io">
+        <b>輸入</b><span>"3+4*2/(1-5)^2"</span>
+        <b>輸出</b><span>3.5　　（= 3 + 8 / 16）</span>
+        <b>輸入</b><span>"2^3^2"</span>
+        <b>輸出</b><span>512　　（= 2^(3^2)，不是 (2^3)^2 = 64）</span>
+        <b>輸入</b><span>"10-2-3"</span>
+        <b>輸出</b><span>5　　　（= (10-2)-3，不是 10-(2-3) = 11）</span>
+      </div>
+
+      <p><b>邊界情況要考慮：</b>括號不配對、運算子過多（<code>1++2</code>）、除以零、多位數 <code>123</code> 不能被拆成 <code>1</code> <code>2</code> <code>3</code>。</p>
+    </div>
+
+    <h2>這題到底難在哪？</h2>
+    <div class="note">
+      <b>難點只有一個：你不能從左往右邊讀邊算。</b><br>
+      讀到 <code>3 + 4</code> 的時候，<b>還不能做加法</b> —— 因為下一個字元可能是 <code>*</code>，
+      那樣 <code>4</code> 就得先跟後面的數字相乘。<br>
+      同理，讀到 <code>(</code> 之後的所有運算，都得等到 <code>)</code> 出現才知道能不能算。<br><br>
+      <b>換句話說：你手上會累積一堆「還沒輪到、正在等待」的運算子，而且一定是最後等的那個先被處理。</b><br>
+      這就是 LIFO —— 題目本身在跟你要一個 Stack。
+    </div>
+
+    <table>
+      <tr><th>如果你硬要一次搞定…</th><th>會遇到的麻煩</th></tr>
+      <tr><td>從左到右直接算</td><td><code>3+4*2</code> 會算成 14（錯，應該是 11）</td></tr>
+      <tr><td>用 if 判斷優先級</td><td>括號一巢狀就爆炸，深度不限沒辦法寫死</td></tr>
+      <tr><td>用正規表示式</td><td>巢狀括號不是正規語言，理論上就做不到</td></tr>
+      <tr><td>遞迴下降 parser</td><td>可行，但那其實是<b>用呼叫堆疊</b>做同一件事（見 Stack遊戲3）</td></tr>
+    </table>
+
+    <p style="font-size:14px;color:#475569;line-height:1.9;margin-top:10px;">
+      <b>為什麼這題重要：</b>編譯器、直譯器、Excel 公式、SQL 的 WHERE 條件、計算機 App，
+      骨子裡跑的都是這一段。它也是資料結構期中考出現率最高的 Stack 應用題。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>🧠 解法解說</h2>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 0 步：先承認暴力解不好寫</h2>
+    <p style="font-size:14px;color:#475569;line-height:1.9;">
+      暴力想法是「找最內層的括號，算完把結果塞回字串，重複到沒有括號」。
+      能動，但要不斷做字串切割與拼接，一趟只解決一個運算子 → <b>O(n²)</b>，而且程式碼又臭又長、極難除錯。
+    </p>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 1 步：關鍵洞察 —— 把「決定順序」和「實際計算」拆開</h2>
+    <div class="note">
+      一次要同時處理「優先級 + 括號 + 計算」太難。<br>
+      <b>拆成兩趟，每一趟都變成小學生等級的簡單問題：</b><br>
+      　① 中序 → 後序：只重排符號，<b>完全不做算術</b><br>
+      　② 後序求值：從左到右照著做，<b>完全不管優先級</b><br>
+      兩趟都是 O(n)，加起來還是 O(n)，而且各自都只有十幾行。
+    </div>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 2 步：階段一的四條規則（只有四種 token）</h2>
+    <ol class="steps">
+      <li><b>遇到數字</b> → 直接輸出。<br>
+          <span style="color:#64748b;">理由：數字的位置在後序式裡不會變，它不用等任何人。</span></li>
+      <li><b>遇到 <code>(</code></b> → 直接壓入 Stack。<br>
+          <span style="color:#64748b;">理由：它是一道牆。牆上面的運算子還沒結案前，牆下面的一律不准彈出。</span></li>
+      <li><b>遇到 <code>)</code></b> → 一路彈出到碰見 <code>(</code>，再把這對括號丟掉。<br>
+          <span style="color:#64748b;">理由：括號內的帳現在可以結清了，而括號本身在後序式裡不需要存在。</span></li>
+      <li><b>遇到運算子 op</b> → 先把 Stack 頂端「該比它先算」的通通彈出，再把 op 壓進去。<br>
+          <span style="color:#64748b;">「該比它先算」＝ 頂端優先級更高，<b>或</b> 一樣高且 op 是左結合。</span></li>
+    </ol>
+    <p style="font-size:14px;color:#475569;line-height:1.9;">
+      讀完整串之後，把 Stack 剩下的全部倒出來 —— 這就是完整的演算法。
+    </p>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 3 步：手算一次 <code>3+4*2</code>（階段一）</h2>
+    <table class="hand">
+      <tr><th>讀到</th><th>判斷</th><th>動作</th><th>Stack（左→右＝底→頂）</th><th>輸出</th></tr>
+      <tr><td>3</td><td class="zh">數字</td><td class="zh">直接輸出</td><td>（空）</td><td>3</td></tr>
+      <tr><td>+</td><td class="zh">Stack 是空的</td><td class="zh">push</td><td>+</td><td>3</td></tr>
+      <tr><td>4</td><td class="zh">數字</td><td class="zh">直接輸出</td><td>+</td><td>3 4</td></tr>
+      <tr><td>*</td><td class="zh">top 是 +，1 &lt; 2 不該先算</td><td class="zh">不彈出，直接 push</td><td>+ *</td><td>3 4</td></tr>
+      <tr><td>2</td><td class="zh">數字</td><td class="zh">直接輸出</td><td>+ *</td><td>3 4 2</td></tr>
+      <tr><td class="zh">（讀完）</td><td class="zh">收尾</td><td class="zh">pop *</td><td>+</td><td>3 4 2 *</td></tr>
+      <tr class="last"><td class="zh">（讀完）</td><td class="zh">收尾</td><td class="zh">pop +</td><td>（空）</td><td>3 4 2 * +</td></tr>
+    </table>
+    <p style="font-size:14px;color:#475569;line-height:1.9;">
+      注意第 4 列：<code>*</code> 比 <code>+</code> 晚進 Stack，卻會比 <code>+</code> 早出來 ——
+      <b>「晚進早出」就是 LIFO 的定義</b>，優先級規則被 Stack 天然地實現了。
+    </p>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 4 步：手算一次 <code>3 4 2 * +</code>（階段二）</h2>
+    <table class="hand">
+      <tr><th>讀到</th><th>動作</th><th>Stack</th></tr>
+      <tr><td>3</td><td class="zh">數字 → push</td><td>3</td></tr>
+      <tr><td>4</td><td class="zh">數字 → push</td><td>3 4</td></tr>
+      <tr><td>2</td><td class="zh">數字 → push</td><td>3 4 2</td></tr>
+      <tr><td>*</td><td class="zh">pop 出 2、再 pop 出 4 → 4 × 2 = 8 → push 8</td><td>3 8</td></tr>
+      <tr class="last"><td>+</td><td class="zh">pop 出 8、再 pop 出 3 → 3 + 8 = 11 → push 11</td><td>11 ← 答案</td></tr>
+    </table>
+    <p style="font-size:14px;color:#475569;line-height:1.9;">
+      整段求值<b>沒有出現任何一次優先級判斷</b>，也沒有括號 —— 因為順序在階段一就決定好了。
+    </p>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 5 步：右結合為什麼要特別處理</h2>
+    <table class="hand">
+      <tr><th>算式</th><th>遇到第二個運算子時</th><th>後序結果</th><th>值</th></tr>
+      <tr><td>10-2-3</td><td class="zh">同級 + 左結合 → <b>彈出</b>前一個 −</td><td>10 2 - 3 -</td><td>5 ✅</td></tr>
+      <tr class="last"><td>2^3^2</td><td class="zh">同級 + 右結合 → <b>不彈出</b>，一起等</td><td>2 3 2 ^ ^</td><td>512 ✅</td></tr>
+    </table>
+    <p style="font-size:14px;color:#475569;line-height:1.9;">
+      差別就在規則 4 那個 <code>and t not in RIGHT</code>。
+      拿掉它，<code>2^3^2</code> 會算成 64（錯）；多加它到 <code>-</code> 上，<code>10-2-3</code> 會算成 11（錯）。
+    </p>
+
+    <h2 style="font-size:17px;border-left-color:#f59e0b;">第 6 步：複雜度</h2>
+    <table>
+      <tr><th></th><th>時間</th><th>空間</th><th>為什麼</th></tr>
+      <tr><td>階段一 轉後序</td><td>O(n)</td><td>O(n)</td><td>每個 token 最多被 push 一次、pop 一次</td></tr>
+      <tr><td>階段二 求值</td><td>O(n)</td><td>O(n)</td><td>同上，掃一遍不回頭</td></tr>
+      <tr><td>合計</td><td><b>O(n)</b></td><td><b>O(n)</b></td><td>最壞情況（全是左括號）Stack 會存下整串</td></tr>
+    </table>
+    <p style="font-size:14px;color:#475569;line-height:1.9;">
+      雖然規則 4 裡面有一個 <code>while</code> 迴圈長得像 O(n²)，但每個運算子<b>一生只會被彈出一次</b>，
+      所以總彈出次數 ≤ n —— 這叫<b>攤還分析（amortized analysis）</b>，
+      在 Stack遊戲2 的單調堆疊裡會再用到同一套論證。
+    </p>
+
+    <div class="wrong">
+      <b>❌ 五個最常見的錯誤（改作業實測排行）</b>
+      <ol>
+        <li><code>a = pop()</code> 寫在 <code>b = pop()</code> 前面 → 減法、除法、次方全部左右顛倒</li>
+        <li>規則 4 忘了排除 <code>(</code> → 左括號被優先級規則彈出，括號整個失效</li>
+        <li>條件寫成 <code>&gt;=</code> 卻沒排除右結合 → <code>2^3^2</code> 變 64</li>
+        <li>迴圈結束忘了把 Stack 倒空 → 最後幾個運算子憑空消失</li>
+        <li>tokenize 一次只讀一個字元 → <code>12+3</code> 被讀成 <code>1</code>、<code>2</code>、<code>+</code>、<code>3</code></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>為什麼要脫褲子放屁，先轉成後序？</h2>
+    <div class="two">
+      <div class="box a">
+        <h4>😵 中序（人看的）3 + 4 * 2</h4>
+        <ul>
+          <li>要記「先乘除後加減」的優先級</li>
+          <li>要處理括號</li>
+          <li>眼睛得跳來跳去，不能從左讀到右一次算完</li>
+          <li>電腦要邊讀邊回頭 → 很難寫</li>
+        </ul>
+      </div>
+      <div class="box b">
+        <h4>😎 後序（電腦看的）3 4 2 * +</h4>
+        <ul>
+          <li><b>完全不需要括號</b>，也不需要優先級規則</li>
+          <li>從左讀到右一次就算完，永不回頭</li>
+          <li>求值只要一個 Stack、10 行程式</li>
+          <li>JVM、Python 虛擬機、HP 計算機都是這樣算的</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>核心洞察：</b>優先級高的運算子要「晚進早出」—— 這正是 <b>LIFO</b>。<br>
+      看到 <code>+</code> 之後又來個 <code>*</code>，<code>*</code> 得先算 → 它比 <code>+</code> 晚進 Stack、卻比 <code>+</code> 早出來。<br>
+      Stack 不是「用來存東西」，而是<b>用來記住「還沒輪到的事情」</b>。
+    </div>
+
+    <h2>優先級與結合律</h2>
+    <table>
+      <tr><th>運算子</th><th>優先級</th><th>結合律</th><th>例子</th></tr>
+      <tr><td><code>^</code> 次方</td><td>3（最高）</td><td>右結合 →</td><td><code>2^3^2 = 2^(3^2) = 512</code></td></tr>
+      <tr><td><code>*</code> <code>/</code></td><td>2</td><td>左結合 ←</td><td><code>8/4/2 = (8/4)/2 = 1</code></td></tr>
+      <tr><td><code>+</code> <code>-</code></td><td>1（最低）</td><td>左結合 ←</td><td><code>10-2-3 = (10-2)-3 = 5</code></td></tr>
+      <tr><td><code>(</code></td><td>進 Stack 後視為最低</td><td>—</td><td>像一道牆，擋住彈出</td></tr>
+    </table>
+
+    <h2>兩段程式碼</h2>
+    <div class="code"><span class="cm"># ① 中序 → 後序（調度場演算法 Shunting-yard）</span>
+PREC = {'+':1, '-':1, '*':2, '/':2, '^':3}
+RIGHT = {'^'}                      <span class="cm"># 右結合的運算子</span>
+
+def to_postfix(tokens):
+    out, stack = [], []
+    for t in tokens:
+        if is_number(t):
+            out.append(t)                          <span class="cm"># 數字直接輸出</span>
+        elif t == '(':
+            stack.append(t)                        <span class="cm"># 括號進場</span>
+        elif t == ')':
+<span class="hi">            while stack[-1] != '(':                # 一路彈到配對的 ( 為止</span>
+                out.append(stack.pop())
+            stack.pop()                            <span class="cm"># 丟掉 (</span>
+        else:
+<span class="hi">            while (stack and stack[-1] != '(' and</span>
+<span class="hi">                   (PREC[stack[-1]] > PREC[t] or</span>
+<span class="hi">                    (PREC[stack[-1]] == PREC[t] and t not in RIGHT))):</span>
+                out.append(stack.pop())            <span class="cm"># 比我大的先出去</span>
+            stack.append(t)
+    while stack:
+        out.append(stack.pop())                    <span class="cm"># 收尾：全部倒出來</span>
+    return out</div>
+
+    <div class="code" style="margin-top:16px;"><span class="cm"># ② 後序求值 —— 只有 10 行，而且沒有任何優先級判斷</span>
+def eval_postfix(tokens):
+    stack = []
+    for t in tokens:
+        if is_number(t):
+            stack.append(float(t))
+        else:
+<span class="hi">            b = stack.pop()          # 注意順序！後彈出的是左運算元</span>
+<span class="hi">            a = stack.pop()</span>
+            stack.append(apply(a, b, t))
+    return stack[0]                  <span class="cm"># 最後剩下的唯一一個就是答案</span></div>
+
+    <div class="note">
+      <b>最容易錯的一行：</b><code>b = pop()</code> 要寫在 <code>a = pop()</code> <b>前面</b>。<br>
+      因為先進 Stack 的是左運算元，後彈出來的才是它。<code>+</code> <code>*</code> 看不出差別，
+      但 <code>10 3 -</code> 寫反就變成 <code>3-10 = -7</code>。這是期中考最愛考的陷阱。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 給 Claude 的 Prompt</h2>
+    <div class="code">實作一個支援 + - * / ^ 和括號的運算式計算機，用兩個 Stack。
+
+分三個函式：
+1. tokenize(s)      -> 把 "3+4*2/(1-5)^2" 切成 token 串列（要支援多位數與小數）
+2. to_postfix(toks) -> 用調度場演算法轉成後序
+3. eval_postfix(p)  -> 用 Stack 求值
+
+要求：
+- 優先級 ^ > * / > + -，其中 ^ 是右結合
+- 每一步印出「目前 token / Stack 內容 / 輸出內容」的表格
+- 用這四個式子驗證：
+  3+4*2/(1-5)^2  → 3.5
+  (1+2)*(3+4)    → 21
+  2^3^2          → 512   （不是 64！）
+  10-2-3         → 5
+
+寫完後回答：為什麼 2^3^2 是 512 而不是 64？程式碼裡哪一行決定了這件事？</div>
+
+    <div class="code" style="margin-top:16px;">延伸題：加上錯誤處理
+
+讓計算機能偵測以下三種壞掉的輸入，並回報清楚的錯誤訊息：
+1. 括號不配對："(1+2))" 或 "((1+2)"
+2. 運算子過多／過少："1++2"、"1 2 +"
+3. 除以零："5/(3-3)"
+
+提示：括號檢查其實就是「括號配對」那題，一樣用 Stack。
+求值結束時 Stack 裡如果不是剛好剩 1 個元素，就代表式子有問題。
+
+寫完後解釋：為什麼「Stack 最後剩幾個元素」可以拿來驗證式子的合法性？</div>
+
+    <div class="code" style="margin-top:16px;">進階：做一個「一元運算」與函式支援版
+
+1. 支援負號："-3+5"、"2*-3"（一元 minus，和減法同一個符號，要區分）
+2. 支援函式：sin、cos、sqrt、log，例如 "sqrt(16)+2"
+3. 支援逗號多引數函式："max(3, 7*2)"
+
+寫完後告訴我：
+- 一元負號怎麼在 tokenize 階段就跟二元減法區分開來？
+- 加了函式之後，運算子 Stack 裡除了符號還多存了什麼？
+
+最後：把你的計算機和 Python 內建的 eval() 比較，
+列出 3 個「自己寫 parser」比 eval() 好的理由（提示：其中一個跟資安有關）。</div>
+  </div>
+
+</div>
+
+<script>
+const PREC  = {'+':1,'-':1,'*':2,'/':2,'^':3};
+const RIGHT = {'^':true};
+const $ = id => document.getElementById(id);
+
+let steps = [], cur = 0, timer = null, playing = false;
+
+/* ---------- tokenize ---------- */
+function tokenize(s){
+  const t = [];
+  let i = 0;
+  while (i < s.length){
+    const ch = s[i];
+    if (ch === ' '){ i++; continue; }
+    if (/[0-9.]/.test(ch)){
+      let j = i;
+      while (j < s.length && /[0-9.]/.test(s[j])) j++;
+      t.push({t:'num', v:s.slice(i,j)});
+      i = j; continue;
+    }
+    if (ch in PREC){ t.push({t:'op', v:ch}); i++; continue; }
+    if (ch === '('){ t.push({t:'lp', v:'('}); i++; continue; }
+    if (ch === ')'){ t.push({t:'rp', v:')'}); i++; continue; }
+    throw new Error('看不懂的字元「' + ch + '」，只支援數字、+ - * / ^ 和括號');
+  }
+  if (t.length === 0) throw new Error('請先輸入算式');
+  return t;
+}
+
+const fmt = n => {
+  if (!isFinite(n)) return '∞';
+  const r = Math.round(n * 1e6) / 1e6;
+  return String(r);
+};
+
+/* ---------- 產生每一步的快照 ---------- */
+function buildSteps(tokens){
+  const out = [], stack = [], st = [];
+  const snap = (ti, msg, cls) => st.push({
+    phase:'convert', ti, stack:[...stack], out:[...out], vstack:[], msg, cls:cls||''
+  });
+
+  snap(-1, '準備一個空的 Stack（放運算子）和一個空的輸出串列', '');
+
+  for (let i = 0; i < tokens.length; i++){
+    const tk = tokens[i];
+    if (tk.t === 'num'){
+      out.push(tk.v);
+      snap(i, `數字 ${tk.v} → 不用等，直接輸出`, 'good');
+    } else if (tk.t === 'op'){
+      while (stack.length){
+        const top = stack[stack.length-1];
+        if (top === '(') break;
+        const higher = PREC[top] > PREC[tk.v];
+        const equalLeft = PREC[top] === PREC[tk.v] && !RIGHT[tk.v];
+        if (!(higher || equalLeft)) break;
+        stack.pop(); out.push(top);
+        snap(i, higher
+          ? `top 的 ${top} 優先級比 ${tk.v} 高 → 先彈出到輸出`
+          : `${top} 和 ${tk.v} 同級且左結合 → 先來的先算，彈出 ${top}`, 'pop');
+      }
+      stack.push(tk.v);
+      snap(i, `運算子 ${tk.v} 壓入 Stack，排隊等它的右運算元`, '');
+    } else if (tk.t === 'lp'){
+      stack.push('(');
+      snap(i, '左括號 ( 壓入 Stack —— 它像一道牆，擋住後面的彈出', '');
+    } else {
+      let guard = false;
+      while (stack.length && stack[stack.length-1] !== '('){
+        const p = stack.pop(); out.push(p);
+        snap(i, `遇到 ) → 一路彈出，先送出 ${p}`, 'pop');
+        guard = true;
+      }
+      if (!stack.length) throw new Error('括號不配對：右括號 ) 多了');
+      stack.pop();
+      snap(i, guard ? '碰到牆 ( 了，把它丟掉，這對括號任務完成' : '空括號，直接把 ( 丟掉', 'good');
+    }
+  }
+  while (stack.length){
+    const p = stack.pop();
+    if (p === '(') throw new Error('括號不配對：左括號 ( 沒有關起來');
+    out.push(p);
+    snap(tokens.length, `式子讀完了，把 Stack 剩下的 ${p} 倒出來`, 'pop');
+  }
+  snap(tokens.length, '✅ 轉換完成！後序式已經沒有任何括號了 —— 接著開始求值', 'good');
+
+  /* ----- 求值階段 ----- */
+  const post = [...out], vs = [];
+  const vsnap = (pi, msg, cls) => st.push({
+    phase:'eval', ti:pi, stack:[], out:post, vstack:[...vs], msg, cls:cls||''
+  });
+
+  vsnap(-1, '換一個 Stack —— 這次裡面裝的是「數字」，而且從左讀到右永不回頭', '');
+  for (let i = 0; i < post.length; i++){
+    const t = post[i];
+    if (!(t in PREC)){
+      vs.push(parseFloat(t));
+      vsnap(i, `數字 ${t} 壓入 Stack`, '');
+    } else {
+      if (vs.length < 2) throw new Error('式子不合法：運算子 ' + t + ' 找不到兩個運算元');
+      const b = vs.pop(), a = vs.pop();
+      let r;
+      if (t === '+') r = a + b;
+      else if (t === '-') r = a - b;
+      else if (t === '*') r = a * b;
+      else if (t === '/') r = a / b;
+      else r = Math.pow(a, b);
+      vs.push(r);
+      vsnap(i, `遇到 ${t} → 彈出 ${fmt(b)}、再彈出 ${fmt(a)} → ${fmt(a)} ${t} ${fmt(b)} = ${fmt(r)} → 壓回去`, 'pop');
+    }
+  }
+  if (vs.length !== 1) throw new Error('式子不合法：算完後 Stack 剩下 ' + vs.length + ' 個元素（應該只剩 1 個）');
+  st[st.length-1].done = true;
+  st[st.length-1].result = vs[0];
+  st[st.length-1].msg = `🎉 Stack 只剩最後一個元素，它就是答案：${fmt(vs[0])}`;
+  st[st.length-1].cls = 'good';
+  return st;
+}
+
+/* ---------- 畫面 ---------- */
+let tokensCache = [];
+
+function render(){
+  const s = steps[cur];
+  if (!s) return;
+
+  $('ph1').classList.toggle('on', s.phase === 'convert');
+  $('ph2').classList.toggle('on', s.phase === 'eval');
+
+  // token 條
+  const strip = $('tokens');
+  strip.innerHTML = '';
+  const list = tokensCache.map(t => t.v);   // 永遠顯示原始中序式，方便對照
+  list.forEach((v, i) => {
+    const d = document.createElement('div');
+    let cls = 'tk';
+    if (/[+\-*/^]/.test(v) && v.length === 1) cls += ' op';
+    if (s.phase === 'eval') cls += ' past';
+    else if (i === s.ti) cls += ' now';
+    else if (i < s.ti) cls += ' past';
+    d.className = cls;
+    d.textContent = v;
+    strip.appendChild(d);
+  });
+
+  // Stack
+  const box = $('stackbox');
+  box.innerHTML = '';
+  const items = s.phase === 'convert' ? s.stack : s.vstack.map(fmt);
+  if (items.length === 0){
+    box.innerHTML = '<div class="empty">（Stack 是空的）</div>';
+  } else {
+    items.forEach((v, i) => {
+      const d = document.createElement('div');
+      d.className = 'sitem' + (s.phase === 'eval' ? ' num' : '') + (i === items.length-1 ? ' top' : '');
+      d.textContent = v;
+      box.appendChild(d);
+    });
+  }
+
+  // 輸出區
+  $('outLabel').textContent = s.phase === 'convert'
+    ? '📤 輸出：後序表示法（Postfix / RPN）'
+    : '📥 輸入：後序式（正在從左往右吃）';
+  const ob = $('outbox');
+  ob.innerHTML = '';
+  if (s.out.length === 0){
+    ob.innerHTML = '<div style="color:#cbd5e1;font-weight:700;font-size:13px;">（還沒有輸出）</div>';
+  }
+  s.out.forEach((v, i) => {
+    const d = document.createElement('div');
+    let cls = 'oitem';
+    if (s.phase === 'convert'){
+      if (i === s.out.length - 1) cls += ' fresh';
+    } else {
+      if (i === s.ti) cls += ' now';
+      else if (i < s.ti) cls += ' done';
+    }
+    d.className = cls;
+    d.textContent = v;
+    ob.appendChild(d);
+  });
+
+  // 訊息與統計
+  const m = $('msg');
+  m.textContent = s.msg;
+  m.className = 'msg ' + (s.cls || '');
+  $('answer').textContent = s.done ? '= ' + fmt(s.result) : '';
+  $('sStep').textContent = cur + ' / ' + (steps.length - 1);
+  $('sDepth').textContent = items.length;
+}
+
+/* ---------- 控制 ---------- */
+function rebuild(){
+  stopRun();
+  try {
+    tokensCache = tokenize($('expr').value);
+    steps = buildSteps(tokensCache);
+    cur = 0;
+    $('btnRun').disabled = false;
+    render();
+  } catch (e) {
+    steps = [];
+    $('tokens').innerHTML = '';
+    $('stackbox').innerHTML = '<div class="empty">—</div>';
+    $('outbox').innerHTML = '';
+    $('answer').textContent = '';
+    const m = $('msg');
+    m.textContent = '❌ ' + e.message;
+    m.className = 'msg bad';
+    $('btnRun').disabled = true;
+  }
+}
+function setExpr(s){ $('expr').value = s; rebuild(); }
+function stepFwd(){ stopRun(); if (cur < steps.length - 1){ cur++; render(); } }
+function stepBack(){ stopRun(); if (cur > 0){ cur--; render(); } }
+
+function toggleRun(){
+  if (playing){ stopRun(); return; }
+  if (cur >= steps.length - 1){ cur = 0; render(); }
+  playing = true;
+  $('btnRun').textContent = '⏸ 暫停';
+  const delay = Math.max(80, 1100 - parseInt($('spd').value) * 11);
+  timer = setInterval(() => {
+    if (cur >= steps.length - 1){ stopRun(); return; }
+    cur++; render();
+  }, delay);
+}
+function stopRun(){
+  playing = false;
+  if (timer){ clearInterval(timer); timer = null; }
+  $('btnRun').textContent = (steps.length && cur >= steps.length - 1) ? '🔄 再跑一次' : '▶ 開始';
+}
+
+$('expr').addEventListener('input', rebuild);
+$('expr').addEventListener('keydown', e => { if (e.key === 'Enter') toggleRun(); });
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+  if (e.key === 'ArrowRight') stepFwd();
+  if (e.key === 'ArrowLeft')  stepBack();
+});
+
+rebuild();
+</script>
+</body>
+</html>

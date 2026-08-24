@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>油漆桶填充 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：像素畫布 ============ */
+.canvas-wrap{overflow-x:auto;padding:2px;display:flex;justify-content:center}
+.canvas{display:grid;gap:0;background:#cbd5e1;padding:2px;border-radius:6px;
+  user-select:none;width:max-content;cursor:pointer;
+  box-shadow:var(--shadow)}
+.px{width:19px;height:19px;background:#fff;transition:background .1s}
+
+.palette{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+.swatch{width:28px;height:28px;border-radius:6px;cursor:pointer;
+  border:2px solid var(--line);
+  transition:transform var(--dur),border-color var(--dur)}
+.swatch:hover{transform:translateY(-2px)}
+.swatch.on{border-color:var(--ink);transform:translateY(-3px);
+  box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}
+
+/* 演算法大開關 */
+.algo-switch{display:flex;justify-content:center}
+.algo-btn{padding:12px 26px;border:2px solid var(--line);background:var(--surface-2);
+  color:var(--ink-soft);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;
+  transition:background var(--dur),color var(--dur),border-color var(--dur)}
+.algo-btn:first-child{border-radius:9px 0 0 9px}
+.algo-btn:last-child{border-radius:0 9px 9px 0;border-left:0}
+.algo-btn.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.algo-hint{text-align:center;font-size:13px;color:var(--ink-soft)}
+.algo-hint code{background:var(--sunken);padding:3px 9px;border-radius:5px;
+  font-size:12.5px;color:var(--ink);font-weight:700}
+
+.check{display:flex;align-items:center;gap:7px;padding:5px 12px;
+  background:var(--surface-2);border-radius:8px;font-size:12.5px;font-weight:700;
+  color:var(--ink-soft);cursor:pointer}
+.check input{accent-color:var(--accent);width:15px;height:15px}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">08 · 佇列</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 08 · Flood Fill</p>
+    <h1>油漆桶填充</h1>
+    <p class="lede">小畫家的油漆桶、踩地雷點到空白格自動翻開一大片、消消樂找出相連的同色方塊 —— 全都是同一個演算法。點一下，看顏色怎麼從那一格一圈一圈漫出去。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>佇列 Queue</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>時間</span><b>O(R × C)</b></div>
+      <div class="fact"><span>又叫</span><b>連通區域標記</b></div>
+      <div class="fact"><span>先備知識</span><b>BFS、二維陣列</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">這一關幾乎不用教怎麼玩 —— 你早就用過一百次了。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <ol class="steps">
+            <li>從色盤挑一個顏色。</li>
+            <li>用<b>油漆桶</b>點畫布上任何一個封閉區塊 —— 顏色會擴散開來。</li>
+            <li>把速度調慢一點，看清楚擴散的<b>形狀</b>。</li>
+            <li>切到 <b>Stack → 蛇形爬行</b>，點另一個區塊，比較兩種擴散形狀。</li>
+            <li>用<b>畫筆</b>自己畫圖案，或按<b>換一張圖</b>拿新的圖來玩。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">重點觀察</span>
+            <span class="txt">兩種容器的<b>最終結果完全一樣</b>，一格不差 —— 只有過程長得不同。佇列像水波同心圓往外散，堆疊像蛇沿著一條線亂鑽。</span>
+          </div>
+          <div class="callout" data-k="no">
+            <span class="tag">一定要試</span>
+            <span class="txt">勾選 <b>8 方向（含斜角）</b> 再填一次。你會看到顏色<b>從斜角的縫隙漏出去</b>，整張圖被灌爆 —— 這就是為什麼所有繪圖軟體的油漆桶都只走 4 方向。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>Flood Fill 就是沒有終點的 BFS</b> —— 迷宮 BFS 是「找到終點就停」，這裡是「走遍整個連通區」。</li>
+            <li><b>「上色」本身就是「標記已走訪」</b> —— 這一題漂亮在<b>不需要額外的 seen 集合</b>，格子改了顏色就不會再被選中。</li>
+            <li><b>兩個經典 bug</b> —— 忘記檢查「新舊同色」會無限迴圈；在取出時才上色會重複入列。兩個都會考。</li>
+            <li><b>連通性的定義會改變答案</b> —— 4 方向和 8 方向是兩種不同的「相連」，結果差很多。</li>
+            <li><b>原地修改（in-place）的取捨</b> —— 省了記憶體，但把原圖弄壞了。</li>
+            <li><b>一招通吃</b> —— 島嶼數量、踩地雷、爛橘子、魔術棒，全是這一招換個殼。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用最慢的速度填一個大區塊，看清楚波紋。再切 Stack 填另一塊，看蛇形。最後才勾 8 方向 —— 那個「漏出去」的瞬間最有記憶點。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選顏色 → 點區塊 → 看它怎麼漫開。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="algo-switch">
+        <button class="algo-btn on" id="btnQ" type="button">Queue → 波紋擴散</button>
+        <button class="algo-btn" id="btnS" type="button">Stack → 蛇形爬行</button>
+      </div>
+      <p class="algo-hint">目前取出方式：<code id="opHint">cur = frontier.front(); pop_front()　← 佇列</code></p>
+
+      <div class="bar">
+        <span class="bar-label">工具</span>
+        <div class="modes">
+          <button class="mode-btn is-on" data-mode="fill" type="button">🪣 油漆桶</button>
+          <button class="mode-btn" data-mode="pen" type="button">✏️ 畫筆</button>
+        </div>
+        <button class="btn" id="btnPreset" type="button">🖼 換一張圖</button>
+        <button class="btn" id="btnClear" type="button">🧹 全部清空</button>
+        <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="98" value="80"></div>
+        <label class="check"><input type="checkbox" id="diag8"> 8 方向（含斜角）</label>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">畫布</h3>
+            <span class="panel-note">20 × 32</span>
+          </div>
+
+          <div class="palette" id="palette"></div>
+          <div class="canvas-wrap"><div class="canvas" id="canvas"></div></div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">READY</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個顏色，用油漆桶點畫布看看</div>
+              <div class="say-text" id="sayText">把速度調慢，才看得清楚擴散的形狀。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">這次填充</h3>
+              <span class="panel-note" id="algoNote">BFS</span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="ok"><div class="k">已填格數</div><div class="v" id="sFilled">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">容器大小</div><div class="v" id="sSize">0</div></div>
+              <div class="stat"><div class="k">目前層數</div><div class="v" id="sDepth">0</div></div>
+              <div class="stat"><div class="k">總格數</div><div class="v" id="sTotal">640</div></div>
+            </div>
+            <div class="callout" style="padding:11px 13px">
+              <span class="tag">看形狀</span>
+              <span class="txt" style="font-size:12.5px">佇列 → <b>同心圓</b>往外散<br>堆疊 → <b>沿著一條線</b>亂鑽<br>結果完全一樣，只有過程不同。</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">演算法</h3>
+              <span class="panel-note">O(R×C)</span>
+            </div>
+            <ol class="algo" id="algo"></ol>
+          </div>
+
+        </div>
+      </div>
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>你點下油漆桶的那一刻，跑的就是這一段。兩行加粗的就是第 03 段要講的兩個關鍵：</p>
+                <pre class="code">#include &lt;deque&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+void floodFill(vector&lt;vector&lt;int&gt;&gt;&amp; image, int sr, int sc, int newColor) {
+    int oldColor = image[sr][sc];
+    <b>if (oldColor == newColor) return;</b>   <i>// 基底防護：沒有這一行會無限迴圈</i>
+
+    int R = image.size(), C = image[0].size();
+    deque&lt;pair&lt;int,int&gt;&gt; frontier = {{sr, sc}};
+    image[sr][sc] = newColor;           <i>// 起點先上色</i>
+    int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
+
+    while (!frontier.empty()) {         <i>// frontier 空了 = 整個連通區走完，自然結束</i>
+        auto [r, c] = frontier.front(); frontier.pop_front();
+        <i>// ↑ 改成 back() + pop_back() → 蛇形爬行，結果一模一樣</i>
+        for (int i = 0; i &lt; 4; i++) {
+            int nr = r + dr[i], nc = c + dc[i];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C) continue;
+            if (image[nr][nc] == oldColor) {
+                <b>image[nr][nc] = newColor;</b>    <i>// 放進去的當下就上色</i>
+                frontier.push_back({nr, nc});
+            }
+        }
+    }
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">跟 07 的迷宮是同一個模板，但少了一樣東西、多了一個陷阱。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一張圖（二維陣列，每格是一個顏色）、一個起點座標、一個新顏色。把<b>所有和起點相連、而且和起點同色</b>的格子換成新顏色。</p>
+        <p>「相連」的定義是關鍵：預設指的是上下左右四個方向能一路走過去，不能走斜角。</p>
+      </div>
+
+      <div class="block">
+        <h3>它就是 07 的迷宮 BFS，但少了終點</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>比較</th><th>迷宮 BFS（07）</th><th>油漆桶（本頁）</th></tr></thead>
+            <tbody>
+              <tr><td>什麼時候停</td><td>碰到終點就停</td><td><b>容器空了才停</b>（沒有終點）</td></tr>
+              <tr><td>能不能走</td><td>不是牆就能走</td><td><b>顏色等於起始色</b>才能走</td></tr>
+              <tr><td>要不要 seen</td><td>要，額外一個集合</td><td><b>不用</b> —— 上色本身就是標記</td></tr>
+              <tr><td>要不要 parent</td><td>要，才畫得出路徑</td><td>不用，不關心路徑</td></tr>
+              <tr><td>想知道什麼</td><td>最短路徑</td><td>整個連通區域</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">最漂亮的一點</span>
+          <span class="txt">這一題<b>不需要 seen 集合</b>。因為只要把一格上了新顏色，它就不再等於「起始顏色」了，下次再檢查到它自然會被判定為「不能走」。<b>資料本身就是標記</b> —— 這在演算法設計裡叫原地標記，能省下一整個資料結構。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+                <pre class="code">#include &lt;deque&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+void floodFill(vector&lt;vector&lt;int&gt;&gt;&amp; image, int sr, int sc, int newColor) {
+    int oldColor = image[sr][sc];
+    <b>if (oldColor == newColor) return;</b>   <i>// 基底防護：沒有這一行會無限迴圈</i>
+
+    int R = image.size(), C = image[0].size();
+    deque&lt;pair&lt;int,int&gt;&gt; frontier = {{sr, sc}};
+    image[sr][sc] = newColor;           <i>// 起點先上色</i>
+    int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
+
+    while (!frontier.empty()) {         <i>// frontier 空了 = 整個連通區走完，自然結束</i>
+        auto [r, c] = frontier.front(); frontier.pop_front();
+        <i>// ↑ 改成 back() + pop_back() → 蛇形爬行，結果一模一樣</i>
+        for (int i = 0; i &lt; 4; i++) {
+            int nr = r + dr[i], nc = c + dc[i];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C) continue;
+            if (image[nr][nc] == oldColor) {
+                <b>image[nr][nc] = newColor;</b>    <i>// 放進去的當下就上色</i>
+                frontier.push_back({nr, nc});
+            }
+        }
+    }
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>兩個一定要知道的 bug</h3>
+
+        <h4>Bug 1：忘記檢查「新舊顏色相同」</h4>
+        <p>如果新顏色和起始顏色一樣，那「把格子改成新顏色」等於什麼都沒做 —— 它<b>永遠還是等於 oldColor</b>。於是同一格會被反覆判定為可走、反覆塞進容器，容器越長越大，直到記憶體爆掉。</p>
+        <div class="callout" data-k="no">
+          <span class="tag">症狀</span>
+          <span class="txt">程式卡住、越跑越慢、最後崩潰。而且只有在「用同色填同色」時才會發生，隨手測試很容易漏掉。在上面的遊戲用同色點同一區，會看到提示直接 return。</span>
+        </div>
+
+        <h4>Bug 2：在取出時才上色，而不是放進去時</h4>
+        <p>假設格子 X 的左邊和上面都是同色。左邊那格處理時把 X 放進容器一次，上面那格處理時又把 X 放進去一次 —— 因為 X 這時候還沒被上色。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>寫法</th><th>結果正確嗎</th><th>容器大小</th><th>速度</th></tr></thead>
+            <tbody>
+              <tr><td><b>放進去時上色</b>（對）</td><td style="color:var(--jade);font-weight:700">正確</td><td>每格最多進去一次</td><td style="color:var(--jade)">快</td></tr>
+              <tr><td>取出時才上色（錯）</td><td style="color:var(--jade);font-weight:700">仍然正確</td><td style="color:var(--alarm)">可能膨脹好幾倍</td><td style="color:var(--alarm)">慢好幾倍</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>注意這個 bug <b>不會讓答案錯</b>，只會讓程式變慢 —— 所以它更難被發現。這也是 07 迷宮那一頁講的同一件事：<b>標記要在入列的當下做</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>4 方向與 8 方向：連通性的定義</h3>
+        <p>「相連」不是一個絕對的概念，是你自己定義的。改變定義，答案就變。</p>
+        <ul class="bullets">
+          <li><b>4 方向連通</b> —— 上下左右。兩格必須有一整條邊貼在一起才算相連。</li>
+          <li><b>8 方向連通</b> —— 再加上四個斜角。兩格只要碰到一個角就算相連。</li>
+        </ul>
+        <p>用畫筆畫的斜線在 4 方向下是一道<b>密不透風的牆</b>，但在 8 方向下每個轉折處都有一個角可以鑽過去 —— 所以顏色會漏出去。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">繪圖軟體的油漆桶一律用 4 方向，因為使用者畫的線條在直覺上就是密封的。但在<b>影像處理找連通區域</b>時常常用 8 方向，因為斜著相鄰的像素通常屬於同一個物體。<b>沒有哪一個比較對，看你要什麼。</b></span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O(R × C)</b> —— 每一格最多被上色一次、被取出一次。即使圖很大也只掃一遍。</li>
+          <li><b>空間 O(R × C)</b> —— 最壞情況（整張圖同色）容器會裝下大半張圖。</li>
+          <li><b>和用佇列還是堆疊無關</b> —— 兩者都是 O(R × C)，差別只在容器裡同時堆著多少東西的<b>形狀</b>。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>同一招，你早就用過很多次</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>應用</th><th>怎麼用到 Flood Fill</th></tr></thead>
+            <tbody>
+              <tr><td>小畫家油漆桶</td><td>就是本體。點一下，同色區域全部換色</td></tr>
+              <tr><td>踩地雷</td><td>點到空白格時，自動翻開整片相連的空白區</td></tr>
+              <tr><td>Photoshop 魔術棒</td><td>Flood Fill 加上顏色容差（相近的顏色也算同一區）</td></tr>
+              <tr><td>消消樂 / 泡泡龍</td><td>找出所有相連的同色方塊，一起消除</td></tr>
+              <tr><td>島嶼數量（LeetCode 200）</td><td>每次填掉一整塊陸地，填了幾次就是幾座島</td></tr>
+              <tr><td>影像處理</td><td>連通區域標記（Connected Component Labeling）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「用 Queue 和用 Stack 結果會不一樣」</b> —— 一樣，一格不差。因為最後整個連通區都會被走遍，順序不影響集合。順序只影響<b>過程的樣子</b>和容器的最大長度。</li>
+          <li><b>「一定要用遞迴寫」</b> —— 不用。遞迴版寫起來短，但大圖會<b>爆堆疊</b>（stack overflow）。用明確的容器寫成迴圈就沒有這個問題。</li>
+          <li><b>「要先算出區域有多大再填」</b> —— 不用。邊走邊填就好，這正是這個演算法簡潔的地方。</li>
+          <li><b>「原地修改比較好」</b> —— 省記憶體，但<b>破壞了原圖</b>。如果之後還要用原圖，就得先複製一份，或者改用獨立的 seen 集合。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：邊算邊播，而且是局部更新</h3>
+        <p>畫布有 640 格，如果每動一格就把整張畫布重畫一次，會非常卡。所以這一頁跟前幾頁的做法不同：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>頁面</th><th>畫面更新方式</th><th>為什麼</th></tr></thead>
+            <tbody>
+              <tr><td>01 括號</td><td>先算完，整批重畫</td><td>格子少，而且要能倒退</td></tr>
+              <tr><td>06 約瑟夫</td><td>邊算邊播，整批重畫</td><td>最多 24 人，重畫成本可忽略</td></tr>
+              <tr><td>08 油漆桶（本頁）</td><td><b>邊算邊播，只改動到的那一格</b></td><td>640 格，整批重畫會掉幀</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">取捨</span>
+          <span class="txt">局部更新快，但要自己確保「資料改了、畫面也一定跟著改」。本頁的做法是把兩件事綁進<b>同一個函式</b> <code>setPixel()</code> —— 只要不繞過它，就不可能漏改。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>畫布</b></td><td class="mono">buildCanvas<br>setPixel</td><td>建立 640 個格子；<code>setPixel</code> 是<b>唯一</b>能改顏色的入口，同時改資料和畫面。</td></tr>
+              <tr><td><b>圖案</b></td><td class="mono">line / rect / circle<br>drawShapes / drawHouse…</td><td>用最基本的畫線函式組出預設圖案。跟演算法完全無關。</td></tr>
+              <tr><td><b>演算法</b></td><td class="mono">startFill<br>fillStep</td><td><b>核心。</b>startFill 做初始化與那個關鍵檢查，fillStep 每次處理一批格子。</td></tr>
+              <tr><td><b>控制</b></td><td class="mono">stopFill / setAlgo<br>setMode</td><td>播放、演算法切換、工具切換。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心：startFill() 與 fillStep()</h3>
+        <div class="arch">
+          <div class="node" data-k="in">點擊某一格 (r, c)</div>
+          <div class="arrow"></div>
+          <div class="node" style="border-color:var(--alarm);background:var(--alarm-soft);color:var(--alarm)">起始色 == 新色？<small>是 → 直接 return，避免無限迴圈</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">frontier ← [起點]，起點上色</div>
+          <div class="arrow"></div>
+          <div class="node">計時器反覆呼叫 fillStep()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">取出一格<small>useQueue ? shift() : pop()</small></div>
+            <div class="node" data-k="data">鄰居 == 起始色？<small>上色 + 放進 frontier</small></div>
+            <div class="node">frontier 空了<small>停止</small></div>
+          </div>
+        </div>
+        <p style="font-size:13.5px;color:var(--ink-soft)">速度拉到很快時，<code>fillStep()</code> 一次會處理 4 到 12 格（批次處理），否則畫面更新的速度會跟不上計時器。這是純粹的顯示技巧，跟演算法無關。</p>
+      </div>
+
+      <div class="block">
+        <h3>一個小地方：<code>d</code> 欄位在做什麼</h3>
+        <p>放進容器的每一格除了座標之外還帶了一個 <code>d</code>（層數），就是「離起點幾步」。演算法本身<b>完全不需要它</b>，純粹是為了在畫面上顯示「目前層數」。</p>
+        <p>但它不是沒用的東西 —— 只要把這個層數留下來，這支程式就變成了「<b>爛橘子</b>」那一題（幾分鐘後全部腐爛 = 最大層數）。多存一個欄位，就多解一題。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th></tr></thead>
+            <tbody>
+              <tr><td>改畫布大小 / 像素大小</td><td>最上面的 <code>ROWS</code>、<code>COLS</code>、<code>PX</code></td></tr>
+              <tr><td>加顏色</td><td><code>COLORS</code> 陣列</td></tr>
+              <tr><td>做出「魔術棒」（顏色容差）</td><td>把 <code>=== startColor</code> 改成「色差小於門檻」的判斷</td></tr>
+              <tr><td>算島嶼數量</td><td>掃過每一格，遇到沒填過的陸地就呼叫一次 <code>startFill</code>，計數</td></tr>
+              <tr><td>加新的預設圖案</td><td>寫一個用 <code>line/rect/circle</code> 組成的函式，加進 <code>PRESETS</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 的 std::deque 實作 Flood Fill（油漆桶）。
+
+函式：floodFill(image, sr, sc, newColor)
+- image 是二維陣列，每格是一個顏色值
+- (sr, sc) 是點擊位置
+- 把所有和 (sr, sc) 相連且同色的格子換成 newColor
+
+要求：
+1. 用 std::deque
+2. 只走上下左右 4 個方向
+3. 處理 oldColor == newColor 的情況（否則會無限迴圈）
+4. 在放進容器時就上色，不要等取出來才上色 —— 說明為什麼
+
+測資：
+image = [[1,1,1],
+         [1,1,0],
+         [1,0,1]]
+floodFill(image, 1, 1, 2)
+應該得到 [[2,2,2],
+          [2,2,0],
+          [2,0,1]]</pre>
+
+        <h4>延伸題 1：踩地雷的自動翻開</h4>
+        <pre class="code">寫一個踩地雷的 reveal(board, r, c) 函式：
+- 點到數字格 → 只翻開那一格
+- 點到空白格（周圍 0 顆地雷）→ 用 Flood Fill 把整片空白區
+  以及空白區「邊界上的數字格」一起翻開
+- 點到地雷 → 遊戲結束
+
+這題的難點：邊界數字格要翻開，但不能從它繼續往外擴散。
+想清楚哪些格子該進 Queue、哪些只翻開不進 Queue。</pre>
+
+        <h4>延伸題 2：島嶼數量（LeetCode 200）</h4>
+        <pre class="code">grid = [
+  ["1","1","0","0","0"],
+  ["1","1","0","0","0"],
+  ["0","0","1","0","0"],
+  ["0","0","0","1","1"]
+]
+'1' 是陸地，'0' 是海。相連的陸地算同一座島。
+回傳島嶼數量（上面答案是 3）。
+
+做法：掃過每一格，遇到沒走訪過的 '1' 就做一次 Flood Fill
+把整座島標記掉，計數器 +1。
+
+寫完後回答：
+1. 時間複雜度是多少？為什麼不是 O(n²·m²)？
+2. 如果改用 Stack（DFS）做，結果會一樣嗎？為什麼？</pre>
+
+        <h4>延伸題 3：多起點 BFS「爛橘子」（LeetCode 994）</h4>
+        <pre class="code">grid 裡 0=空格, 1=新鮮橘子, 2=爛橘子
+每分鐘，爛橘子會把上下左右的新鮮橘子傳染成爛的。
+問幾分鐘後全部爛掉？無法全爛回傳 -1。
+
+關鍵：一開始就把「所有」爛橘子放進 Queue（多起點），
+然後一層一層擴散，層數就是分鐘數。
+
+這題和油漆桶的差別是什麼？（提示：起點數量、要不要記錄層數）</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 08 油漆桶填充</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var ROWS = 20, COLS = 32, PX = 19;
+  var BG = "#ffffff", LINE = "#1e293b";
+  var COLORS = ["#ffffff","#1e293b","#ef4444","#f97316","#fbbf24","#84cc16",
+                "#10b981","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#a16207"];
+
+  var CODE = [
+    "old ← image[起點]",
+    "if old == 新色: return   ← 少這行會無限迴圈",
+    "frontier ← [起點]，起點上色",
+    "while frontier 不是空的:",
+    "    cur ← 取出一格",
+    "    for nb in cur 的鄰居:",
+    "        if nb == old:",
+    "            nb 上色 + 放進 frontier"
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var grid = [];
+  var curColor = "#3b82f6", mode = "fill", useQueue = true, drawing = false;
+  var frontier = [], timer = null;
+  var filledCount = 0, depth = 0;
+  var startColor = BG;
+
+  /* ---------- 畫布 ---------- */
+  function buildCanvas(){
+    var cv = $("canvas");
+    cv.style.gridTemplateColumns = "repeat(" + COLS + ", " + PX + "px)";
+    cv.innerHTML = "";
+    for(var r=0;r<ROWS;r++){
+      for(var c=0;c<COLS;c++){
+        (function(r,c){
+          var d = document.createElement("div");
+          d.className = "px";
+          d.addEventListener("mousedown", function(e){
+            e.preventDefault();
+            if(mode === "pen"){ drawing = true; setPixel(r,c,curColor); }
+            else startFill(r,c);
+          });
+          d.addEventListener("mouseenter", function(){
+            if(drawing && mode === "pen") setPixel(r,c,curColor);
+          });
+          cv.appendChild(d);
+        })(r,c);
+      }
+    }
+    document.addEventListener("mouseup", function(){ drawing = false; });
+  }
+  function pxEl(r,c){ return $("canvas").children[r*COLS + c]; }
+
+  // 唯一能改顏色的入口：同時改資料和畫面，不可能漏改
+  function setPixel(r,c,color){
+    grid[r][c] = color;
+    pxEl(r,c).style.background = color;
+  }
+
+  function buildPalette(){
+    var p = $("palette");
+    p.innerHTML = "";
+    COLORS.forEach(function(col){
+      var s = document.createElement("div");
+      s.className = "swatch" + (col === curColor ? " on" : "");
+      s.style.background = col;
+      s.title = col;
+      s.addEventListener("click", function(){
+        curColor = col;
+        Array.prototype.forEach.call(p.children, function(x){ x.classList.remove("on"); });
+        s.classList.add("on");
+      });
+      p.appendChild(s);
+    });
+  }
+
+  /* ---------- 預設圖案（跟演算法無關） ---------- */
+  function line(r1,c1,r2,c2){
+    var steps = Math.max(Math.abs(r2-r1), Math.abs(c2-c1));
+    for(var i=0;i<=steps;i++){
+      var r = Math.round(r1 + (r2-r1)*i/steps);
+      var c = Math.round(c1 + (c2-c1)*i/steps);
+      if(r>=0 && r<ROWS && c>=0 && c<COLS) setPixel(r,c,LINE);
+    }
+  }
+  function rect(r1,c1,r2,c2){
+    line(r1,c1,r1,c2); line(r2,c1,r2,c2); line(r1,c1,r2,c1); line(r1,c2,r2,c2);
+  }
+  function circle(cr,cc,rad){
+    for(var a=0;a<360;a+=2){
+      var r = Math.round(cr + rad*Math.sin(a*Math.PI/180));
+      var c = Math.round(cc + rad*Math.cos(a*Math.PI/180));
+      if(r>=0 && r<ROWS && c>=0 && c<COLS) setPixel(r,c,LINE);
+    }
+  }
+  function drawShapes(){
+    circle(9,7,7); rect(3,17,16,29); line(9,17,9,29); line(3,23,16,23); circle(6,20,2);
+  }
+  function drawHouse(){
+    rect(9,6,18,24); line(9,6,4,15); line(4,15,9,24);
+    rect(12,9,16,13); line(14,9,14,13); line(12,11,16,11);
+    rect(13,18,18,22); circle(3,28,2);
+  }
+  function drawGrid9(){
+    for(var i=0;i<=3;i++){
+      line(2 + i*5, 4, 2 + i*5, 28);
+      line(2, 4 + i*8, 17, 4 + i*8);
+    }
+  }
+  var PRESETS = [drawShapes, drawHouse, drawGrid9];
+
+  function loadPreset(){
+    clearCanvas(true);
+    PRESETS[Math.floor(Math.random()*PRESETS.length)]();
+    say("start", "圖案準備好了", "選一個顏色，然後用油漆桶點各個區塊。把速度調慢才看得清楚。");
+  }
+
+  function clearCanvas(silent){
+    stopFill();
+    grid = [];
+    for(var r=0;r<ROWS;r++){
+      grid.push([]);
+      for(var c=0;c<COLS;c++){ grid[r].push(BG); pxEl(r,c).style.background = BG; }
+    }
+    $("sTotal").textContent = ROWS*COLS;
+    if(!silent) say("start", "畫布清空了", "用畫筆畫點東西，或按「換一張圖」。");
+  }
+
+  /* ---------- 核心：Flood Fill ---------- */
+  function startFill(r,c){
+    stopFill();
+    startColor = grid[r][c];
+
+    // 沒有這個檢查會無限迴圈：改成同色等於沒改，那一格永遠符合條件
+    if(startColor === curColor){
+      hilite(2);
+      say("error", "起點已經是這個顏色了",
+          "直接 return。如果硬要跑下去，「上色」等於沒做，每一格都會反覆符合條件被塞回容器 —— <b>無限迴圈</b>，直到記憶體爆掉。");
+      return;
+    }
+
+    frontier = [{r:r, c:c, d:0}];
+    setPixel(r, c, curColor);      // 放進去的當下就上色 = 標記已走訪
+    filledCount = 1;
+    depth = 0;
+    hilite(3);
+
+    var delay = Math.max(1, 100 - parseInt($("spd").value, 10));
+    timer = setInterval(fillStep, delay);
+    say(useQueue ? "push" : "hot",
+        useQueue ? "佇列填充中" : "堆疊填充中",
+        useQueue ? "先進先出 —— 顏色像水波紋一樣<b>同心圓</b>往外散。"
+                 : "後進先出 —— 顏色像蛇一樣<b>沿著一條線</b>亂鑽。最後結果跟佇列完全一樣。");
+    updateStats();
+  }
+
+  function fillStep(){
+    var spd = parseInt($("spd").value, 10);
+    var batch = spd > 90 ? 12 : (spd > 70 ? 4 : 1);   // 純粹是顯示技巧
+    var dirs = $("diag8").checked
+      ? [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]
+      : [[-1,0],[1,0],[0,-1],[0,1]];
+
+    for(var b=0;b<batch;b++){
+      if(frontier.length === 0){
+        stopFill();
+        hilite(4);
+        say("ok", "填充完成，共 " + filledCount + " 格",
+            "容器空了 —— 代表這個連通區域已經全部走遍。換另一個容器再填一次，結果會<b>一模一樣</b>。");
+        updateStats();
+        return;
+      }
+
+      hilite(5);
+      var cur = useQueue ? frontier.shift() : frontier.pop();
+      depth = cur.d;
+
+      for(var i=0;i<dirs.length;i++){
+        var nr = cur.r + dirs[i][0], nc = cur.c + dirs[i][1];
+        if(nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+        if(grid[nr][nc] === startColor){
+          setPixel(nr, nc, curColor);              // 入列的當下就上色
+          filledCount++;
+          frontier.push({r:nr, c:nc, d:cur.d + 1});
+        }
+      }
+    }
+    updateStats();
+  }
+
+  function stopFill(){
+    if(timer){ clearInterval(timer); timer = null; }
+  }
+
+  function updateStats(){
+    $("sFilled").textContent = filledCount;
+    $("sSize").textContent = frontier.length;
+    $("sDepth").textContent = depth;
+  }
+
+  /* ---------- UI ---------- */
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", kind);
+    $("sayBadge").textContent =
+      ({start:"READY", push:"BFS", hot:"DFS", ok:"DONE", error:"STOP"})[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    CODE.forEach(function(t){
+      var li = document.createElement("li");
+      li.textContent = t;
+      ol.appendChild(li);
+    });
+  }
+  function hilite(line){
+    var lis = $("algo").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+  }
+
+  function setAlgo(q){
+    useQueue = q;
+    $("btnQ").classList.toggle("on", q);
+    $("btnS").classList.toggle("on", !q);
+    $("opHint").textContent = q
+      ? "cur = frontier.front(); pop_front()　← 佇列"
+      : "cur = frontier.back();  pop_back() 　← 堆疊";
+    $("algoNote").textContent = q ? "BFS" : "DFS";
+    say("start", q ? "切換成佇列" : "切換成堆疊",
+        q ? "填充會像水波紋一樣一圈一圈擴散。" : "填充會像蛇一樣沿線爬行 —— 但最後填出來的區域完全一樣。");
+  }
+
+  /* ---------- 事件 ---------- */
+  $("btnQ").addEventListener("click", function(){ setAlgo(true); });
+  $("btnS").addEventListener("click", function(){ setAlgo(false); });
+  $("btnPreset").addEventListener("click", loadPreset);
+  $("btnClear").addEventListener("click", function(){ clearCanvas(false); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){
+      mode = b.getAttribute("data-mode");
+      $("canvas").style.cursor = (mode === "pen") ? "crosshair" : "pointer";
+      Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(x){
+        x.classList.toggle("is-on", x === b);
+      });
+    });
+  });
+
+  buildCanvas();
+  buildPalette();
+  renderAlgo();
+  clearCanvas(true);
+  loadPreset();
+})();
+</script>
+</body>
+</html>

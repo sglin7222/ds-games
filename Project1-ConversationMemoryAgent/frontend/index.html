@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>對話記憶管理系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 左側邊欄：會話管理 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>會話管理</h2>
+            </div>
+
+            <div class="session-controls">
+                <input
+                    type="text"
+                    id="sessionIdInput"
+                    placeholder="輸入會話 ID（如 user123）"
+                    class="input-field"
+                >
+                <input
+                    type="text"
+                    id="userNameInput"
+                    placeholder="輸入用戶名（可選）"
+                    class="input-field"
+                >
+                <button id="createSessionBtn" class="btn btn-primary">建立新會話</button>
+            </div>
+
+            <div class="sessions-list">
+                <h3>活躍會話</h3>
+                <div id="sessionsList" class="sessions-container">
+                    <p class="empty-state">沒有活躍會話</p>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="refreshStatsBtn" class="btn btn-secondary">刷新統計</button>
+            </div>
+        </aside>
+
+        <!-- 主要內容區域 -->
+        <main class="main-content">
+            <!-- 頭部 -->
+            <header class="header">
+                <h1>💬 對話記憶管理系統</h1>
+                <div class="header-info">
+                    <span id="currentSession" class="session-badge">未選擇會話</span>
+                    <span id="messageCount" class="info-badge">消息: 0</span>
+                </div>
+            </header>
+
+            <!-- 對話區域 -->
+            <section class="chat-section">
+                <div id="messagesContainer" class="messages-container">
+                    <div class="welcome-message">
+                        <h3>👋 歡迎使用對話記憶管理系統</h3>
+                        <p>請先建立或選擇一個會話開始對話</p>
+                    </div>
+                </div>
+
+                <!-- 消息輸入區 -->
+                <div class="input-area">
+                    <textarea
+                        id="userInput"
+                        class="message-input"
+                        placeholder="輸入您的消息..."
+                        disabled
+                    ></textarea>
+
+                    <div class="button-group">
+                        <button id="sendBtn" class="btn btn-primary" disabled>
+                            發送 (Ctrl+Enter)
+                        </button>
+                        <button id="undoBtn" class="btn btn-secondary" disabled>
+                            撤回
+                        </button>
+                        <button id="clearBtn" class="btn btn-secondary" disabled>
+                            清空對話
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 統計信息 -->
+            <section class="stats-section">
+                <div class="stat-item">
+                    <span class="stat-label">活躍會話:</span>
+                    <span id="activeSessions" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">總消息數:</span>
+                    <span id="totalMessages" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">當前消息數:</span>
+                    <span id="currentMessages" class="stat-value">0</span>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

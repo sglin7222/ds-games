@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>呼叫堆疊 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：呼叫堆疊的框架 ============ */
+.topmark{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;
+  color:var(--ink-faint);text-align:center;padding:6px;background:var(--sunken);
+  border:1px solid var(--line-soft);border-bottom:0;border-radius:8px 8px 0 0}
+.frames{display:flex;flex-direction:column-reverse;justify-content:flex-start;gap:5px;
+  min-height:300px;background:var(--sunken);border:1px solid var(--line-soft);border-top:0;
+  border-radius:0 0 8px 8px;padding:11px}
+.frame{padding:9px 12px;border-radius:7px;
+  background:var(--accent-soft);border:1.5px solid var(--accent);
+  transition:background var(--dur),border-color var(--dur),transform var(--dur),opacity var(--dur)}
+.frame .fn{font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--accent)}
+.frame .st{font-size:11.5px;color:var(--ink-soft);margin-top:1px;line-height:1.45}
+.frame.top{background:var(--accent);border-color:var(--accent);box-shadow:var(--shadow-lift)}
+.frame.top .fn{color:var(--surface)}
+.frame.top .st{color:var(--surface);opacity:.9}
+.frame.newborn{background:var(--jade);border-color:var(--jade);transform:scale(1.02)}
+.frame.newborn .fn,.frame.newborn .st{color:var(--surface)}
+.frame.dying{background:var(--alarm-soft);border-color:var(--alarm);opacity:.9}
+.frame.dying .fn{color:var(--alarm)}
+.empty{text-align:center;color:var(--ink-faint);font-size:12.5px;padding:20px 10px;
+  margin:auto;font-family:var(--font-sans);line-height:1.7}
+
+.outlist{display:flex;flex-direction:column;gap:3px;max-height:260px;overflow-y:auto;
+  background:var(--sunken);border-radius:8px;padding:10px;
+  font-family:var(--font-mono);font-size:12.5px}
+.outlist div{padding:4px 9px;border-radius:5px;background:var(--surface-2);color:var(--ink-soft)}
+.outlist div.fresh{background:var(--jade);color:var(--surface);font-weight:700}
+.outlist div.none{background:none;color:var(--ink-faint);font-family:var(--font-sans)}
+.answer{text-align:center;font-family:var(--font-mono);font-size:28px;font-weight:800;
+  color:var(--jade);min-height:36px}
+
+/* 模式大開關 */
+.algo-switch{display:flex;justify-content:center}
+.algo-btn{padding:12px 22px;border:2px solid var(--line);background:var(--surface-2);
+  color:var(--ink-soft);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;
+  transition:background var(--dur),color var(--dur),border-color var(--dur)}
+.algo-btn:first-child{border-radius:9px 0 0 9px}
+.algo-btn:last-child{border-radius:0 9px 9px 0}
+.algo-btn:not(:first-child){border-left:0}
+.algo-btn.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.algo-hint{text-align:center;font-size:13px;color:var(--ink-soft)}
+.algo-hint code{background:var(--sunken);padding:3px 9px;border-radius:5px;
+  font-size:12.5px;color:var(--ink);font-weight:700}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){ .two{grid-template-columns:1fr} }
+.box{border:1.5px solid var(--line);border-radius:var(--r);padding:15px 17px;
+  display:flex;flex-direction:column;gap:8px}
+.box.a{border-color:var(--accent);background:var(--accent-soft)}
+.box.b{border-color:var(--jade);background:var(--jade-soft)}
+.box h4{font-size:15px;font-weight:800;margin:0}
+.box.a h4{color:var(--accent)}
+.box.b h4{color:var(--jade)}
+.hand td,.hand th{font-family:var(--font-mono);font-size:12.5px}
+.hand td.zh,.hand th.zh{font-family:var(--font-sans);font-size:13px}
+.hand tr.last td{background:var(--jade-soft);font-weight:800}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">04 · 堆疊</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 04 · Call Stack</p>
+    <h1>呼叫堆疊</h1>
+    <p class="lede">遞迴不是魔法。每呼叫一次函式，電腦就幫你推入一個<b>框架（frame）</b>；每 return 一次就彈出一個。你一直都在用堆疊 —— 只是這個堆疊由系統替你管理，看不見而已。這一頁把它畫出來。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>堆疊 Stack</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>三個範例</span><b>階乘・費氏・河內塔</b></div>
+      <div class="fact"><span>空間</span><b>O(遞迴深度)</b></div>
+      <div class="fact"><span>先備知識</span><b>函式、遞迴的寫法</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">三個範例，堆疊長相完全不同。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <ol class="steps">
+            <li>選一個範例：<b>階乘</b>（堆疊像一條直線）、<b>費氏數列</b>（呼叫次數爆炸）、<b>河內塔</b>（兩次遞迴夾一個動作）。</li>
+            <li>拉滑桿選 n，數字不用大 —— 費氏設到 8 就很有感覺了。</li>
+            <li>按 <b>下一步</b>，看每一次呼叫怎麼 <b>PUSH</b> 一個新框架、每一次 return 怎麼 <b>POP</b> 掉它。</li>
+            <li>每個框架上都寫著它<b>現在卡在哪</b>——「要等下面算完才能繼續」。</li>
+            <li>看不懂就 <b>上一步</b> 倒回去。這一頁特別值得反覆倒帶。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">盯這兩個數字</span>
+            <span class="txt">右下角的 <b>總呼叫次數</b> 和 <b>最大深度</b>。切到費氏模式，你會看到呼叫次數衝到幾十次，但最大深度<b>始終只有 n</b>。這個差距是整頁最重要的觀念。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>遞迴到底怎麼被執行</b> —— <code>fact(5)</code> 呼叫 <code>fact(4)</code> 時，原本的 n=5 跑去哪了？為什麼沒被蓋掉？</li>
+            <li><b>一個 frame 裡裝什麼</b> —— 參數、區域變數、<b>回傳位址</b>。第三個才是關鍵。</li>
+            <li><b>遞迴的三個要素</b> —— 基底條件、遞迴關係、收斂性。少一個就爆。</li>
+            <li><b>呼叫次數 ≠ 堆疊深度</b> —— fib(30) 呼叫 270 萬次，但堆疊只有 30 層深。所以它是「慢」不是「爆」。</li>
+            <li><b>Stack Overflow 怎麼發生的</b> —— 為什麼遞迴太深會炸，但迴圈跑一億次不會。</li>
+            <li><b>河內塔的三步法</b> —— 以及 2ⁿ−1 這個最少步數怎麼推出來。</li>
+            <li><b>遞迴改迭代 = 自己接管那個堆疊</b> —— 為什麼 push 的順序要反過來寫。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt"><b>階乘 n=4</b>（看清 push/pop 節奏）→ <b>費氏 n=6</b>（看呼叫次數爆炸、深度卻不變）→ <b>河內塔 n=3</b>（看兩次遞迴中間夾一個動作）。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">左邊那疊就是平常看不見的呼叫堆疊。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="algo-switch">
+        <button class="algo-btn on" id="mFact" type="button">階乘 n!</button>
+        <button class="algo-btn" id="mFib" type="button">費氏數列</button>
+        <button class="algo-btn" id="mHanoi" type="button">河內塔</button>
+      </div>
+      <p class="algo-hint" id="modeHint"></p>
+
+      <div class="bar">
+        <div class="ctl">
+          <label id="nLabel">n =</label>
+          <input type="range" id="nVal" min="1" max="9" value="5" style="width:150px">
+          <b id="nShow" style="font-family:var(--font-mono);font-size:17px;min-width:22px">5</b>
+        </div>
+        <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="70"></div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">呼叫堆疊 Call Stack</h3>
+            <span class="panel-note" id="depthNote">深度 0</span>
+          </div>
+          <div class="topmark">↑ TOP　CPU 現在正在執行的那一層</div>
+          <div class="frames" id="frames"></div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnRun" type="button">▶ 開始</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">按「下一步」開始</div>
+              <div class="say-text" id="sayText">看電腦怎麼一層一層把函式堆起來，再一層一層拆掉。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title" id="outLabel">已完成的 return</h3>
+              <span class="panel-note" id="outNote"></span>
+            </div>
+            <div class="outlist" id="outlist"></div>
+            <div class="answer" id="answer"></div>
+            <div class="stats">
+              <div class="stat" data-k="hot"><div class="k">目前深度</div><div class="v" id="sDepth">0</div></div>
+              <div class="stat"><div class="k">最大深度</div><div class="v" id="sMax">0</div></div>
+              <div class="stat" data-k="no"><div class="k">總呼叫次數</div><div class="v" id="sCalls">0</div></div>
+              <div class="stat"><div class="k">差距</div><div class="v" id="sGap" style="font-size:15px">—</div></div>
+            </div>
+            <div class="callout" style="padding:11px 13px">
+              <span class="tag">重點</span>
+              <span class="txt" style="font-size:12.5px"><b>呼叫次數 ≠ 深度。</b>左邊那棵子樹算完就被彈掉了，右邊才開始 —— 兩邊不會同時存在。</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>上面每一次 PUSH／POP，就是這三個函式的某一行在執行。<b>注意每個函式的第一行都是基底條件</b> —— 階乘在 n ≤ 1 時直接回傳 1、費氏在 n ＜ 2 時直接回傳 n、河內塔在 n = 0 時什麼都不做。遊戲裡指標走到「基底條件」那一步，對應的就是這一行；<b>少了它就是無限 push，直到 Stack Overflow</b>。</p>
+                <pre class="code"><i>// 階乘：一條直線的遞迴</i>
+long long fact(int n) {
+    <b>if (n &lt;= 1) return 1;</b>              <i>// 基底條件 —— 沒有它就 stack overflow</i>
+    return n * fact(n - 1);            <i>// 等下面算完，我才能乘</i>
+}
+
+<i>// 費氏：一次呼叫兩次 → 呼叫次數爆炸</i>
+long long fib(int n) {
+    <b>if (n &lt; 2) return n;</b>               <i>// 基底條件</i>
+    return fib(n - 1) + fib(n - 2);    <i>// fib(n-1) 完全跑完並 pop 掉，才輪到 fib(n-2)</i>
+}
+
+<i>// 河內塔：兩次遞迴中間夾一個動作</i>
+void hanoi(int n, char a, char c, char b) {   <i>// 把 n 個盤子從 a 移到 c，b 當中繼</i>
+    <b>if (n == 0) return;</b>                <i>// 基底條件：沒有盤子要搬</i>
+    hanoi(n - 1, a, b, c);             <i>// 上面 n-1 個先搬去中繼柱</i>
+    printf("盤子 %d: %c → %c\n", n, a, c);
+    hanoi(n - 1, b, c, a);             <i>// 中繼柱那疊再搬回來蓋上</i>
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">大部分人會寫遞迴，但講不出下面這三件事。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>核心問題：遞迴到底是怎麼被執行的</h3>
+        <ul class="bullets">
+          <li><code>fact(5)</code> 呼叫 <code>fact(4)</code> 時，<b>原本的 n=5 跑去哪裡了？</b>為什麼沒有被蓋掉？</li>
+          <li><code>fact(1)</code> 回傳之後，電腦<b>怎麼知道要跳回哪一行</b>繼續執行？</li>
+          <li>為什麼遞迴太深會 <b>Stack Overflow</b>，但迴圈跑一億次卻不會？</li>
+        </ul>
+        <p>答案全都是同一個東西：<b>呼叫堆疊</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>一個 frame 裡到底裝了什麼</h3>
+        <pre class="code">┌──────────────────────────────────┐
+│  fact(3)   ← 一個 Stack Frame     │
+├──────────────────────────────────┤
+│  <b>參數</b>：n = 3                      │  ← 每一層都有自己的 n，互不干擾
+│  <b>區域變數</b>：（這題沒有）            │
+│  <b>回傳位址</b>：回到 fact(4) 的第 5 行  │  ← 最關鍵！算完要知道回哪裡
+└──────────────────────────────────┘</pre>
+        <div class="callout" data-k="key">
+          <span class="tag">兩個答案</span>
+          <span class="txt"><b>為什麼每層的 n 不會互相蓋掉？</b>因為 n 存在各自的 frame 裡，根本不是同一個變數。<br>
+          <b>為什麼算完知道要回哪？</b>因為 frame 裡存了回傳位址。<br>
+          而<b>後呼叫的函式一定先結束</b> —— 完美的 LIFO，所以用堆疊。</span>
+        </div>
+        <div class="two">
+          <div class="box a">
+            <h4>呼叫時（push）</h4>
+            <ul class="bullets">
+              <li>配置一塊新 frame</li>
+              <li>把參數複製進去</li>
+              <li>記下「回來時要跳到哪一行」</li>
+              <li>堆疊指標往上移</li>
+            </ul>
+          </div>
+          <div class="box b">
+            <h4>return 時（pop）</h4>
+            <ul class="bullets">
+              <li>把回傳值交給下面那層</li>
+              <li>整塊 frame 直接丟棄（區域變數瞬間消失）</li>
+              <li>跳回記下的那一行繼續執行</li>
+              <li>堆疊指標往下移</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>遞迴的三個要素，缺一個就爆</h3>
+        <ol class="steps">
+          <li><b>基底條件</b>：什麼時候可以不用再遞迴，直接給答案。<br>
+              <span style="color:var(--ink-faint)">缺了它 → 無限 push → Stack Overflow。</span></li>
+          <li><b>遞迴關係</b>：把大問題拆成<b>同樣形狀但更小</b>的問題。<br>
+              <span style="color:var(--ink-faint)">fact(n) 交給 fact(n−1)、hanoi(n) 交給兩個 hanoi(n−1)。</span></li>
+          <li><b>收斂性</b>：每呼叫一次都必須<b>更靠近基底</b>。<br>
+              <span style="color:var(--ink-faint)">寫成 fact(n) 呼叫 fact(n) 就永遠到不了基底。</span></li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">Stack Overflow</span>
+          <span class="txt">堆疊的大小是<b>固定的</b>（CPython 預設遞迴上限 1000 層，C 的執行緒堆疊常見 1 MB）。忘了寫基底條件 → 一直 push 卻永遠不 pop → <code>RecursionError</code> 或 <code>Segmentation fault</code>。<br>
+          所以寫遞迴的第一件事永遠是：<b>先寫終止條件，再寫遞迴呼叫。</b></span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次 <code>fact(3)</code></h3>
+        <div class="tablewrap">
+          <table class="hand">
+            <thead><tr><th>步驟</th><th class="zh">發生什麼事</th><th>堆疊（底 → 頂）</th><th>深度</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td class="zh">呼叫 fact(3) → PUSH</td><td>fact(3)</td><td>1</td></tr>
+              <tr><td>2</td><td class="zh">fact(3) 卡住：要等 fact(2)，於是呼叫 → PUSH</td><td>fact(3), fact(2)</td><td>2</td></tr>
+              <tr><td>3</td><td class="zh">fact(2) 卡住：要等 fact(1)，於是呼叫 → PUSH</td><td>fact(3), fact(2), fact(1)</td><td>3 ← 最深</td></tr>
+              <tr><td>4</td><td class="zh">fact(1) 碰到基底條件，回傳 1 → POP</td><td>fact(3), fact(2)</td><td>2</td></tr>
+              <tr><td>5</td><td class="zh">fact(2) 拿到 1，算 2×1=2，回傳 → POP</td><td>fact(3)</td><td>1</td></tr>
+              <tr class="last"><td>6</td><td class="zh">fact(3) 拿到 2，算 3×2=6，回傳 → POP</td><td>（空）→ 答案 6</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">看懂這張表就看懂遞迴了</span>
+          <span class="txt">前半段一路 push，<b>問題不斷變小但一個答案都沒有</b>；直到碰到基底條件才出現第一個答案；然後後半段一路 pop，答案<b>由下而上</b>逐層被算出來。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>費氏數列：呼叫次數為什麼爆炸</h3>
+        <pre class="code">                  fib(4)
+              ┌─────┴─────┐
+           fib(3)        fib(2) <b>★</b>
+         ┌───┴───┐      ┌──┴──┐
+      fib(2)<b>★</b>  fib(1)  fib(1) fib(0)
+     ┌───┴───┐
+  fib(1)   fib(0)
+
+<i>★ = 一模一樣的子問題被重算了一次</i></pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>子問題</th><th class="mono">fib(4)</th><th class="mono">fib(3)</th><th class="mono">fib(2)</th><th class="mono">fib(1)</th><th class="mono">fib(0)</th><th>總呼叫</th></tr></thead>
+            <tbody><tr><td>被呼叫幾次</td><td class="mono">1</td><td class="mono">1</td><td class="mono"><b>2</b></td><td class="mono"><b>3</b></td><td class="mono"><b>2</b></td><td class="mono"><b>9</b></td></tr></tbody>
+          </table>
+        </div>
+        <p>呼叫次數公式是 <code>2·F(n+1) − 1</code>：n=4 時 9 次、n=10 時 177 次、<b>n=30 時 270 萬次</b>、n=50 要跑好幾年。</p>
+        <p>慢的原因<b>不是遞迴本身</b>，而是<b>重複計算</b> —— 同一個 fib(2) 被算了很多次。加上 memo（開一個陣列或 <code>unordered_map</code>）記住算過的結果，呼叫次數立刻降到 <b>2n−1</b>，時間從 O(2ⁿ) 變 O(n)。</p>
+      </div>
+
+      <div class="block">
+        <h3>本頁最重要的一句話：呼叫次數 ≠ 堆疊深度</h3>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">fib(30) 呼叫 <b>270 萬次</b>，但堆疊<b>最深只有 30 層</b>。<br><br>
+          因為 <code>fib(n-1)</code> 這棵子樹會<b>整個跑完並被彈光</b>，<code>fib(n-2)</code> 才開始 —— 兩邊<b>不會同時存在</b>於堆疊上。</span>
+        </div>
+        <p>所以 fib 的問題是<b>時間爆炸</b>（O(2ⁿ)），<b>不是</b>記憶體爆炸（空間只有 O(n)）。很多人誤以為 fib(30) 會 Stack Overflow —— 它不會，它只是慢。</p>
+        <p>把上面的遊戲切到費氏模式，盯著「總呼叫次數」和「最大深度」兩個數字，親眼看它們拉開差距。</p>
+      </div>
+
+      <div class="block">
+        <h3>河內塔：三步法</h3>
+        <p>三根柱子 A、B、C，n 個大小不同的盤子一開始由大到小疊在 A 上。把它們全部搬到 C，規則：</p>
+        <ol class="steps">
+          <li>一次只能搬<b>一個</b>盤子。</li>
+          <li>只能搬每根柱子<b>最上面</b>的盤子。<span style="color:var(--ink-faint)">（這句話就是在說「柱子是堆疊」）</span></li>
+          <li>任何時候都<b>不能把大盤子壓在小盤子上面</b>。</li>
+        </ol>
+        <p>不要試著去想「第一步該搬哪個盤子」，那會直接卡死。<b>假設 hanoi(n−1) 已經有人幫你做好了</b>，那 n 個盤子的解法必然是這三步：</p>
+        <ol class="steps">
+          <li>把<b>上面 n−1 個</b>從 A 搬到中繼柱 B（借 C 當中繼）→ <code>hanoi(n−1, A, B, C)</code></li>
+          <li>把<b>最大的第 n 個</b>從 A 直接搬到 C → 一步，就是印出來的那一行</li>
+          <li>把 B 上的 <b>n−1 個</b>搬到 C（借 A 當中繼）→ <code>hanoi(n−1, B, C, A)</code></li>
+        </ol>
+        <div class="callout" data-k="key">
+          <span class="tag">兩個為什麼</span>
+          <span class="txt"><b>為什麼一定合法？</b>第 2 步搬的是最大的盤子，此時 C 是空的，A 上除了它也沒別的 —— 不可能違反「大不能壓小」。<br>
+          <b>為什麼可以假設 n−1 個已經會搬？</b>這就是數學歸納法，也是遞迴的本質：<b>你只負責定義「這一層怎麼拆」，剩下的交給更小的自己。</b></span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>河內塔的最少步數怎麼推</h3>
+        <pre class="code"><i># 三步法裡只有第 2 步真的搬盤子</i>
+T(n) = 2·T(n-1) + 1       <i># 兩次 n-1 的搬移，加上中間那一步</i>
+T(0) = 0
+
+<i># 展開：</i>
+T(n) = 2·T(n-1) + 1
+     = 4·T(n-2) + 2 + 1
+     = 8·T(n-3) + 4 + 2 + 1
+     = 2^k·T(n-k) + (2^k - 1)
+     <b>= 2^n·T(0) + 2^n - 1  =  2^n - 1</b>   <i># 令 k = n</i></pre>
+        <p>所以 n=3 是 7 步、n=10 是 1023 步。傳說中的 64 個金盤需要 <b>2⁶⁴−1 ≈ 1.8×10¹⁹ 步</b>，就算一秒搬一個也要 <b>5850 億年</b>。</p>
+        <p style="color:var(--ink-soft)">注意<b>呼叫次數（2ⁿ⁺¹−1）比搬移次數（2ⁿ−1）多</b>，因為 <code>hanoi(0)</code> 那些「什麼都不做就 return」的空呼叫也各佔一個 frame。在遊戲裡對照這兩個數字看得很清楚。</p>
+      </div>
+
+      <div class="block">
+        <h3>三個範例並排比較</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>階乘</th><th>費氏</th><th>河內塔</th></tr></thead>
+            <tbody>
+              <tr><td>每層呼叫幾次自己</td><td>1</td><td>2</td><td>2</td></tr>
+              <tr><td>堆疊形狀</td><td>直線</td><td>樹（但只走一邊）</td><td>樹，每個節點都做事</td></tr>
+              <tr><td>呼叫次數</td><td class="mono">n</td><td class="mono">≈ 2ⁿ</td><td class="mono">2ⁿ⁺¹−1</td></tr>
+              <tr><td>最大深度</td><td class="mono">n</td><td class="mono">n</td><td class="mono">n+1</td></tr>
+              <tr><td>時間複雜度</td><td class="mono">O(n)</td><td class="mono">O(2ⁿ) → 加 memo 後 O(n)</td><td class="mono">O(2ⁿ)（答案本身就有 2ⁿ 步）</td></tr>
+              <tr><td>能不能改成簡單迴圈</td><td>可以，一行</td><td>可以，兩個變數滾動</td><td>不好改，得自己拿 list 當堆疊</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>遞迴改迭代，其實是「自己接管那個堆疊」</h3>
+                <pre class="code"><i>// 遞迴版：電腦幫你管理堆疊</i>
+void hanoi(int n, char a, char c, char b) {
+    if (n == 0) return;
+    hanoi(n-1, a, b, c);  move(n, a, c);  hanoi(n-1, b, c, a);
+}
+
+<i>// 迭代版：你自己拿一個 stack 當堆疊，把「還沒做的任務」推進去</i>
+struct Task { int n; char a, c, b; bool expanded; };   <i>// expanded = 是否已展開</i>
+
+void hanoiIter(int n, char a, char c, char b) {
+    <b>stack&lt;Task&gt; st;
+    st.push({n, a, c, b, false});</b>        <i>// false = 這個任務還沒展開</i>
+    while (!st.empty()) {
+        Task t = st.top(); st.pop();
+        if (t.n == 0) continue;
+        if (t.expanded) {
+            move(t.n, t.a, t.c);         <i>// 已展開過 → 執行中間那一步</i>
+        } else {
+            <b>st.push({t.n - 1, t.b, t.c, t.a, false});   // 注意：順序要反過來 push</b>
+            st.push({t.n,     t.a, t.c, t.b, true});    <i>// 因為堆疊是後進先出</i>
+            st.push({t.n - 1, t.a, t.b, t.c, false});
+        }
+    }
+}</pre>
+        <p>兩版做的事完全一樣，差別只在<b>堆疊由誰管理</b>。</p>
+        <ul class="bullets">
+          <li><b>自己管理的好處</b> —— 不受遞迴深度上限限制、可以隨時暫停／存檔／繼續、除錯時能直接印出整個堆疊。</li>
+          <li><b>代價</b> —— 程式碼變醜，而且 push 的順序必須<b>反過來寫</b>（因為 LIFO）。這一點最容易寫錯。</li>
+        </ul>
+        <p>這也解釋了 <a href="07-bfs-maze.html">07 迷宮</a> 那一頁為什麼 DFS 可以寫成迴圈：它就是自己拿一個陣列當呼叫堆疊。</p>
+      </div>
+
+      <div class="block">
+        <h3>五個最常見的錯誤</h3>
+        <ul class="bullets no">
+          <li><b>忘記基底條件</b> —— 一路 push 到堆疊耗盡：C/C++ 直接 <code>Segmentation fault</code>，Python 則丟 <code>RecursionError</code>。</li>
+          <li><b>參數沒有變小</b> —— 寫成 <code>fact(n)</code> 呼叫 <code>fact(n)</code>，或 <code>fib(n-1)</code> 打成 <code>fib(n)</code>。</li>
+          <li><b>以為每層共用同一個 n</b> —— 其實每個 frame 各有一份，改了不會互相影響。</li>
+          <li><b>把呼叫次數當成堆疊深度</b> —— 誤以為 fib(30) 會 Stack Overflow。它只是慢，不會爆。</li>
+          <li><b>迭代版 push 順序沒反過來</b> —— 河內塔的步驟順序整個顛倒。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">這一頁的做法有個很有意思的地方 —— 它用真的遞迴去演示遞迴。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：用真遞迴錄影，再回放</h3>
+        <p>要畫出呼叫堆疊，最誠實的方法就是<b>真的去跑一次遞迴</b>，一邊跑一邊錄下每個事件。本頁分成兩層：</p>
+        <div class="arch">
+          <div class="node" data-k="in">選模式與 n</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">真的執行一次遞迴 <small>fact / fib / hanoi 就寫在裡面</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">事件串 <small>call / status / move / ret</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">把事件重播成快照 <small>維護一份自己的 frames 陣列</small></div>
+          <div class="arrow"></div>
+          <div class="node">steps[] → render() 畫出來</div>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">有趣的地方</span>
+          <span class="txt">錄影階段用的是<b>語言真正的呼叫堆疊</b>（JavaScript 自己的），重播階段則是<b>我們手動維護的一個陣列</b>。同一件事被做了兩次 —— 一次是隱形的，一次是畫得出來的。這正好就是第 03 段講的「遞迴 vs 自己管理堆疊」。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>四種事件</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">事件</th><th>什麼時候發出</th><th>重播時做什麼</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">call</td><td>進入函式的第一行</td><td><b>push</b> 一個 frame，呼叫次數 +1，更新最大深度</td></tr>
+              <tr><td class="mono">status</td><td>函式卡住、要等子呼叫時</td><td>改寫<b>頂端</b> frame 的說明文字（「我在等什麼」）</td></tr>
+              <tr><td class="mono">move</td><td>河內塔真的搬一片盤子時</td><td>在右邊的紀錄追加一行</td></tr>
+              <tr><td class="mono">ret</td><td>函式 return 前</td><td>把頂端標成 dying、拍一張快照，然後 <b>pop</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <span class="tag">順序細節</span>
+          <span class="txt"><code>ret</code> 事件是<b>先拍快照才 pop</b>。這樣畫面上才看得到「這個 frame 正在死掉」的那一格，而不是它憑空消失。教學動畫的關鍵常常就在這種一行的順序。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>frames</b>:   <i>// 那一刻整個呼叫堆疊的快照（每格有 fn 和 st）</i>
+  <b>out</b>:      <i>// 右邊紀錄的快照</i>
+  <b>depth</b>:    <i>// 目前深度</i>
+  <b>maxDepth</b>: <i>// 到目前為止的最大深度</i>
+  <b>calls</b>:    <i>// 累計呼叫次數  ← 和 maxDepth 對照，就是本頁的重點</i>
+  <b>flag</b>:     <i>// 'push' / 'pop' / 'move' → 決定徽章和高亮</i>
+  <b>msg, cls</b>: <i>// 說明面板</i>
+}</pre>
+        <p><code>calls</code> 和 <code>maxDepth</code> 被刻意放在同一個快照裡，就是為了讓畫面能<b>同時</b>顯示這兩個數字。整頁最重要的觀念，靠的是兩個欄位的並排。</p>
+      </div>
+
+      <div class="block">
+        <h3>畫面：frame 的四種狀態</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>狀態</th><th>顏色</th><th>意思</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">newborn</td><td style="color:var(--jade);font-weight:700">綠色</td><td>這一步剛被 push 進來</td></tr>
+              <tr><td class="mono">top</td><td style="color:var(--accent);font-weight:700">深橘</td><td>CPU 正在執行的那一層</td></tr>
+              <tr><td class="mono">dying</td><td style="color:var(--alarm);font-weight:700">紅色</td><td>正在 return，下一步就消失</td></tr>
+              <tr><td>（一般）</td><td>淺橘</td><td>卡住了，在等上面那層算完</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>每個 frame 還會依深度往右縮排一點，堆起來就是一道階梯 —— 一眼看得出遞迴有多深。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th></tr></thead>
+            <tbody>
+              <tr><td>放寬 n 的上限</td><td><code>CFG</code> 裡各模式的 <code>max</code>。費氏設太大步驟數會爆炸，慎用</td></tr>
+              <tr><td>加第四個範例（例如二元樹走訪）</td><td>在 <code>buildSteps()</code> 加一個分支，照樣發出四種事件即可；畫面完全不用改</td></tr>
+              <tr><td>加上 memo 版費氏做對照</td><td>複製 fib 那段，加一個 <code>memo</code> 物件，命中時發出一個新的 <code>hit</code> 事件</td></tr>
+              <tr><td>顯示「回傳位址」欄位</td><td>在 <code>call</code> 事件多帶一個欄位，frame 多印一行</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+                <pre class="code">用 C++ 幫我把「呼叫堆疊」變成看得見的東西。
+
+寫一個 Tracer 類別：建構時印「進入」、解構時印「離開」，
+套在任何遞迴函式的第一行就能印出完整呼叫過程：
+
+long long fact(int n) {
+    Tracer t("fact", n);
+    if (n &lt;= 1) return t.ret(1);
+    return t.ret(n * fact(n - 1));
+}
+
+輸出要長這樣（用縮排表示 stack 深度）：
+→ fact(5)
+  → fact(4)
+    → fact(3)
+      → fact(2)
+        → fact(1)
+        ← fact(1) 回傳 1
+      ← fact(2) 回傳 2
+    ← fact(3) 回傳 6
+  ← fact(4) 回傳 24
+← fact(5) 回傳 120
+
+要求：
+1. 用一個全域變數記錄目前深度：進入 +1、離開 −1，縮排 = 深度 × 2 格
+2. 同時統計「總呼叫次數」和「最大深度」，程式結束前印出來
+3. 套到 fib(10) 上，數數看呼叫了幾次
+4. 查你的環境的執行緒堆疊大小（常見 1–8 MB），
+   實測 fact 大約遞迴到幾層會 Segmentation fault
+
+寫完後回答：為什麼 fib(10) 的「呼叫次數」遠大於「最大深度」？</pre>
+
+        <h4>延伸題：遞迴 → 迭代（自己管理堆疊）</h4>
+                <pre class="code">把下面三個遞迴改寫成「用 std::stack 當呼叫堆疊」的迭代版，不准用 recursion：
+
+1. fact(n)        —— 最簡單，其實用迴圈就好，但請用 stack 寫一次
+2. hanoi(n,a,c,b) —— 提示：stack 裡放「還沒展開的任務」struct Task {n,a,c,b,expanded}
+3. 二元樹的中序走訪 inorder(root)
+
+三題都要：
+- 印出你的 stack 在每一步的內容
+- 驗證輸出和遞迴版完全相同
+- 比較兩版的執行時間
+
+最後回答：
+- 什麼情況下「自己管理 stack」比遞迴好？（提示：深度、除錯、暫停續跑）
+- 什麼是尾遞迴（tail recursion）？g++ -O2 會把哪一種遞迴優化成迴圈？怎麼驗證？</pre>
+
+        <h4>進階：把 fib 的重複計算揪出來</h4>
+        <pre class="code">1. 幫 fib 加計數器，統計每個 fib(k) 各被呼叫幾次，畫成表格
+   （你會看到 fib(2) 被算了非常多次）
+2. 加上 memo（開一個陣列或 unordered_map），重跑一次計數
+3. 做表格比較 n = 10, 20, 30 時：
+   - 沒 memo 的呼叫次數
+   - 有 memo 的呼叫次數
+   - 兩者耗時
+4. 畫出 fib(5) 的遞迴樹（ASCII 就好），把重複的節點標星號
+
+最後回答：
+- memo 是用「空間」換「時間」，換掉多少？（大 O 各是多少）
+- 為什麼加了 memo 之後，呼叫堆疊的最大深度沒有變？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 04 呼叫堆疊</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var CFG = {
+    fact:  {max:9, def:5, label:"n =",
+      hint:'<code>fact(n) = n × fact(n-1)</code>，<b>基底：n ≤ 1 時直接回傳 1</b>　每層只呼叫一次 → 堆疊像一條直線'},
+    fib:   {max:8, def:6, label:"n =",
+      hint:'<code>fib(n) = fib(n-1) + fib(n-2)</code>，<b>基底：n ＜ 2 時直接回傳 n</b>　注意「總呼叫次數」怎麼爆炸'},
+    hanoi: {max:4, def:3, label:"盤子數 =",
+      hint:'<code>hanoi(n) = hanoi(n-1) + 搬一片 + hanoi(n-1)</code>，<b>基底：n = 0 時什麼都不做直接 return</b>'}
+  };
+
+  var mode = "fact";
+  var steps = [], cur = 0, timer = null, playing = false;
+
+  /* ---------- 錄影：真的跑一次遞迴，發出事件 ---------- */
+  function recordEvents(m, n){
+    var ev = [];
+    var emit = function(t, o){ o = o || {}; o.t = t; ev.push(o); };
+
+    if(m === "fact"){
+      (function fact(k){
+        emit("call", {fn:"fact(" + k + ")", st:"要算 " + k + "!"});
+        if(k <= 1){
+          emit("ret", {v:1, why:"基底條件 n ≤ 1 → 直接回傳 1，不再往下呼叫"});
+          return 1;
+        }
+        emit("status", {st:"卡住了：要等 fact(" + (k-1) + ") 的答案才能乘 " + k});
+        var r = k * fact(k-1);
+        emit("ret", {v:r, why:"拿到 fact(" + (k-1) + ") = " + (r/k) + " → " + k + " × " + (r/k) + " = " + r});
+        return r;
+      })(n);
+    } else if(m === "fib"){
+      (function fib(k){
+        emit("call", {fn:"fib(" + k + ")", st:"要算 fib(" + k + ")"});
+        if(k < 2){
+          emit("ret", {v:k, why:"基底條件 n < 2 → 回傳 " + k});
+          return k;
+        }
+        emit("status", {st:"先去算左邊的 fib(" + (k-1) + ")"});
+        var a = fib(k-1);
+        emit("status", {st:"左邊 fib(" + (k-1) + ") = " + a + "，換算右邊 fib(" + (k-2) + ")"});
+        var b = fib(k-2);
+        emit("ret", {v:a+b, why:a + " + " + b + " = " + (a+b)});
+        return a + b;
+      })(n);
+    } else {
+      (function hanoi(k, a, c, b){
+        emit("call", {fn:"hanoi(" + k + ", " + a + "→" + c + ")",
+                      st:"把 " + k + " 個盤子從 " + a + " 搬到 " + c});
+        if(k === 0){
+          emit("ret", {v:"—", why:"沒有盤子要搬，直接 return（但它仍然佔了一個 frame）"});
+          return;
+        }
+        emit("status", {st:"第一步：上面 " + (k-1) + " 個先搬到中繼柱 " + b});
+        hanoi(k-1, a, b, c);
+        emit("move", {text:"盤子 " + k + "：" + a + " → " + c,
+                      st:"第二步：把最大的盤子 " + k + " 搬到 " + c});
+        emit("status", {st:"第三步：中繼柱 " + b + " 那疊 " + (k-1) + " 個再搬到 " + c});
+        hanoi(k-1, b, c, a);
+        emit("ret", {v:"完成", why:k + " 個盤子已全部搬到 " + c});
+      })(n, "A", "C", "B");
+    }
+    return ev;
+  }
+
+  /* ---------- 重播：把事件變成一張張快照 ---------- */
+  function buildSteps(m, n){
+    var ev = recordEvents(m, n);
+    var st = [], frames = [], out = [];
+    var calls = 0, maxDepth = 0, result = null;
+
+    var snap = function(title, msg, cls, flag){
+      st.push({
+        frames: frames.map(function(f){ return {fn:f.fn, st:f.st, mark:f.mark}; }),
+        out: out.slice(), title:title, msg:msg, cls:cls || "",
+        calls:calls, maxDepth:maxDepth, depth:frames.length, flag:flag || null
+      });
+    };
+
+    snap("堆疊是空的", "準備呼叫最外層的函式。接下來每一次呼叫都會推入一個 frame。", "", null);
+
+    ev.forEach(function(e){
+      var f;
+      if(e.t === "call"){
+        frames.push({fn:e.fn, st:e.st, mark:"newborn"});
+        calls++;
+        if(frames.length > maxDepth) maxDepth = frames.length;
+        snap("PUSH　呼叫 " + e.fn,
+             "配置一塊新的 frame，把參數複製進去，並記下「算完要跳回哪一行」。深度變成 <b>" +
+             frames.length + "</b>。", "call", "push");
+        frames[frames.length-1].mark = "";
+      } else if(e.t === "status"){
+        frames[frames.length-1].st = e.st;
+        snap(frames[frames.length-1].fn + " 卡住了", e.st, "", null);
+      } else if(e.t === "move"){
+        out.push(e.text);
+        frames[frames.length-1].st = e.st;
+        snap(e.text, e.st, "good", "move");
+      } else {
+        f = frames[frames.length-1];
+        f.mark = "dying";
+        f.st = "回傳 " + e.v;
+        snap("POP　" + f.fn + " 回傳 " + e.v, e.why, "ret", "pop");
+        frames.pop();
+        if(frames.length === 0) result = e.v;
+        else frames[frames.length-1].st = "收到 " + e.v + "，繼續往下執行";
+      }
+    });
+
+    var last = st[st.length-1];
+    last.done = true;
+    last.result = result;
+    last.title = "堆疊清空了";
+    last.msg = (m === "hanoi")
+      ? "總共搬了 <b>" + out.length + "</b> 步（2^" + n + " − 1 = " + (Math.pow(2,n)-1) +
+        "），但呼叫了 <b>" + calls + "</b> 次 —— 多出來的是那些「什麼都不做就 return」的空呼叫。最深 " + maxDepth + " 層。"
+      : "答案 = <b>" + result + "</b>。呼叫了 <b>" + calls + "</b> 次，但最深只有 <b>" + maxDepth +
+        "</b> 層 —— <b>呼叫次數不等於深度</b>。";
+    last.cls = "good";
+    return st;
+  }
+
+  /* ---------- 畫面 ---------- */
+  function render(){
+    var s = steps[cur];
+    if(!s) return;
+
+    var box = $("frames");
+    box.innerHTML = "";
+    if(s.frames.length === 0){
+      box.innerHTML = '<div class="empty">（呼叫堆疊是空的）<br>程式還沒開始，或已經全部結束</div>';
+    } else {
+      s.frames.forEach(function(f, i){
+        var d = document.createElement("div");
+        var isTop = (i === s.frames.length - 1);
+        d.className = "frame" + (f.mark ? " " + f.mark : (isTop ? " top" : ""));
+        var fn = document.createElement("div");
+        fn.className = "fn"; fn.textContent = f.fn;
+        var stt = document.createElement("div");
+        stt.className = "st"; stt.textContent = f.st;
+        d.appendChild(fn); d.appendChild(stt);
+        d.style.marginLeft = Math.min(i * 7, 56) + "px";
+        box.appendChild(d);
+      });
+    }
+
+    // 右邊紀錄
+    $("outLabel").textContent = (mode === "hanoi") ? "搬盤子的步驟" : "已完成的 return";
+    var ol = $("outlist");
+    ol.innerHTML = "";
+    var list = [];
+    if(mode === "hanoi"){
+      list = s.out.slice();
+    } else {
+      for(var k = 0; k <= cur; k++){
+        if(steps[k].flag === "pop"){
+          var fr = steps[k].frames[steps[k].frames.length-1];
+          list.push(fr.fn + " = " + fr.st.replace("回傳 ", ""));
+        }
+      }
+    }
+    if(list.length === 0){
+      ol.innerHTML = '<div class="none">（還沒有紀錄）</div>';
+    }
+    var freshFlag = (mode === "hanoi") ? "move" : "pop";
+    list.slice(-40).forEach(function(t, i, a){
+      var d = document.createElement("div");
+      if(i === a.length - 1 && s.flag === freshFlag) d.className = "fresh";
+      d.textContent = t;
+      ol.appendChild(d);
+    });
+    ol.scrollTop = ol.scrollHeight;
+    $("outNote").textContent = list.length ? (list.length + " 筆") : "";
+
+    // 說明
+    $("say").setAttribute("data-k",
+      s.cls === "good" ? "ok" : (s.cls === "ret" ? "pop" : (s.cls === "call" ? "push" : "start")));
+    $("sayBadge").textContent =
+      s.flag === "push" ? "PUSH" : (s.flag === "pop" ? "POP" : (s.flag === "move" ? "MOVE" : "…"));
+    $("sayTitle").textContent = s.title || "";
+    $("sayText").innerHTML = s.msg;
+
+    $("answer").textContent = (s.done && mode !== "hanoi") ? ("答案 = " + s.result) : "";
+    $("depthNote").textContent = "深度 " + s.depth;
+    $("sDepth").textContent = s.depth;
+    $("sMax").textContent = s.maxDepth;
+    $("sCalls").textContent = s.calls;
+    $("sGap").textContent = s.maxDepth ? (Math.round(s.calls / s.maxDepth * 10) / 10) + "×" : "—";
+
+    var total = steps.length - 1;
+    $("progBar").style.width = (total > 0 ? cur/total*100 : 0) + "%";
+    $("stepCount").textContent = cur + " / " + total;
+    $("btnPrev").disabled = (cur === 0);
+    $("btnNext").disabled = (cur >= total);
+  }
+
+  /* ---------- 控制 ---------- */
+  function rebuild(){
+    stopRun();
+    steps = buildSteps(mode, parseInt($("nVal").value, 10));
+    cur = 0;
+    render();
+  }
+
+  function setMode(m){
+    mode = m;
+    ["fact","fib","hanoi"].forEach(function(x){
+      $("m" + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle("on", x === m);
+    });
+    var c = CFG[m];
+    $("nVal").max = c.max;
+    $("nVal").value = c.def;
+    $("nShow").textContent = c.def;
+    $("nLabel").textContent = c.label;
+    $("modeHint").innerHTML = c.hint;
+    rebuild();
+  }
+
+  function stepFwd(){ stopRun(); if(cur < steps.length - 1){ cur++; render(); } }
+  function stepBack(){ stopRun(); if(cur > 0){ cur--; render(); } }
+
+  function toggleRun(){
+    if(playing){ stopRun(); return; }
+    if(cur >= steps.length - 1){ cur = 0; render(); }
+    playing = true;
+    $("btnRun").textContent = "❚❚ 暫停";
+    var delay = Math.max(70, 1100 - parseInt($("spd").value, 10) * 11);
+    timer = setInterval(function(){
+      if(cur >= steps.length - 1){ stopRun(); return; }
+      cur++; render();
+    }, delay);
+  }
+  function stopRun(){
+    playing = false;
+    if(timer){ clearInterval(timer); timer = null; }
+    $("btnRun").textContent = (steps.length && cur >= steps.length - 1) ? "↺ 再跑一次" : "▶ 開始";
+  }
+
+  /* ---------- 事件 ---------- */
+  $("mFact").addEventListener("click", function(){ setMode("fact"); });
+  $("mFib").addEventListener("click", function(){ setMode("fib"); });
+  $("mHanoi").addEventListener("click", function(){ setMode("hanoi"); });
+  $("btnNext").addEventListener("click", stepFwd);
+  $("btnPrev").addEventListener("click", stepBack);
+  $("btnRun").addEventListener("click", toggleRun);
+  $("btnReset").addEventListener("click", rebuild);
+  $("nVal").addEventListener("input", function(){
+    $("nShow").textContent = $("nVal").value;
+    rebuild();
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.target && e.target.tagName === "INPUT") return;
+    if(e.key === "ArrowRight"){ e.preventDefault(); stepFwd(); }
+    if(e.key === "ArrowLeft"){ e.preventDefault(); stepBack(); }
+  });
+
+  setMode("fact");
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stack 新版教材 - 遊戲化學習路徑</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:#eef1f7; color:#333; line-height:1.8;
+}
+.container { max-width:1200px; margin:0 auto; padding:30px 20px 60px; }
+
+/* 封面 */
+.hero {
+  background:linear-gradient(135deg,#0f172a 0%,#312e81 100%);
+  color:#e2e8f0; border-radius:16px; padding:44px 40px; margin-bottom:28px;
+  box-shadow:0 20px 50px rgba(15,23,42,.35);
+}
+.hero h1 { font-size:40px; color:#fff; border:none; margin-bottom:10px; }
+.hero .tag { display:inline-block; background:#f59e0b; color:#1e293b; font-weight:800; font-size:13px; padding:4px 12px; border-radius:20px; margin-bottom:14px; }
+.hero p { font-size:15px; color:#c7d2fe; line-height:1.9; }
+.hero .lead { font-size:17px; color:#fff; font-weight:700; margin:14px 0 6px; }
+
+.page { background:#fff; padding:36px 40px; margin-bottom:26px; border-radius:12px; box-shadow:0 4px 18px rgba(15,23,42,.08); }
+h1 { color:#312e81; font-size:30px; margin-bottom:20px; border-bottom:3px solid #6366f1; padding-bottom:12px; }
+h2 { color:#3730a3; font-size:22px; margin:32px 0 14px; border-left:5px solid #6366f1; padding-left:14px; }
+h3 { color:#4338ca; font-size:18px; margin:22px 0 10px; }
+p { font-size:15px; }
+
+/* 站別標頭 */
+.station-head { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:6px; }
+.num {
+  width:56px; height:56px; flex:none; border-radius:50%; background:#6366f1; color:#fff;
+  font-size:24px; font-weight:800; display:flex; align-items:center; justify-content:center;
+}
+.num.new { background:#f59e0b; }
+.num.final { background:#10b981; }
+.station-head h1 { border:none; margin:0; padding:0; font-size:28px; }
+.oneline { font-size:16px; color:#475569; margin:4px 0 16px; font-weight:700; }
+
+.meta { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 18px; }
+.meta span { background:#eef2ff; color:#3730a3; font-size:13px; font-weight:700; padding:6px 14px; border-radius:20px; border:1px solid #c7d2fe; }
+.meta span.hard { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+.meta span.file { background:#f8fafc; color:#475569; border-color:#e2e8f0; font-family:Consolas,monospace; }
+
+.btn-game {
+  display:inline-block; background:#6366f1; color:#fff; text-decoration:none; font-weight:800;
+  padding:13px 26px; border-radius:10px; font-size:16px; margin:6px 8px 6px 0; transition:.2s;
+  box-shadow:0 4px 12px rgba(99,102,241,.3);
+}
+.btn-game:hover { background:#4338ca; transform:translateY(-2px); }
+.btn-game.alt { background:#10b981; box-shadow:0 4px 12px rgba(16,185,129,.3); }
+.btn-game.alt:hover { background:#059669; }
+.btn-game.gray { background:#64748b; box-shadow:none; }
+.btn-game.gray:hover { background:#475569; }
+
+/* 區塊 */
+.goal { background:#eff6ff; border-left:5px solid #3b82f6; padding:16px 20px; border-radius:6px; margin:16px 0; }
+.goal h4 { color:#1d4ed8; margin-bottom:8px; font-size:16px; }
+.goal ul { margin-left:20px; font-size:15px; line-height:1.95; color:#1e40af; }
+
+.step { background:#fef3c7; border-left:5px solid #f59e0b; padding:16px 20px; margin:16px 0; border-radius:6px; }
+.step-title { font-weight:800; color:#92400e; margin-bottom:8px; font-size:16px; }
+.step ol, .step ul { margin-left:22px; font-size:15px; line-height:2; color:#78350f; }
+.step ol li { margin-bottom:4px; }
+
+.note { background:#eef2ff; border-left:5px solid #6366f1; padding:16px 20px; margin:16px 0; border-radius:6px; color:#3730a3; font-size:15px; line-height:1.9; }
+.note b { color:#312e81; }
+
+.check { background:#ecfdf5; border:2px solid #10b981; border-radius:8px; padding:18px 22px; margin:18px 0; }
+.check h4 { color:#047857; margin-bottom:10px; font-size:16px; }
+.check ol { margin-left:22px; font-size:15px; line-height:2; color:#065f46; }
+
+.gotcha { background:#fef2f2; border-left:5px solid #ef4444; padding:16px 20px; margin:16px 0; border-radius:6px; color:#991b1b; font-size:15px; line-height:1.9; }
+.gotcha b { color:#7f1d1d; }
+.gotcha ul { margin-left:20px; }
+
+/* Prompt 區（沿用舊版教材格式） */
+.prompt-section { margin:22px 0; border:2px solid #e5e7eb; border-radius:8px; overflow:hidden; }
+.prompt-header { background:#1f2937; color:#fff; padding:13px 20px; font-weight:800; font-size:15px; }
+.prompt-content { background:#f9fafb; padding:20px; }
+.prompt-box {
+  background:#0f172a; color:#e2e8f0; padding:18px; border-radius:6px;
+  font-family:Consolas,"Courier New",monospace; font-size:13px; line-height:1.75;
+  overflow-x:auto; white-space:pre-wrap; word-wrap:break-word; margin:10px 0;
+}
+.copy-button { display:inline-block; background:#3b82f6; color:#fff; padding:9px 18px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:700; border:none; font-family:inherit; }
+.copy-button:hover { background:#2563eb; }
+
+code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; font-size:14px; font-family:Consolas,monospace; }
+
+table { width:100%; border-collapse:collapse; margin:18px 0; background:#fff; font-size:14px; }
+th { background:#312e81; color:#fff; padding:11px; text-align:left; }
+td { padding:11px; border-bottom:1px solid #e5e7eb; vertical-align:top; }
+tr:nth-child(even) td { background:#f8fafc; }
+td.blank { background:#fffbeb !important; color:#b45309; font-family:Consolas,monospace; }
+
+/* 總覽 / 進度 */
+.progress-wrap { background:#fff; border-radius:12px; padding:24px 30px; margin-bottom:26px; box-shadow:0 4px 18px rgba(15,23,42,.08); }
+.bar { height:16px; background:#e2e8f0; border-radius:10px; overflow:hidden; margin:12px 0 8px; }
+.bar > i { display:block; height:100%; width:0; background:linear-gradient(90deg,#6366f1,#10b981); transition:width .3s; }
+.pct { font-size:14px; font-weight:800; color:#334155; }
+.tracklist { list-style:none; margin-top:14px; }
+.tracklist li { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed #e2e8f0; font-size:14px; }
+.tracklist input { width:18px; height:18px; cursor:pointer; }
+.tracklist a { color:#4338ca; text-decoration:none; font-weight:700; }
+.tracklist a:hover { text-decoration:underline; }
+.tracklist .lv { margin-left:auto; color:#94a3b8; font-size:12px; font-weight:700; }
+
+.legend-new { display:inline-block; background:#fef3c7; color:#b45309; font-size:12px; font-weight:800; padding:2px 8px; border-radius:10px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ===== 封面 ===== -->
+  <div class="hero">
+    <div class="tag">新版 v2.0 · 遊戲化學習路徑</div>
+    <h1>🥞 Stack 完整教材</h1>
+    <p class="lead">從「盤子疊起來」到「面試最難的單調堆疊」，九站走完。</p>
+    <p>
+      舊版教材（Prompt執行教材-Stack.html）是<b>一天一個 Prompt</b> 的線性課程。<br>
+      新版的差別：<b>每一站都先玩一個互動遊戲，看見資料結構在動，再回頭寫程式。</b><br>
+      九站依難度排序，每站都有：學習目標 → 遊戲操作任務 → 觀察填表 → 講解重點 → Prompt 作業 → 檢核點。
+    </p>
+    <p class="lead">怎麼用這份教材</p>
+    <p>
+      ① 點「開啟遊戲」把互動頁打開（新分頁）　②照著「課堂操作」按按鈕、填觀察表
+      ③ 複製 Prompt 丟給 Claude 完成作業　④ 回答「檢核點」的問題就算過關，勾掉下面的進度。
+    </p>
+  </div>
+
+  <!-- ===== 進度追蹤 ===== -->
+  <div class="progress-wrap">
+    <h3 style="margin-top:0;">📊 我的學習進度</h3>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="pct" id="pctText">0 / 9 站完成（0%）</div>
+    <ul class="tracklist" id="track"></ul>
+    <p style="font-size:13px;color:#94a3b8;margin-top:10px;">進度存在這台電腦的瀏覽器裡，關掉頁面也不會消失。</p>
+  </div>
+
+  <!-- ===== 課程總覽 ===== -->
+  <div class="page">
+    <h1>🗺️ 課程總覽</h1>
+    <table>
+      <tr><th style="width:52px;">站</th><th>主題</th><th>核心概念</th><th>使用檔案</th><th style="width:90px;">建議時間</th><th style="width:70px;">難度</th></tr>
+      <tr><td><b>1</b></td><td>Stack 是什麼 · 動手實作</td><td>LIFO、push/pop/peek、O(1)</td><td>Prompt執行教材-Stack.html（第 1–4 天）</td><td>4 節</td><td>★</td></tr>
+      <tr><td><b>2</b></td><td>括號配對</td><td>「等待中的事情」、配對驗證</td><td>Prompt執行教材-Stack.html（第 6 天）</td><td>1 節</td><td>★</td></tr>
+      <tr><td><b>3</b></td><td>Undo / Redo 撤回</td><td>雙 Stack、狀態回溯</td><td>Prompt執行教材-Stack.html（第 5 天）</td><td>1 節</td><td>★★</td></tr>
+      <tr><td><b>4</b></td><td>運算式計算機 <span class="legend-new">新</span></td><td>調度場演算法、中序→後序</td><td>Stack遊戲1-運算式計算機.html</td><td>2 節</td><td>★★★</td></tr>
+      <tr><td><b>5</b></td><td>呼叫堆疊 <span class="legend-new">新</span></td><td>frame、遞迴的真面目、溢位</td><td>Stack遊戲3-呼叫堆疊.html</td><td>2 節</td><td>★★★</td></tr>
+      <tr><td><b>6</b></td><td>河內塔</td><td>遞迴分解、2ⁿ−1、遞迴轉迭代</td><td>河內塔遊戲-可互動.html ＋ 河內塔教材</td><td>2 節</td><td>★★★</td></tr>
+      <tr><td><b>7</b></td><td>DFS 迷宮：Stack vs Queue</td><td>換容器就換演算法</td><td>Queue遊戲2-BFS迷宮.html</td><td>1 節</td><td>★★★</td></tr>
+      <tr><td><b>8</b></td><td>單調堆疊 <span class="legend-new">新</span></td><td>O(n²)→O(n)、攤還分析</td><td>Stack遊戲2-單調堆疊.html</td><td>2 節</td><td>★★★★</td></tr>
+      <tr><td><b>9</b></td><td>期末專案：對話記憶系統</td><td>把 Stack 用在真實 AI 系統</td><td>教材-対話記憶管理系統.html ＋ backend/</td><td>3 節</td><td>★★★★</td></tr>
+    </table>
+
+    <div class="note">
+      <b>順序為什麼這樣排？</b><br>
+      ①–③ 先建立「Stack 能幹嘛」的直覺（自己動手 push/pop）。<br>
+      ④ 第一次遇到「非用 Stack 不可」的題目（優先級 + 括號）。<br>
+      ⑤ 才揭曉：其實你寫的每個函式呼叫，電腦都在偷偷用 Stack。<br>
+      ⑥⑦ 用遞迴／DFS 把前兩站串起來，理解「遞迴 = 電腦替你管理的 Stack」。<br>
+      ⑧ 最後才碰單調堆疊 —— 它需要前面所有的直覺（等待、結算、攤還）。<br>
+      ⑨ 收尾回到你們的專案，證明這不是考試用的玩具。
+    </div>
+
+    <div class="step">
+      <div class="step-title">⏱️ 兩種排課方式</div>
+      <ul>
+        <li><b>完整版（18 節，約 5 週）：</b>照表操課，每站都做 Prompt 作業。</li>
+        <li><b>精簡版（8 節，2 週）：</b>只做 1、4、5、8 站 —— 基礎 + 三個新遊戲，其餘當回家作業。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== 第 1 站 ===== -->
+  <div class="page" id="s1">
+    <div class="station-head"><div class="num">1</div><h1>Stack 是什麼 · 動手實作</h1></div>
+    <p class="oneline">先讓學生「用手」堆一次盤子，再讓 Claude 寫出 Stack 類別。</p>
+    <div class="meta"><span>⏱ 4 節課</span><span>難度 ★</span><span class="file">Prompt執行教材-Stack.html（第 1–4 天）</span></div>
+
+    <a class="btn-game gray" href="Prompt執行教材-Stack.html" target="_blank">📘 開啟舊版教材第 1–4 天</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>能用自己的話說出 LIFO，並舉三個生活中的例子（不准講盤子）</li>
+        <li>知道 Stack 的五個操作：push / pop / peek / is_empty / size</li>
+        <li>知道為什麼這五個操作都是 O(1)</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作</div>
+      <ol>
+        <li>拿一疊實體卡片，請一位學生「加一張、拿一張」，全班喊 push / pop</li>
+        <li>故意要求「拿最下面那張」→ 讓學生自己說出「這樣就不是 Stack 了」</li>
+        <li>打開舊版教材第 1–4 天，照著把 Prompt 丟給 Claude</li>
+        <li>把 Claude 寫的 Stack 類別存成 <code>stack.py</code>，跑一次測試</li>
+      </ol>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點（能回答就過關）</h4>
+      <ol>
+        <li>為什麼 <code>pop()</code> 是 O(1)，但「刪除陣列第 0 個元素」是 O(n)？</li>
+        <li><code>peek()</code> 和 <code>pop()</code> 差在哪？為什麼需要兩個？</li>
+        <li>對空的 Stack 呼叫 <code>pop()</code> 應該怎麼處理？（回傳 None？丟例外？）你選哪個，為什麼？</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===== 第 2 站 ===== -->
+  <div class="page" id="s2">
+    <div class="station-head"><div class="num">2</div><h1>括號配對</h1></div>
+    <p class="oneline">Stack 的 Hello World：驗證 <code>{[()]}</code> 有沒有配對。</p>
+    <div class="meta"><span>⏱ 1 節課</span><span>難度 ★</span><span class="file">Prompt執行教材-Stack.html（第 6 天）</span></div>
+
+    <a class="btn-game gray" href="Prompt執行教材-Stack.html" target="_blank">📘 開啟舊版教材第 6 天</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>看出「配對」問題的共同結構：<b>最近打開的，必須最先關閉</b></li>
+        <li>能把演算法講成三句話：左括號 push、右括號 pop 比對、最後檢查是否為空</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作 — 先用人腦跑一次</div>
+      <ol>
+        <li>黑板寫 <code>{ [ ( ] ) }</code>，請學生逐字元判斷，並在旁邊畫出 Stack 內容</li>
+        <li>問：錯在第幾個字元？（第 4 個 <code>]</code>，因為 top 是 <code>(</code>）</li>
+        <li>再寫 <code>( ( )</code>，問：掃完都沒衝突，為什麼還是錯？（結束時 Stack 不空）</li>
+      </ol>
+    </div>
+
+    <div class="note">
+      <b>兩個結束條件都要檢查，缺一不可：</b><br>
+      ・掃描中發現不匹配 → 錯（例：<code>(]</code>）<br>
+      ・掃完後 Stack 不是空的 → 錯（例：<code>((</code>）<br>
+      ・提早把 Stack 彈空又遇到右括號 → 錯（例：<code>())</code>）
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">用 Stack 寫一個括號檢查器 check(s)。
+
+要求：
+1. 支援三種括號 () [] {}，可任意巢狀
+2. 回傳 (是否合法, 錯誤位置, 錯誤原因)，不要只回傳 True/False
+3. 三種錯誤都要能分辨：
+   - 類型不匹配："(]"
+   - 右括號太多："())"
+   - 左括號沒關："(("
+4. 括號以外的字元一律忽略，例如 "if (a[0] > 1) { b = 2; }"
+
+測完後請回答：為什麼這題非用 Stack 不可？用「巢狀」兩個字解釋。</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li><code>"([)]"</code> 為什麼不合法？請畫出當下的 Stack</li>
+        <li>如果只用一個計數器（左括號 +1、右括號 −1）取代 Stack，什麼情況會誤判？</li>
+        <li>HTML 標籤 <code>&lt;div&gt;&lt;p&gt;&lt;/div&gt;&lt;/p&gt;</code> 為什麼也是同一題？</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===== 第 3 站 ===== -->
+  <div class="page" id="s3">
+    <div class="station-head"><div class="num">3</div><h1>Undo / Redo 撤回功能</h1></div>
+    <p class="oneline">兩個 Stack 就能做出 Ctrl+Z —— 也是期末專案的核心零件。</p>
+    <div class="meta"><span>⏱ 1 節課</span><span>難度 ★★</span><span class="file">Prompt執行教材-Stack.html（第 5 天）</span></div>
+
+    <a class="btn-game gray" href="Prompt執行教材-Stack.html" target="_blank">📘 開啟舊版教材第 5 天</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>知道 Undo 要存的是「動作」不是「結果」</li>
+        <li>能解釋為什麼需要<b>兩個</b> Stack（undo stack + redo stack）</li>
+        <li>知道「做了新動作之後，redo stack 要清空」以及為什麼</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作 — 用記事本親手驗證</div>
+      <ol>
+        <li>打開任何文字編輯器，打三個字，按三次 Ctrl+Z，再按 Ctrl+Y 還原 → 畫出兩個 Stack 的變化</li>
+        <li>這次：打三個字 → Ctrl+Z 兩次 → <b>打一個新字</b> → 再按 Ctrl+Y</li>
+        <li>發現還原不回來了！請學生解釋為什麼（答案：新動作把 redo stack 清空了）</li>
+      </ol>
+    </div>
+
+    <table>
+      <tr><th>操作</th><th>Undo Stack（底→頂）</th><th>Redo Stack</th></tr>
+      <tr><td>輸入 A、B、C</td><td>A B C</td><td>（空）</td></tr>
+      <tr><td>Ctrl+Z</td><td>A B</td><td>C</td></tr>
+      <tr><td>Ctrl+Z</td><td>A</td><td>C B</td></tr>
+      <tr><td>輸入 X（新動作）</td><td>A X</td><td class="blank">← 這裡發生什麼事？請學生填</td></tr>
+    </table>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">實作一個支援 undo / redo 的文字編輯器 TextEditor 類別。
+
+要求：
+1. 方法：type(text)、delete(n)、undo()、redo()、get_text()
+2. 用兩個 Stack：undo_stack 和 redo_stack
+3. 存「動作」而不是存「整份文件內容」，並說明這樣做省下多少記憶體
+4. 執行新動作時必須清空 redo_stack
+5. undo/redo 到底了要安全處理，不能崩潰
+
+寫一段示範，依序執行並印出每一步的兩個 Stack 內容：
+type("Hello") → type(" World") → undo() → undo() → redo() → type("!") → redo()
+
+最後回答：最後那個 redo() 為什麼沒有效果？</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li>如果只用一個 Stack，會少掉什麼功能？</li>
+        <li>為什麼存「動作」比存「每一版全文」好？各是多少空間複雜度？</li>
+        <li>你們的期末專案（對話記憶系統）要「收回上一則訊息」，該存什麼進 Stack？</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===== 第 4 站 ===== -->
+  <div class="page" id="s4">
+    <div class="station-head"><div class="num new">4</div><h1>運算式計算機 <span class="legend-new">新遊戲</span></h1></div>
+    <p class="oneline">第一次遇到「非 Stack 不可」的題目：電腦其實看不懂 <code>3+4*2</code>。</p>
+    <div class="meta"><span>⏱ 2 節課</span><span>難度 ★★★</span><span class="file">Stack遊戲1-運算式計算機.html</span></div>
+
+    <a class="btn-game" href="Stack遊戲1-運算式計算機.html" target="_blank">🎮 開啟遊戲：運算式計算機</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>說得出為什麼不能從左往右邊讀邊算</li>
+        <li>能手動把中序式轉成後序式（不看程式碼）</li>
+        <li>知道優先級與結合律怎麼變成程式裡的一個 while 條件</li>
+        <li>能解釋 <code>2^3^2 = 512</code> 而不是 64</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作（照順序按）</div>
+      <ol>
+        <li>先讀遊戲頁裡的「📋 題目解說」，全班一起念一次輸入輸出規格</li>
+        <li>把速度拉到最慢，按 <b>▶ 開始</b>，看完 <code>3+4*2/(1-5)^2</code> 一整輪</li>
+        <li>按 <b>🔄 重來</b>，這次全程只按 <b>⏭ 下一步</b>，每一步都先問學生「Stack 接下來會怎麼動？」再按</li>
+        <li>切換範例 <code>2^3^2</code> 和 <code>10-2-3</code>，比較兩者在同級運算子時的差別</li>
+        <li>自己輸入一個式子（例如 <code>((2+3)*4-6)/2</code>），先手算答案，再讓遊戲驗證</li>
+      </ol>
+    </div>
+
+    <h3>🔍 觀察任務：邊看邊填（發下去當學習單）</h3>
+    <table>
+      <tr><th>讀到的 token</th><th>你的預測：Stack 會怎麼變</th><th>實際結果</th><th>對／錯</th></tr>
+      <tr><td><code>3</code></td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td><code>+</code></td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td><code>*</code></td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td><code>(</code></td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td><code>)</code></td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+    </table>
+
+    <div class="note">
+      <b>本站最重要的一句話：</b>Stack 不是拿來「存資料」的，是拿來<b>記住「還沒輪到的事情」</b>。<br>
+      <code>+</code> 讀到了卻不能馬上算，因為後面可能有 <code>*</code> —— 它只好在 Stack 裡排隊等。
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">實作一個支援 + - * / ^ 和括號的運算式計算機，用兩個 Stack。
+
+分三個函式：
+1. tokenize(s)      -> 把 "3+4*2/(1-5)^2" 切成 token 串列（支援多位數與小數）
+2. to_postfix(toks) -> 調度場演算法轉後序
+3. eval_postfix(p)  -> 用 Stack 求值
+
+要求：
+- 優先級 ^ > * / > + -，其中 ^ 是右結合
+- 每一步印出「目前 token / Stack 內容 / 輸出內容」的表格
+- 用這四個式子驗證：
+  3+4*2/(1-5)^2 → 3.5     (1+2)*(3+4) → 21
+  2^3^2 → 512（不是 64）   10-2-3 → 5
+
+寫完後回答兩題：
+① 為什麼 2^3^2 是 512？程式碼裡哪一行決定了這件事？
+② 求值時為什麼 b = pop() 要寫在 a = pop() 前面？</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li>手寫把 <code>(1+2)*(3+4)</code> 轉成後序式，並畫出每一步的 Stack</li>
+        <li>後序式為什麼不需要括號？</li>
+        <li>整個演算法為什麼是 O(n) 而不是 O(n²)？（提示：每個 token 進出幾次）</li>
+      </ol>
+    </div>
+
+    <div class="gotcha">
+      <b>⚠️ 常見卡關</b>
+      <ul>
+        <li>學生會問「為什麼不直接用 eval()」→ 回答：資安（任意程式碼執行）＋ 你的計算機規則可以自訂</li>
+        <li>分不清「Stack 存運算子」和「Stack 存數字」是<b>兩個不同階段</b>的兩個 Stack</li>
+        <li>把左括號當成一般運算子去比優先級 → 括號整個失效</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== 第 5 站 ===== -->
+  <div class="page" id="s5">
+    <div class="station-head"><div class="num new">5</div><h1>呼叫堆疊：遞迴的真面目 <span class="legend-new">新遊戲</span></h1></div>
+    <p class="oneline">揭曉：你寫的每一次函式呼叫，電腦都在偷偷 push 一個 frame。</p>
+    <div class="meta"><span>⏱ 2 節課</span><span>難度 ★★★</span><span class="file">Stack遊戲3-呼叫堆疊.html</span></div>
+
+    <a class="btn-game" href="Stack遊戲3-呼叫堆疊.html" target="_blank">🎮 開啟遊戲：呼叫堆疊</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>知道一個 frame 裡裝了什麼（參數、區域變數、回傳位址）</li>
+        <li>能解釋「為什麼每層的 n 不會互相蓋掉」</li>
+        <li>分得清<b>呼叫次數</b>與<b>Stack 深度</b>——這是本站的核心</li>
+        <li>知道 Stack Overflow 為什麼會發生</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作（三個模式依序玩）</div>
+      <ol>
+        <li><b>階乘模式</b>：n=5 單步跑完。請學生注意「前半段一路 push、碰到基底才開始 pop」</li>
+        <li>問全班：<b>答案是在什麼時候第一次出現的？</b>（答：最深那層碰到基底條件時）</li>
+        <li><b>費氏模式</b>：n=6 跑完，記下右下角兩個數字：總呼叫 25 次、最大深度 6</li>
+        <li>把 n 調到 8 再跑一次，記錄數字 → 呼叫次數暴增，深度只 +2</li>
+        <li><b>河內塔模式</b>：n=3，觀察「兩次遞迴中間夾一個搬盤子動作」的節奏</li>
+      </ol>
+    </div>
+
+    <h3>🔍 觀察任務：填完這張表，本站就懂一半</h3>
+    <table>
+      <tr><th>模式</th><th>n</th><th>總呼叫次數</th><th>最大深度</th><th>你的結論</th></tr>
+      <tr><td>階乘</td><td>5</td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td>費氏</td><td>6</td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td>費氏</td><td>8</td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td>河內塔</td><td>3</td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+    </table>
+
+    <div class="note">
+      <b>本站最重要的一句話：呼叫次數 ≠ Stack 深度。</b><br>
+      fib(30) 要呼叫 270 萬次，但 Stack 最深只有 30 層 —— 因為左子樹跑完就被 pop 光了，右子樹才開始。<br>
+      所以 fib 的病是「<b>慢</b>」（時間 O(2ⁿ)，靠 memo 解決），不是「<b>爆</b>」（空間只有 O(n)）。
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">幫我把「呼叫堆疊」變成看得見的東西。
+
+寫一個裝飾器 @trace，套在任何遞迴函式上都能印出呼叫過程（用縮排表示深度）：
+
+→ fact(3)
+  → fact(2)
+    → fact(1)
+    ← fact(1) 回傳 1
+  ← fact(2) 回傳 2
+← fact(3) 回傳 6
+
+要求：
+1. 用全域變數記錄目前深度
+2. 同時統計「總呼叫次數」與「最大深度」，結束後印出
+3. 分別套到 fact(5)、fib(10)、hanoi(3) 上，做一張三者的比較表
+4. 用 sys.getrecursionlimit() 說明 Python 的遞迴上限
+
+最後回答：為什麼 fib(10) 的呼叫次數遠大於最大深度？</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li>畫出 <code>fact(3)</code> 的完整 push/pop 過程（6 個步驟）</li>
+        <li>忘記寫基底條件會發生什麼事？錯誤訊息叫什麼？</li>
+        <li>為什麼迴圈跑一億次不會 Stack Overflow，但遞迴一萬層就會？</li>
+      </ol>
+    </div>
+
+    <div class="gotcha">
+      <b>⚠️ 常見卡關</b>
+      <ul>
+        <li>以為所有遞迴呼叫「同時存在」於 Stack 上 → 用費氏模式單步走給他看，左邊算完就消失了</li>
+        <li>以為每層共用同一個變數 n → 指著畫面上每個 frame 各自的參數</li>
+        <li>把「慢」跟「爆記憶體」混為一談</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== 第 6 站 ===== -->
+  <div class="page" id="s6">
+    <div class="station-head"><div class="num">6</div><h1>河內塔</h1></div>
+    <p class="oneline">同時出現兩種 Stack：三根柱子是 Stack，解法又靠呼叫堆疊。</p>
+    <div class="meta"><span>⏱ 2 節課</span><span>難度 ★★★</span><span class="file">河內塔遊戲-可互動.html</span><span class="file">Prompt執行教材-Stack應用-河內塔.html</span></div>
+
+    <a class="btn-game" href="河內塔遊戲-可互動.html" target="_blank">🎮 開啟遊戲：河內塔（可互動）</a>
+    <a class="btn-game gray" href="Prompt執行教材-Stack應用-河內塔.html" target="_blank">📘 開啟河內塔教材</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>能講出三步法：搬 n−1 上去 → 搬最大的 → 再搬 n−1 回來</li>
+        <li>能推導 <code>T(n) = 2T(n−1) + 1 → 2ⁿ − 1</code></li>
+        <li>看出「柱子只能動最上面那個」＝ Stack 的定義</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作</div>
+      <ol>
+        <li>先讓學生<b>用手玩</b> n=3，計時、記步數。多數人第一次會超過 7 步</li>
+        <li>再玩 n=4，讓他們崩潰一次（15 步）→ 此時才引入「三步法」</li>
+        <li>回到第 5 站的遊戲，切到<b>河內塔模式</b>，單步觀察遞迴怎麼分解</li>
+        <li>對照兩邊：畫面上的 frame 一層，就是「把 n−1 個交給下一層」一次</li>
+      </ol>
+    </div>
+
+    <div class="note">
+      <b>教學重點：不要試著想「第一步該搬哪個」</b>，那會卡死。<br>
+      遞迴思維是：<b>假設 n−1 個已經有人會搬了</b>，我只負責定義這一層怎麼拆成三步。<br>
+      這就是數學歸納法，也是所有遞迴題的通關密語。
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">用兩種方式解河內塔，並比較它們。
+
+1. 遞迴版 hanoi(n, a, c, b)：印出每一步「移動盤子 k：X → Y」
+2. 迭代版 hanoi_iter(n, a, c, b)：不准用 recursion，
+   自己拿一個 list 當 Stack，裡面存「還沒展開的任務」
+
+要求：
+- 兩版對 n = 1~8 的輸出必須完全一致（寫程式自動比對）
+- 驗證步數等於 2^n - 1
+- 印出迭代版每一步的 Stack 內容，讓我看見「自己管理 Stack」長什麼樣
+- 用三根真的 list 模擬柱子，檢查全程沒有「大盤壓小盤」
+
+最後回答：
+① 迭代版 push 三個子任務時，為什麼順序要反過來寫？
+② 什麼情況下「自己管理 Stack」比遞迴好？</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li>n=4 時最少要幾步？用公式算，不要用數的</li>
+        <li>傳說中 64 個金盤要搬多久？（一秒一步 → 約 5850 億年）</li>
+        <li>為什麼「不能大壓小」這條規則，會讓每根柱子自動變成一個 Stack？</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===== 第 7 站 ===== -->
+  <div class="page" id="s7">
+    <div class="station-head"><div class="num">7</div><h1>DFS 迷宮：Stack vs Queue</h1></div>
+    <p class="oneline">同一份程式碼，只改一行，演算法就從 BFS 變 DFS。</p>
+    <div class="meta"><span>⏱ 1 節課</span><span>難度 ★★★</span><span class="file">Queue遊戲2-BFS迷宮.html</span></div>
+
+    <a class="btn-game" href="Queue遊戲2-BFS迷宮.html" target="_blank">🎮 開啟遊戲：迷宮（Queue / Stack 雙模式）</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>親眼看到「換一個容器 = 換一個演算法」</li>
+        <li>知道 BFS 保證最短路徑、DFS 不保證，並說得出原因</li>
+        <li>知道兩者的空間差異：整圈邊界 vs 一條路徑</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作（一定要用同一個迷宮跑兩次）</div>
+      <ol>
+        <li>按「🌀 隨機迷宮」產生地圖，<b>先不要換</b></li>
+        <li>用 <b>📦 Queue → BFS</b> 跑完，記下：路徑長度、走訪格數</li>
+        <li>切到 <b>🥞 Stack → DFS</b>，同一個迷宮再跑一次，記下同樣兩個數字</li>
+        <li>比較擴散形狀：BFS 像水波紋，DFS 像一條蛇</li>
+      </ol>
+    </div>
+
+    <table>
+      <tr><th>模式</th><th>路徑長度</th><th>走訪格數</th><th>是否最短</th></tr>
+      <tr><td>Queue（BFS）</td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+      <tr><td>Stack（DFS）</td><td class="blank">　</td><td class="blank">　</td><td class="blank">　</td></tr>
+    </table>
+
+    <div class="note">
+      <b>把第 5 站接起來：</b>DFS 的遞迴寫法，用的就是<b>呼叫堆疊</b>；
+      DFS 的迭代寫法，是你<b>自己拿一個 list 當 Stack</b>。<br>
+      兩種寫法完全等價 —— 差別只在「Stack 由誰管理」。這正是第 6 站河內塔的同一個結論。
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">寫一份走迷宮程式，同時支援 BFS 和 DFS，兩者只差一行。
+
+maze = [
+    "S.#.......",
+    ".#.###.##.",
+    ".#.....#..",
+    ".####.##.#",
+    "........#E",
+]
+S=起點 E=終點 #=牆 .=可走
+
+要求：
+1. 寫 solve(maze, mode)，mode 是 "bfs" 或 "dfs"
+2. 兩種模式共用同一份程式碼，只有取出元素那一行不同
+   （deque.popleft() vs list.pop()）
+3. 回傳 (路徑長度, 走訪格數, 路徑座標)
+4. 把路徑印在迷宮上（用 * 標記）
+5. 額外寫一個「遞迴版 DFS」，證明它和迭代版走訪順序一致
+
+最後回答：
+① 為什麼 BFS 保證最短、DFS 不保證？
+② 什麼情況下我該選 DFS？（提示：記憶體、只想知道有沒有路）</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li>同一個迷宮，為什麼 DFS 找到的路比較長？</li>
+        <li>迷宮很大時，哪一個比較省記憶體？為什麼？</li>
+        <li>把 DFS 的 <code>pop()</code> 換成 <code>popleft()</code>，程式還會不會找到路？（會，但變 BFS）</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===== 第 8 站 ===== -->
+  <div class="page" id="s8">
+    <div class="station-head"><div class="num new">8</div><h1>單調堆疊 <span class="legend-new">新遊戲</span></h1></div>
+    <p class="oneline">最後一關，也是面試最愛考的一關：O(n²) 用 Stack 壓成 O(n)。</p>
+    <div class="meta"><span>⏱ 2 節課</span><span class="hard">難度 ★★★★</span><span class="file">Stack遊戲2-單調堆疊.html</span></div>
+
+    <a class="btn-game" href="Stack遊戲2-單調堆疊.html" target="_blank">🎮 開啟遊戲：單調堆疊</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>看出「柱狀圖最大矩形」和「每日溫度」是同一題</li>
+        <li>能講出核心洞察：來了更矮的，前面比它高的就可以結算並丟掉</li>
+        <li>知道為什麼 Stack 會自動保持單調（不是刻意維護的）</li>
+        <li>能用攤還分析解釋「有 while 迴圈但仍是 O(n)」</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 課堂操作（先溫度、後柱狀圖 —— 溫度比較好懂）</div>
+      <ol>
+        <li>切到 <b>🌡️ 每日溫度</b>，跑經典測資，看答案格子一格一格被填滿</li>
+        <li>特別停在第 5 天（72°）：<b>一次連續彈出兩個</b>，問學生為什麼</li>
+        <li>切到 <b>📊 柱狀圖最大矩形</b>，跑 <code>2,1,5,6,2,3</code>，看紅色矩形怎麼被算出來</li>
+        <li>盯住右下角「總 push+pop」欄位：無論資料多長，它永遠 ≤ 2n</li>
+        <li>試 <code>1,2,3,4,5</code>（全遞增）→ 觀察哨兵 0 出場時把 Stack 一次清空</li>
+      </ol>
+    </div>
+
+    <h3>🔍 觀察任務</h3>
+    <table>
+      <tr><th>測資</th><th>答案</th><th>總 push+pop</th><th>2n 是多少</th><th>有沒有超過</th></tr>
+      <tr><td>2,1,5,6,2,3</td><td class="blank">　</td><td class="blank">　</td><td>12</td><td class="blank">　</td></tr>
+      <tr><td>1,2,3,4,5</td><td class="blank">　</td><td class="blank">　</td><td>10</td><td class="blank">　</td></tr>
+      <tr><td>5,4,3,2,1</td><td class="blank">　</td><td class="blank">　</td><td>10</td><td class="blank">　</td></tr>
+      <tr><td>4,4,4,4</td><td class="blank">　</td><td class="blank">　</td><td>8</td><td class="blank">　</td></tr>
+    </table>
+
+    <div class="note">
+      <b>本站最重要的一句話：</b>如果 <code>j &lt; i</code> 而且 <code>h[j] ≥ h[i]</code>，那 j 永遠不可能再變成答案的候選 ——
+      <b>既然如此，現在就把它結算掉、丟出 Stack。</b><br>
+      「單調」是這條規則的<b>副產品</b>，不是我們刻意維護的性質。這句話聽懂，整題就通了。
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 本站作業 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">先用暴力解，再用單調堆疊優化「柱狀圖中最大的矩形」。
+
+步驟：
+1. 寫 O(n²) 暴力解 brute(h)
+2. 寫 O(n) 單調堆疊解 fast(h)（用哨兵 0 收尾）
+3. 隨機測試 1000 組陣列，驗證兩者答案完全相同
+4. 用 n = 10000 實測兩者耗時，印出加速倍數
+
+測資要包含：[2,1,5,6,2,3]（答案 10）、全部一樣高、遞增、遞減、只有一根
+
+接著用同一個模板解「每日溫度」，並做一張表比較兩題的四個空格：
+(a) Stack 存什麼 (b) 單調方向 (c) 彈出條件 (d) 彈出時做什麼
+
+最後回答：
+① Stack 為什麼存索引而不是存高度？
+② 有 while 巢狀迴圈，為什麼整體還是 O(n)？</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 檢核點</h4>
+      <ol>
+        <li>手算 <code>[2,1,5,6,2,3]</code>，寫出彈出第 2 根（高 5）時的左界、右界、面積</li>
+        <li>沒有哨兵的話，<code>[1,2,3]</code> 會回傳什麼？為什麼錯？</li>
+        <li>「每個元素最多 push 一次 pop 一次」這句話，為什麼能證明是 O(n)？</li>
+      </ol>
+    </div>
+
+    <div class="gotcha">
+      <b>⚠️ 常見卡關（這站掉隊最多，慢慢來）</b>
+      <ul>
+        <li>存高度不存索引 → 算不出寬度。<b>一律存索引</b></li>
+        <li>左界寫成 <code>stack[-1]</code> 而不是 <code>stack[-1] + 1</code></li>
+        <li>看到 while 就以為是 O(n²) → 請他打開遊戲盯著 push+pop 計數器</li>
+        <li>如果全班卡住，退回第 4 站的比喻：Stack 裝的是「還沒結案的東西」</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== 第 9 站 ===== -->
+  <div class="page" id="s9">
+    <div class="station-head"><div class="num final">9</div><h1>期末專案：對話記憶管理系統</h1></div>
+    <p class="oneline">把八站學到的東西，裝進一個真的會跑的 AI 系統。</p>
+    <div class="meta"><span>⏱ 3 節課</span><span class="hard">難度 ★★★★</span><span class="file">教材-対話記憶管理系統.html</span><span class="file">backend/app/data_structures.py</span></div>
+
+    <a class="btn-game alt" href="教材-対話記憶管理系統.html" target="_blank">📗 開啟專案教材</a>
+    <a class="btn-game gray" href="AI時代的資料結構教材-設計導向.html" target="_blank">📘 設計導向教材</a>
+
+    <div class="goal">
+      <h4>🎯 學習目標</h4>
+      <ul>
+        <li>能為「一個真實需求」挑對資料結構，並說明為什麼不選其他的</li>
+        <li>把 Stack（撤回）與 Queue（訊息順序）用在同一個系統裡</li>
+        <li>寫得出測試，證明自己的選擇是對的</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🎮 專案任務</div>
+      <ol>
+        <li>對話訊息用什麼存？要能「照順序讀」也要能「收回上一則」</li>
+        <li>「收回上一則訊息」用 Stack —— 存動作還是存內容？（回到第 3 站的結論）</li>
+        <li>上下文視窗滿了要丟掉最舊的 —— 這是 Stack 還是 Queue 的工作？</li>
+        <li>幫每個決定寫一段註解：<b>為什麼選它、不選另一個會怎樣</b></li>
+      </ol>
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-header">✂️ 期末專案 Prompt</div>
+      <div class="prompt-content">
+        <div class="prompt-box">幫我審查 backend/app/data_structures.py，站在資料結構課的角度。
+
+請針對每一個資料結構回答：
+1. 它解決的需求是什麼？
+2. 為什麼選這個結構，而不是另一個？（至少比較一個替代方案）
+3. 每個操作的時間複雜度是多少？有沒有藏著 O(n) 的陷阱？
+   （特別檢查有沒有用 list.pop(0) 或 list.insert(0, x) 這種假 Queue）
+4. 如果對話長度成長到 10 萬則，哪裡會先爆掉？
+
+然後幫我補上「收回上一則訊息」功能：
+- 用 Stack 實作，支援連續收回
+- 要能處理「收回後又發新訊息」的情況
+- 附測試案例
+
+最後給我一張表：這個專案用到哪些資料結構、各自負責什麼、複雜度多少。</div>
+        <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+      </div>
+    </div>
+
+    <div class="check">
+      <h4>✅ 期末檢核（口頭報告，每人 5 分鐘）</h4>
+      <ol>
+        <li>你的系統裡哪裡用了 Stack？如果改用 Queue 會發生什麼事？</li>
+        <li>示範一次「連續收回三則訊息再發新訊息」，畫出兩個 Stack 的變化</li>
+        <li>從九站裡挑一個你覺得最有用的概念，說明理由</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===== 教學建議 ===== -->
+  <div class="page">
+    <h1>👩‍🏫 給老師的教學建議</h1>
+
+    <h2>翻轉教室流程（每站通用）</h2>
+    <table>
+      <tr><th>階段</th><th>時間</th><th>做什麼</th></tr>
+      <tr><td>① 提問</td><td>5 分</td><td>先問「這題你會怎麼做」，讓學生講出暴力解</td></tr>
+      <tr><td>② 玩遊戲</td><td>15 分</td><td>學生自己按單步，填觀察表 —— <b>老師先不要解釋</b></td></tr>
+      <tr><td>③ 對答案</td><td>10 分</td><td>全班對觀察表，錯的地方就是講解重點</td></tr>
+      <tr><td>④ 講解</td><td>15 分</td><td>用遊戲頁的「🧠 解法解說」講，直接投影手算表格</td></tr>
+      <tr><td>⑤ Prompt 作業</td><td>15 分</td><td>丟給 Claude，學生負責<b>驗收與提問</b>，不是抄程式碼</td></tr>
+      <tr><td>⑥ 檢核</td><td>5 分</td><td>隨機抽人回答檢核點</td></tr>
+    </table>
+
+    <div class="note">
+      <b>最重要的原則：讓學生先猜錯。</b><br>
+      單步執行時先問「下一步 Stack 會怎麼變」，猜錯再按下去 —— 印象比直接講解深得多。
+      這也是這套教材做成互動遊戲而不是投影片的唯一理由。
+    </div>
+
+    <h2>評量建議配分</h2>
+    <table>
+      <tr><th>項目</th><th>配分</th><th>說明</th></tr>
+      <tr><td>觀察學習單（8 張）</td><td>20%</td><td>每站的填表，看的是預測有沒有寫，不是對錯</td></tr>
+      <tr><td>Prompt 作業（8 份）</td><td>30%</td><td>重點是<b>學生對 Claude 的追問</b>與驗收，不是程式碼本身</td></tr>
+      <tr><td>檢核點口試</td><td>20%</td><td>隨堂抽問，能講出「為什麼」就給分</td></tr>
+      <tr><td>期末專案</td><td>30%</td><td>資料結構選得對不對 ＋ 說得出理由</td></tr>
+    </table>
+
+    <h2>常見的三個教學陷阱</h2>
+    <div class="gotcha">
+      <b>⚠️ 別踩</b>
+      <ul>
+        <li><b>先講程式碼再玩遊戲</b> → 學生會照抄，失去自己推理的機會。順序一定是「玩 → 猜 → 講」</li>
+        <li><b>跳過第 5 站直接教第 8 站</b> → 沒有「等待中的事情」這個直覺，單調堆疊會變成背公式</li>
+        <li><b>把 Claude 當答案機</b> → 每份作業都要求學生回答一個「為什麼」，那部分不能貼 Claude 的答案</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== 附錄 ===== -->
+  <div class="page">
+    <h1>📁 檔案清單</h1>
+    <table>
+      <tr><th>檔案</th><th>用在第幾站</th><th>類型</th></tr>
+      <tr><td><a href="Stack新版教材-遊戲化學習路徑.html">Stack新版教材-遊戲化學習路徑.html</a></td><td>全部（你正在看的這份）</td><td>教材主頁</td></tr>
+      <tr><td><a href="Prompt執行教材-Stack.html" target="_blank">Prompt執行教材-Stack.html</a></td><td>1、2、3</td><td>舊版教材（7 天）</td></tr>
+      <tr><td><a href="Stack遊戲1-運算式計算機.html" target="_blank">Stack遊戲1-運算式計算機.html</a></td><td>4</td><td>互動遊戲 <span class="legend-new">新</span></td></tr>
+      <tr><td><a href="Stack遊戲3-呼叫堆疊.html" target="_blank">Stack遊戲3-呼叫堆疊.html</a></td><td>5</td><td>互動遊戲 <span class="legend-new">新</span></td></tr>
+      <tr><td><a href="河內塔遊戲-可互動.html" target="_blank">河內塔遊戲-可互動.html</a></td><td>6</td><td>互動遊戲</td></tr>
+      <tr><td><a href="Prompt執行教材-Stack應用-河內塔.html" target="_blank">Prompt執行教材-Stack應用-河內塔.html</a></td><td>6</td><td>教材</td></tr>
+      <tr><td><a href="Queue遊戲2-BFS迷宮.html" target="_blank">Queue遊戲2-BFS迷宮.html</a></td><td>7</td><td>互動遊戲</td></tr>
+      <tr><td><a href="Stack遊戲2-單調堆疊.html" target="_blank">Stack遊戲2-單調堆疊.html</a></td><td>8</td><td>互動遊戲 <span class="legend-new">新</span></td></tr>
+      <tr><td><a href="教材-対話記憶管理系統.html" target="_blank">教材-対話記憶管理系統.html</a></td><td>9</td><td>專案教材</td></tr>
+    </table>
+
+    <h2>Queue 的路線（另一條線）</h2>
+    <p style="font-size:15px;color:#475569;">
+      學完 Stack 之後，Queue 有自己的三個遊戲可以接：
+      <a href="Queue遊戲1-約瑟夫問題.html" target="_blank">約瑟夫問題</a>、
+      <a href="Queue遊戲2-BFS迷宮.html" target="_blank">BFS 迷宮</a>、
+      <a href="Queue遊戲3-油漆桶填充.html" target="_blank">油漆桶填充</a>。
+      建議在本教材第 7 站之後銜接，那時學生剛好剛比較過 Stack 與 Queue。
+    </p>
+  </div>
+
+</div>
+
+<script>
+/* ---- 複製 Prompt（沿用舊版教材的行為）---- */
+function copyToClipboard(button){
+  const box = button.previousElementSibling;
+  const text = box.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    button.textContent = '✅ 已複製！';
+    setTimeout(() => { button.textContent = '複製 Prompt'; }, 2000);
+  }).catch(() => {
+    button.textContent = '⚠️ 請手動複製';
+    setTimeout(() => { button.textContent = '複製 Prompt'; }, 2000);
+  });
+}
+
+/* ---- 進度追蹤 ---- */
+const STATIONS = [
+  ['s1','第 1 站　Stack 是什麼 · 動手實作','★'],
+  ['s2','第 2 站　括號配對','★'],
+  ['s3','第 3 站　Undo / Redo 撤回','★★'],
+  ['s4','第 4 站　運算式計算機','★★★'],
+  ['s5','第 5 站　呼叫堆疊','★★★'],
+  ['s6','第 6 站　河內塔','★★★'],
+  ['s7','第 7 站　DFS 迷宮：Stack vs Queue','★★★'],
+  ['s8','第 8 站　單調堆疊','★★★★'],
+  ['s9','第 9 站　期末專案','★★★★'],
+];
+const KEY = 'stack-course-progress-v2';
+
+function loadDone(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveDone(d){
+  try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
+}
+
+function buildTrack(){
+  const done = loadDone();
+  const ul = document.getElementById('track');
+  ul.innerHTML = '';
+  STATIONS.forEach(([id, name, lv]) => {
+    const li = document.createElement('li');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!done[id];
+    cb.onchange = () => {
+      const d = loadDone();
+      if (cb.checked) d[id] = true; else delete d[id];
+      saveDone(d);
+      updateBar();
+    };
+    const a = document.createElement('a');
+    a.href = '#' + id;
+    a.textContent = name;
+    const lvl = document.createElement('span');
+    lvl.className = 'lv';
+    lvl.textContent = lv;
+    li.appendChild(cb); li.appendChild(a); li.appendChild(lvl);
+    ul.appendChild(li);
+  });
+  updateBar();
+}
+
+function updateBar(){
+  const done = loadDone();
+  const n = STATIONS.filter(s => done[s[0]]).length;
+  const pct = Math.round(n / STATIONS.length * 100);
+  document.getElementById('barFill').style.width = pct + '%';
+  document.getElementById('pctText').textContent =
+    n + ' / ' + STATIONS.length + ' 站完成（' + pct + '%）'
+    + (n === STATIONS.length ? '　🎉 全部完成！' : '');
+}
+
+buildTrack();
+</script>
+</body>
+</html>

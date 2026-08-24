@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>約瑟夫問題 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：圍成一圈的人 ============ */
+.ring-wrap{display:grid;place-items:center;padding:6px 0}
+.ring{position:relative;width:100%;max-width:420px;aspect-ratio:1}
+.ring::before{
+  content:'';position:absolute;inset:12%;
+  border:2px dashed var(--line);border-radius:50%;
+}
+.person{
+  position:absolute;width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-weight:800;font-size:16px;
+  background:var(--surface-2);color:var(--ink);
+  border:2px solid var(--line);
+  transition:background var(--dur),color var(--dur),transform var(--dur),
+             border-color var(--dur),opacity var(--dur);
+}
+.person.counting{background:var(--accent);color:var(--surface);border-color:var(--accent);
+  transform:scale(1.24);z-index:5;box-shadow:var(--shadow-lift)}
+.person.out{background:var(--sunken);color:var(--ink-faint);border-color:var(--line-soft);
+  opacity:.4;transform:scale(.76)}
+.person.survivor{background:var(--jade);color:var(--surface);border-color:var(--jade);
+  transform:scale(1.3);z-index:6;box-shadow:0 0 0 5px var(--jade-soft),var(--shadow-lift)}
+.person.guess{outline:2px dashed var(--ink);outline-offset:3px}
+.person .badge{
+  position:absolute;top:-8px;right:-6px;
+  min-width:20px;height:20px;padding:0 4px;border-radius:999px;
+  background:var(--alarm);color:#fff;
+  font-size:11px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* 佇列即時狀態 */
+.qview{display:flex;gap:4px;flex-wrap:wrap;min-height:42px;padding:9px;
+  background:var(--sunken);border:1px solid var(--line-soft);border-radius:8px}
+.qitem{width:32px;height:32px;border-radius:6px;
+  background:var(--surface-2);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-weight:700;font-size:13px;
+  border:1px solid var(--line-soft)}
+.qitem.front{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.qends{display:flex;justify-content:space-between;margin-top:5px;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--ink-faint)}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">06 · 佇列</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 06 · Josephus Problem</p>
+    <h1>約瑟夫問題</h1>
+    <p class="lede">n 個人圍成一圈報數，數到 k 的人出局，然後從下一個人重新數。你要站哪個位置才能活到最後？這個西元 67 年的求生問題，答案就藏在佇列的兩個基本操作裡。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>佇列 Queue</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>模擬法</span><b>O(n·k)</b></div>
+      <div class="fact"><span>公式法</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列、迴圈</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先押一個位置，再看它到底活不活得下來。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面左邊是圍成一圈的人，右邊是同一群人在佇列裡的排隊順序。兩邊是同一件事的兩種畫法 —— 這正是這個遊戲要你看見的。</p>
+          <ol class="steps">
+            <li>設定<b>人數 n</b> 和<b>報數到 k</b>。</li>
+            <li>在「我猜第 □ 號活」押一個位置。被你押的人會有虛線外框。</li>
+            <li>按 <b>單步</b> 一次跑一個 dequeue，看清楚每一次「出隊」之後是回到隊尾還是被淘汰。</li>
+            <li>看懂之後改按 <b>自動播放</b>，用滑桿調速度。</li>
+            <li>猜中了會有提示；沒猜中就換個位置再來。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">看這裡</span>
+            <span class="txt">右邊佇列的<b>第一格（橘色）</b>永遠是下一個要報數的人。每按一次單步，這一格就會離開隊伍 —— 然後要嘛排到最後面，要嘛直接消失。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>佇列的 FIFO 特性</b> —— 先進先出。從隊頭出、從隊尾進，永遠只碰兩端。</li>
+            <li><b>用 dequeue + enqueue 模擬繞圈</b> —— 這是本頁最重要的一招：<b>「圍成一圈」和「排隊」其實是同一件事</b>。</li>
+            <li><b>為什麼不能用 <code>vector.erase(begin())</code></b> —— 陣列從頭刪除要搬動所有元素，是 O(n)；佇列的 dequeue 是 O(1)。</li>
+            <li><b>兩種解法的取捨</b> —— 模擬法看得見過程但慢，數學公式快但看不見過程。</li>
+            <li><b>遞推公式 J(n) = (J(n−1) + k) mod n</b> —— 為什麼「殺掉一個人之後就是同一個子問題」。</li>
+            <li><b>k = 2 的二進位規律</b> —— 一個漂亮到不像真的的結論。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用 <b>n=7、k=3</b> 單步走完一輪（答案是 4 號），對照第 03 段的手算表。再把 k 設成 <b>2</b>，試 n=1 到 8，自己找出規律。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">左邊是圈，右邊是佇列 —— 同一件事的兩種看法。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">設定</span>
+        <div class="ctl"><label>人數 n</label><input type="number" id="nIn" value="7" min="3" max="24"></div>
+        <div class="ctl"><label>報數到 k</label><input type="number" id="kIn" value="3" min="2" max="9"></div>
+        <div class="ctl"><label>我猜第</label><input type="number" id="guessIn" value="1" min="1"><label>號活</label></div>
+        <div class="ctl"><label>速度</label><input type="range" id="spd" min="60" max="900" value="420"></div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">圍成一圈</h3>
+            <span class="panel-note" id="ringNote"></span>
+          </div>
+
+          <div class="ring-wrap"><div class="ring" id="ring"></div></div>
+
+          <div class="controls">
+            <button class="btn btn-primary" id="btnStep" type="button">⏭ 單步（一次 dequeue）</button>
+            <button class="btn" id="btnAuto" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重新開始</button>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">READY</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">設定好人數與 k，押一個位置</div>
+              <div class="say-text" id="sayText">按「單步」一次跑一個 dequeue。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">佇列 Queue</h3>
+              <span class="panel-note" id="qNote">size 0</span>
+            </div>
+            <div class="qview" id="qview"></div>
+            <div class="qends"><span>▲ FRONT 下一個報數</span><span>REAR ▼</span></div>
+            <div class="stats">
+              <div class="stat"><div class="k">報數次數</div><div class="v" id="sCount">0</div></div>
+              <div class="stat" data-k="no"><div class="k">已出局</div><div class="v" id="sOut">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">剩餘</div><div class="v" id="sAlive">7</div></div>
+              <div class="stat" data-k="hot"><div class="k">報到</div><div class="v" id="sTick">1</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">演算法</h3>
+              <span class="panel-note">O(n·k)</span>
+            </div>
+            <ol class="algo" id="algo"></ol>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+
+        </div>
+      </div>
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把畫面全部拿掉，模擬法就這麼幾行：</p>
+                <pre class="code"><i>// 模擬法：用佇列</i>
+#include &lt;queue&gt;
+using namespace std;
+
+int josephus(int n, int k) {
+    queue&lt;int&gt; q;
+    for (int i = 1; i &lt;= n; i++) q.push(i);
+    while (q.size() &gt; 1) {
+        for (int i = 0; i &lt; k - 1; i++) {
+            <b>q.push(q.front()); q.pop();</b>   <i>// 沒中，回到隊尾</i>
+        }
+        <b>q.pop();</b>                          <i>// 中了，直接淘汰</i>
+    }
+    return q.front();
+}
+
+<i>// 公式法：更快，但看不見過程</i>
+int josephusFast(int n, int k) {
+    int r = 0;                            <i>// J(1) = 0</i>
+    for (int i = 2; i &lt;= n; i++)
+        r = (r + k) % i;
+    return r + 1;
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「圍成一圈」怎麼變成「排隊」開始講。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>n 個人圍成一圈，編號 1 到 n。從 1 號開始報數 1、2、3…，<b>數到 k 的人出局</b>，接著由他的下一個人<b>重新從 1 開始報</b>，直到只剩一個人。求生還者的編號。</p>
+        <div class="callout">
+          <span class="tag">故事</span>
+          <span class="txt">西元 67 年，猶太史學家 <b>Flavius Josephus</b> 和 40 名同伴被羅馬軍隊困在山洞。同伴決定圍成一圈，每數到 3 的人就自殺，也不投降。約瑟夫不想死，他當場算出「第幾個位置會活到最後」，悄悄站過去 —— 最後他活了下來。你現在玩的，就是他在山洞裡算的東西。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵洞察：圍成一圈，就是排隊</h3>
+        <p>圓圈很難用程式表示 —— 沒有開頭也沒有結尾。但只要換個角度就通了：</p>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt"><b>「輪到你報數，報完沒中，你走到隊伍最後面重新排隊」</b> —— 從隊伍的角度看，這跟繞一圈回到原位是完全一樣的事。</span>
+        </div>
+        <p>一旦這樣看，整個問題就只剩佇列的兩個基本操作：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>圈子裡發生的事</th><th>佇列的操作</th><th>結果</th></tr></thead>
+            <tbody>
+              <tr><td>輪到隊頭的人報數</td><td class="mono">dequeue()</td><td>他離開隊伍</td></tr>
+              <tr><td>報的數不是 k，安全</td><td class="mono">enqueue(他)</td><td>回到隊尾，等下一輪</td></tr>
+              <tr><td>報的數正好是 k，出局</td><td>（什麼都不做）</td><td>他就這樣消失了</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>注意第三列：<b>「出局」在程式裡不需要任何動作</b>。dequeue 出來之後不把他放回去，他就自動不見了。這是這個解法最漂亮的地方。</p>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <pre class="code">queue ← [1, 2, 3, ..., n]              <i>// 所有人排成一列</i>
+
+while queue 的長度 &gt; 1:
+    重複 k−1 次:
+        queue.enqueue(queue.dequeue())  <i>// 報數 1~k−1：出隊，再回隊尾</i>
+    out ← queue.dequeue()               <i>// 報數第 k 個：出隊，不放回</i>
+    記錄 out 出局
+
+return queue.dequeue()                  <i>// 剩下的就是生還者</i></pre>
+        <p>整個演算法只有 <b>dequeue</b> 和 <b>enqueue</b> 兩種操作，沒有搜尋、沒有刪除中間元素、也沒有陣列搬移。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：n = 7、k = 3</h3>
+        <p>佇列由左到右就是排隊順序，最左邊是 front。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">報數</th><th class="mono">出隊的人</th><th>處置</th><th class="mono">佇列（front → rear）</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">—</td><td class="mono">—</td><td>初始</td><td class="mono">1 2 3 4 5 6 7</td></tr>
+              <tr><td class="mono">1</td><td class="mono">1</td><td>回隊尾</td><td class="mono">2 3 4 5 6 7 1</td></tr>
+              <tr><td class="mono">2</td><td class="mono">2</td><td>回隊尾</td><td class="mono">3 4 5 6 7 1 2</td></tr>
+              <tr><td class="mono">3</td><td class="mono">3</td><td style="color:var(--alarm);font-weight:700">出局</td><td class="mono">4 5 6 7 1 2</td></tr>
+              <tr><td class="mono">1</td><td class="mono">4</td><td>回隊尾</td><td class="mono">5 6 7 1 2 4</td></tr>
+              <tr><td class="mono">2</td><td class="mono">5</td><td>回隊尾</td><td class="mono">6 7 1 2 4 5</td></tr>
+              <tr><td class="mono">3</td><td class="mono">6</td><td style="color:var(--alarm);font-weight:700">出局</td><td class="mono">7 1 2 4 5</td></tr>
+              <tr><td class="mono">1</td><td class="mono">7</td><td>回隊尾</td><td class="mono">1 2 4 5 7</td></tr>
+              <tr><td class="mono">2</td><td class="mono">1</td><td>回隊尾</td><td class="mono">2 4 5 7 1</td></tr>
+              <tr><td class="mono">3</td><td class="mono">2</td><td style="color:var(--alarm);font-weight:700">出局</td><td class="mono">4 5 7 1</td></tr>
+              <tr><td class="mono" colspan="3" style="color:var(--ink-faint)">…同樣的節奏繼續，依序淘汰 7、5、1…</td><td class="mono">4</td></tr>
+              <tr><td class="mono">—</td><td class="mono">—</td><td style="color:var(--jade);font-weight:700">生還</td><td class="mono" style="color:var(--jade);font-weight:700">4 號</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>出局順序是 <code>3 → 6 → 2 → 7 → 5 → 1</code>，生還者是 <b>4 號</b>。在上面的遊戲設 n=7、k=3 單步走一遍，對照這張表。</p>
+      </div>
+
+      <div class="block">
+        <h3>為什麼一定要用佇列，不能用一般陣列</h3>
+        <p>用陣列也能做，但「把第一個元素拿掉」這件事在陣列裡很貴 —— 後面所有元素都要往前搬一格。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>做法</th><th class="mono">取出隊頭</th><th class="mono">放回隊尾</th><th>n = 100000 時</th></tr></thead>
+            <tbody>
+              <tr><td>陣列 <code>vector</code></td><td class="mono" style="color:var(--alarm)">erase(begin()) → O(n)</td><td class="mono">push_back() → O(1)</td><td style="color:var(--alarm)">慢到不能用</td></tr>
+              <tr><td><code>std::queue</code>（底層是 deque）</td><td class="mono" style="color:var(--jade)">pop() → O(1)</td><td class="mono">push() → O(1)</td><td style="color:var(--jade)">瞬間完成</td></tr>
+              <tr><td>環形佇列</td><td class="mono" style="color:var(--jade)">front++ → O(1)</td><td class="mono">rear++ → O(1)</td><td style="color:var(--jade)">瞬間完成，且不配置記憶體</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">差多少</span>
+          <span class="txt">n = 10 萬時，<code>erase(begin())</code> 版本和 <code>std::queue</code> 版本的差距超過 <b>一千倍</b>。這不是常數差異，是複雜度差異。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>模擬法 O(n·k)</b> —— 每淘汰一個人要做 k 次 dequeue／enqueue，總共淘汰 n−1 個人。</li>
+          <li><b>空間 O(n)</b> —— 佇列最多裝 n 個人。</li>
+          <li><b>公式法 O(n)</b> —— 見下一塊。快，但看不見過程。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>進階：不用模擬，直接算</h3>
+        <p>當你只要答案、不要過程時，有一個 O(n) 的遞推公式（這裡先用 0 起算的編號）：</p>
+        <pre class="code">J(1) = 0
+J(n) = ( J(n−1) + k ) mod n
+
+<i>// 答案（改回 1 起算）= J(n) + 1</i></pre>
+        <h4>為什麼成立</h4>
+        <p>殺掉第一個人之後，剩下 n−1 個人，這是<b>一模一樣的子問題</b> —— 只是「從誰開始數」變了。原本從 0 號開始，現在從第 k 號開始。所以只要把子問題的答案<b>整體往後移 k 格</b>，再對 n 取餘數繞回來，就是原問題的答案。</p>
+        <p>以 n=7、k=3 驗算：J(1)=0 → J(2)=1 → J(3)=1 → J(4)=0 → J(5)=3 → J(6)=0 → J(7)=3，加 1 得到 <b>4</b>。跟手算表一致。</p>
+      </div>
+
+      <div class="block">
+        <h3>彩蛋：k = 2 的二進位規律</h3>
+        <p>把 k 設成 2，試不同的 n，把生還者記下來：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">n</th><th class="mono">生還者</th><th>拆解</th><th class="mono">n 的二進位</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td class="mono">1</td><td>2⁰ + 0</td><td class="mono">1 → 1</td></tr>
+              <tr><td class="mono">2</td><td class="mono">1</td><td>2¹ + 0</td><td class="mono">10 → 01</td></tr>
+              <tr><td class="mono">3</td><td class="mono">3</td><td>2¹ + 1</td><td class="mono">11 → 11</td></tr>
+              <tr><td class="mono">4</td><td class="mono">1</td><td>2² + 0</td><td class="mono">100 → 001</td></tr>
+              <tr><td class="mono">5</td><td class="mono">3</td><td>2² + 1</td><td class="mono">101 → 011</td></tr>
+              <tr><td class="mono">6</td><td class="mono">5</td><td>2² + 2</td><td class="mono">110 → 101</td></tr>
+              <tr><td class="mono">7</td><td class="mono">7</td><td>2² + 3</td><td class="mono">111 → 111</td></tr>
+              <tr><td class="mono">8</td><td class="mono">1</td><td>2³ + 0</td><td class="mono">1000 → 0001</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">公式</span>
+          <span class="txt">把 n 寫成 <b>n = 2<sup>m</sup> + L</b>（其中 0 ≤ L &lt; 2<sup>m</sup>），生還者就是 <b>2L + 1</b>。<br>
+          更酷的說法：把 n 轉成二進位，<b>把最高位的 1 搬到最右邊</b>，就是答案。<br>
+          例：n = 13 = <code>1101</code> → <code>1011</code> = 11，所以第 11 號生還。上去驗證看看。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「出局的人要從佇列裡刪掉」</b> —— 不用。dequeue 出來之後不放回去，他就已經不在佇列裡了。特地去「刪除」反而是多做工。</li>
+          <li><b>「要記錄每個人在圈上的位置」</b> —— 不用。佇列的順序本身就是圈上的相對順序，位置只是畫面上的事。</li>
+          <li><b>「k 比人數大就不能玩」</b> —— 可以。報數會繞好幾圈才數到 k，佇列會轉很多次，結果一樣正確。</li>
+          <li><b>「用 vector.erase 也能過」</b> —— 小 n 確實能過，所以很多人不會發現問題。等到 n 變大就會炸。這是最典型的「答案對但複雜度錯」。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：這一頁是「邊算邊播」</h3>
+        <p>跟 <a href="01-bracket-matching.html">01 括號堆疊闖關</a> 不一樣。那一頁是先把整個過程算完存成陣列，這一頁則是<b>每按一次單步，才真的做一次 dequeue</b>。</p>
+        <div class="arch">
+          <div class="node" data-k="in">按下單步 / 自動播放的計時器</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">microStep() <small>真的做一次 dequeue</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">直接改動 queue 陣列 <small>沒有存快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">render() <small>把目前狀態畫出來</small></div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>做法</th><th>優點</th><th>代價</th><th>適合</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>先算完再播放</b><br><span style="color:var(--ink-faint);font-size:12px">（01 括號遊戲）</span></td>
+                <td>可以自由前進後退、跳到任一步</td>
+                <td>每步都要存快照，記憶體高</td>
+                <td>步數固定、需要倒帶教學</td>
+              </tr>
+              <tr>
+                <td><b>邊算邊播</b><br><span style="color:var(--ink-faint);font-size:12px">（本頁）</span></td>
+                <td>程式短、記憶體小，跟真實實作長得一樣</td>
+                <td><b>不能倒退</b>，只能重新開始</td>
+                <td>參數可調、重跑成本低</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">重點</span>
+          <span class="txt">本頁的 <code>microStep()</code> <b>就是真正的演算法本體</b>，一行都沒有為了畫面而改。想看真實實作長什麼樣，看它就對了。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>狀態變數</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">變數</th><th>型別</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">queue</td><td>陣列</td><td><b>唯一的真相來源</b>。還活著的人，順序就是排隊順序。</td></tr>
+              <tr><td class="mono">outSet</td><td>Set</td><td>已出局的編號。只為了畫面把他們畫成灰色，演算法不需要它。</td></tr>
+              <tr><td class="mono">tick</td><td>數字</td><td>目前報到第幾聲。數到 k 就歸零。</td></tr>
+              <tr><td class="mono">guess</td><td>數字</td><td>使用者押的位置。純粹是遊戲元素。</td></tr>
+              <tr><td class="mono">running / timer</td><td>—</td><td>自動播放用。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>注意 <code>outSet</code> 和 <code>guess</code> 是<b>畫面才需要的東西</b>。把它們拿掉，演算法照樣正確 —— 這就是「哪些是演算法、哪些是包裝」的分界線。</p>
+      </div>
+
+      <div class="block">
+        <h3>核心：microStep() 的流程</h3>
+        <p>整個遊戲的心臟只有這一個函式，每次做一件事：</p>
+        <div class="arch">
+          <div class="node" data-k="core">front ← queue.shift() <small>dequeue，隊頭出隊</small></div>
+          <div class="arrow"></div>
+          <div class="node">tick 加一，這是他報的數</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node" data-k="data">tick &lt; k<small>queue.push(front) 回隊尾</small></div>
+            <div class="node" style="border-color:var(--alarm);background:var(--alarm-soft);color:var(--alarm)">tick = k<small>不放回，tick 歸零</small></div>
+          </div>
+          <div class="arrow"></div>
+          <div class="node">render()，並檢查是否只剩一人</div>
+        </div>
+        <p>就這樣。整個約瑟夫問題就是這個分岔重複到剩一個人為止。</p>
+      </div>
+
+      <div class="block">
+        <h3>畫面層分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">函式</th><th>畫什麼</th><th>怎麼決定樣子</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">render()</td><td>總開關</td><td>依序叫下面幾塊，每次全部重畫</td></tr>
+              <tr><td class="mono">drawRing()</td><td>圓圈上的人</td><td>用三角函數算座標；顏色看 <code>outSet</code>、<code>queue[0]</code>、<code>guess</code></td></tr>
+              <tr><td class="mono">drawQueue()</td><td>右邊佇列</td><td>直接把 <code>queue</code> 陣列畫成一排方塊</td></tr>
+              <tr><td class="mono">drawStats()</td><td>四個數字</td><td>從 <code>queue.length</code>、<code>outSet.size</code> 讀</td></tr>
+              <tr><td class="mono">say() / log()</td><td>說明與歷程</td><td>由 microStep 在做決定的當下呼叫</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <span class="tag">為什麼全部重畫</span>
+          <span class="txt">每次都把整個圈重新產生一遍，聽起來很浪費，但 n 最多 24，成本可以忽略。<b>用一點效能換掉「局部更新漏改」這類 bug</b>，在教學程式裡是划算的。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th></tr></thead>
+            <tbody>
+              <tr><td>放寬人數上限</td><td><code>resetGame()</code> 裡的 <code>Math.min(24, …)</code></td></tr>
+              <tr><td>改成「反方向報數」</td><td>把 <code>queue.push()</code> 改成 <code>queue.unshift()</code>，dequeue 改成 <code>pop()</code></td></tr>
+              <tr><td>顯示出局順序</td><td><code>outSet</code> 改成陣列，記錄先後</td></tr>
+              <tr><td>加上「公式法答案」對照</td><td>寫一個 <code>josephusFormula(n,k)</code> 迴圈跑遞推式，和模擬結果比對</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <p>看懂之後，把下面這段丟給 Claude，讓它陪你把程式從頭寫一次：</p>
+        <pre class="code">用 C++ 的 std::queue 實作約瑟夫問題。
+
+情境：
+n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
+出局後由下一個人重新從 1 開始報數，直到只剩一個人。
+
+要求：
+1. 用 std::queue 實作，不要用 vector::erase(begin())
+2. 函式 josephus(n, k) 回傳生還者編號
+3. 加一個 josephus_verbose(n, k) 印出每一步的出局過程
+4. 說明為什麼「報數不中就回到隊尾」正好是 dequeue + enqueue
+5. 分析時間複雜度
+
+寫完後，用 n=7, k=3 測試，並驗證答案是 4。</pre>
+        <h4>寫完了？再挑戰這三題</h4>
+        <pre class="code">1. 用數學公式 O(n) 解約瑟夫問題（不用模擬），
+   公式：J(1)=0, J(n) = (J(n-1) + k) % n，最後 +1
+   比較「模擬法 O(n·k)」和「公式法 O(n)」在 n=100000 時的執行時間
+
+2. k=2 的特殊解：把 n 轉二進位，最高位的 1 移到最右邊。
+   驗證這個規律對 n=1~100 都成立
+
+3. 反問：如果我想活下來，給我一個函式 safe_position(n, k)
+   直接告訴我該站哪裡</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 06 約瑟夫問題</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CODE = [
+    "queue ← [1..n]",
+    "while queue 長度 > 1:",
+    "    重複 k−1 次:",
+    "        enqueue(dequeue())",
+    "    out ← dequeue()",
+    "    記錄 out 出局",
+    "return dequeue()"
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var n = 7, k = 3, guess = 1;
+  var queue = [];         // 還活著的人，順序就是排隊順序
+  var outSet = {};        // 已出局（只為了畫面）
+  var tick = 0;           // 目前報到第幾聲
+  var totalCounts = 0;
+  var running = false, timer = null, finished = false;
+  var logRows = [];
+
+  /* ---------- 演算法本體：一次 dequeue ---------- */
+  function microStep(){
+    if(finished || queue.length <= 1) return;
+
+    tick++;
+    totalCounts++;
+    var front = queue.shift();              // dequeue
+
+    if(tick < k){
+      queue.push(front);                    // 沒中 → enqueue 回隊尾
+      say("push", "報數 " + tick + "：" + front + " 號安全",
+          "還沒數到 " + k + "，<b>" + front + "</b> 號 dequeue 之後再 enqueue 回隊尾，等下一輪。");
+      pushLog("push", front, "回隊尾", 4);
+      hilite(4);
+    } else {
+      outSet[front] = 1;                    // 數到 k → 淘汰
+      say("error", "報數 " + k + "：" + front + " 號出局",
+          "數到 <b>" + k + "</b> 了。<b>" + front + "</b> 號 dequeue 之後<b>不放回去</b> —— 他就這樣從佇列裡消失了。");
+      pushLog("error", front, "出局", 5);
+      hilite(5);
+      tick = 0;
+    }
+
+    render();
+
+    if(queue.length === 1){
+      finished = true;
+      stopAuto();
+      $("btnStep").disabled = true;
+      var survivor = queue[0];
+      pushLog("ok", survivor, "生還", 7);
+      hilite(7);
+      if(survivor === guess){
+        say("done", "猜對了！生還者是 " + survivor + " 號",
+            "你押的位置活到最後。試試看換個 n 或 k，規律還在嗎？");
+      } else {
+        say("done", "生還者是 " + survivor + " 號",
+            "你押的是 <b>" + guess + "</b> 號。第 03 段有公式可以直接算出答案 —— 看完再來押一次。");
+      }
+      render();
+    }
+  }
+
+  /* ---------- 自動播放 ---------- */
+  function toggleAuto(){
+    if(finished) resetGame();
+    if(running) stopAuto(); else startAuto();
+  }
+  function startAuto(){
+    running = true;
+    $("btnAuto").textContent = "❚❚ 暫停";
+    var speed = 1000 - parseInt($("spd").value, 10);
+    timer = setInterval(function(){
+      if(finished){ stopAuto(); return; }
+      microStep();
+    }, Math.max(60, speed));
+  }
+  function stopAuto(){
+    running = false;
+    if(timer){ clearInterval(timer); timer = null; }
+    $("btnAuto").textContent = "▶ 自動播放";
+  }
+
+  /* ---------- 畫面 ---------- */
+  function render(){ drawRing(); drawQueue(); drawStats(); drawLog(); }
+
+  function drawRing(){
+    var c = $("ring");
+    c.innerHTML = "";
+    var size = c.clientWidth || 420;
+    var R = size * 0.38, cx = size/2, cy = size/2;
+    var front = queue.length ? queue[0] : null;
+
+    for(var i=1;i<=n;i++){
+      var ang = (2*Math.PI*(i-1))/n - Math.PI/2;
+      var el = document.createElement("div");
+      el.className = "person";
+      el.textContent = i;
+      el.style.left = (cx + R*Math.cos(ang) - 23) + "px";
+      el.style.top  = (cy + R*Math.sin(ang) - 23) + "px";
+
+      if(outSet[i]) el.classList.add("out");
+      else if(finished && queue.length === 1 && queue[0] === i) el.classList.add("survivor");
+      else if(i === front && !finished) el.classList.add("counting");
+
+      if(i === guess && !outSet[i]) el.classList.add("guess");
+
+      if(i === front && !finished){
+        var b = document.createElement("div");
+        b.className = "badge";
+        b.textContent = (tick + 1 > k) ? 1 : tick + 1;
+        el.appendChild(b);
+      }
+      c.appendChild(el);
+    }
+    $("ringNote").textContent = "n = " + n + " · k = " + k;
+  }
+
+  function drawQueue(){
+    var qv = $("qview");
+    qv.innerHTML = "";
+    queue.forEach(function(p, idx){
+      var d = document.createElement("div");
+      d.className = "qitem" + (idx === 0 ? " front" : "");
+      d.textContent = p;
+      qv.appendChild(d);
+    });
+    $("qNote").textContent = "size " + queue.length;
+  }
+
+  function drawStats(){
+    $("sCount").textContent = totalCounts;
+    $("sOut").textContent   = Object.keys(outSet).length;
+    $("sAlive").textContent = queue.length;
+    $("sTick").textContent  = finished ? "✓" : ((tick + 1 > k) ? 1 : tick + 1);
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", kind);
+    $("sayBadge").textContent =
+      ({push:"ENQUEUE", error:"OUT", done:"FINISH", start:"READY"})[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+
+  function pushLog(kind, who, what, line){
+    logRows.push({kind:kind, who:who, what:what});
+  }
+  function drawLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(!logRows.length){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    logRows.forEach(function(r){
+      var li = document.createElement("li");
+      li.setAttribute("data-k", r.kind);
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = ({push:"ENQ", error:"OUT", ok:"WIN"})[r.kind] || "—";
+      var b = document.createElement("b");
+      b.textContent = r.who + " 號";
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = r.what;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    });
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = logRows.length + " 步";
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    CODE.forEach(function(t){
+      var li = document.createElement("li");
+      li.textContent = t;
+      ol.appendChild(li);
+    });
+  }
+  function hilite(line){
+    var lis = $("algo").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+  }
+
+  /* ---------- 重設 ---------- */
+  function resetGame(){
+    stopAuto();
+    n = Math.max(3, Math.min(24, parseInt($("nIn").value, 10) || 7));
+    k = Math.max(2, Math.min(9,  parseInt($("kIn").value, 10) || 3));
+    $("nIn").value = n; $("kIn").value = k;
+    $("guessIn").max = n;
+    guess = Math.max(1, Math.min(n, parseInt($("guessIn").value, 10) || 1));
+    $("guessIn").value = guess;
+
+    queue = [];
+    for(var i=1;i<=n;i++) queue.push(i);
+    outSet = {};
+    tick = 0; totalCounts = 0; finished = false;
+    logRows = [];
+
+    $("btnStep").disabled = false;
+    say("start", n + " 個人圍成一圈，數到 " + k + " 的人出局",
+        "你押 <b>" + guess + "</b> 號會活下來。按「單步」看每一次 dequeue 發生什麼事。");
+    hilite(1);
+    render();
+  }
+
+  /* ---------- 事件 ---------- */
+  $("btnStep").addEventListener("click", function(){ stopAuto(); microStep(); });
+  $("btnAuto").addEventListener("click", toggleAuto);
+  $("btnReset").addEventListener("click", resetGame);
+  ["nIn","kIn"].forEach(function(id){ $(id).addEventListener("change", resetGame); });
+  $("guessIn").addEventListener("change", function(){
+    guess = Math.max(1, Math.min(n, parseInt($("guessIn").value, 10) || 1));
+    $("guessIn").value = guess;
+    render();
+  });
+  window.addEventListener("resize", drawRing);
+
+  renderAlgo();
+  resetGame();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>對話記憶管理系統 - 完整教材</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4f46e5;
+            --secondary: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif;
+            line-height: 1.8;
+            color: var(--text);
+            background-color: var(--bg);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* 页面样式 */
+        .page {
+            page-break-after: always;
+            padding: 60px 40px;
+            background: white;
+            margin-bottom: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 标题样式 */
+        h1 {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+            border-bottom: 4px solid var(--primary);
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 32px;
+            color: var(--primary);
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-left: 6px solid var(--primary);
+            padding-left: 20px;
+            font-weight: 600;
+        }
+
+        h3 {
+            font-size: 24px;
+            color: var(--secondary);
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        h4 {
+            font-size: 18px;
+            color: var(--text);
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        /* 段落和文本 */
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        /* 列表样式 */
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+            line-height: 1.8;
+        }
+
+        /* 代码块 */
+        code {
+            background-color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+        }
+
+        pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 12px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        /* 盒子和高亮 */
+        .box {
+            border-left: 4px solid var(--primary);
+            background-color: #f0f4ff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .box.info {
+            border-left-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .box.success {
+            border-left-color: var(--success);
+            background-color: #ecfdf5;
+        }
+
+        .box.warning {
+            border-left-color: #f59e0b;
+            background-color: #fffbeb;
+        }
+
+        .box.danger {
+            border-left-color: var(--danger);
+            background-color: #fef2f2;
+        }
+
+        /* 图表和流程图 */
+        .diagram {
+            background-color: #f9fafb;
+            border: 2px solid var(--border);
+            padding: 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        /* 学习目标 */
+        .objectives {
+            background-color: #ecfdf5;
+            border-left: 4px solid var(--success);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .objectives ul {
+            list-style-type: none;
+            margin-left: 0;
+        }
+
+        .objectives li:before {
+            content: "✅ ";
+            color: var(--success);
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        /* 关键概念 */
+        .concept {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        /* 对比表格 */
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .comparison-item {
+            border: 2px solid var(--border);
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .comparison-item h4 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        /* 时间轴 */
+        .timeline {
+            position: relative;
+            margin: 30px 0;
+        }
+
+        .timeline-item {
+            margin-bottom: 30px;
+            padding-left: 40px;
+            position: relative;
+        }
+
+        .timeline-item:before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 5px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+
+        .timeline-item:after {
+            content: "";
+            position: absolute;
+            left: 8px;
+            top: 25px;
+            width: 4px;
+            height: 30px;
+            background-color: var(--primary);
+        }
+
+        .timeline-item:last-child:after {
+            display: none;
+        }
+
+        .timeline-item strong {
+            color: var(--primary);
+            font-size: 16px;
+        }
+
+        /* 脚注和页码 */
+        .footer {
+            text-align: center;
+            color: var(--secondary);
+            font-size: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-number {
+            text-align: center;
+            color: var(--secondary);
+            font-size: 12px;
+            margin-top: 30px;
+        }
+
+        /* 建筑图 */
+        .architecture {
+            background-color: #f9fafb;
+            border: 2px dashed var(--border);
+            padding: 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .layer {
+            background-color: white;
+            border: 2px solid var(--primary);
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .layer.frontend {
+            border-color: #8b5cf6;
+            background-color: #faf5ff;
+            color: #8b5cf6;
+        }
+
+        .layer.backend {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            color: #3b82f6;
+        }
+
+        .layer.database {
+            border-color: #ec4899;
+            background-color: #fdf2f8;
+            color: #ec4899;
+        }
+
+        /* 打印样式 */
+        @media print {
+            body {
+                background: white;
+            }
+            .page {
+                page-break-after: always;
+                box-shadow: none;
+                margin-bottom: 0;
+            }
+            a {
+                color: var(--primary);
+                text-decoration: none;
+            }
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .page {
+                padding: 30px 20px;
+            }
+            h1 {
+                font-size: 32px;
+            }
+            h2 {
+                font-size: 24px;
+            }
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- ========== 封面页 ========== -->
+        <div class="page">
+            <div style="text-align: center; padding: 100px 0;">
+                <h1 style="border: none; margin-bottom: 50px;">對話記憶管理系統</h1>
+                <h3 style="color: var(--secondary); font-weight: 400; margin-bottom: 30px;">
+                    AI 時代的資料結構學習專案
+                </h3>
+                <div style="margin-top: 80px; font-size: 18px; color: var(--secondary);">
+                    <p style="margin-bottom: 20px;"><strong>課程級別：</strong> 大二</p>
+                    <p style="margin-bottom: 20px;"><strong>課程時長：</strong> 5-6 週</p>
+                    <p style="margin-bottom: 20px;"><strong>技術棧：</strong> Python + FastAPI + JavaScript + Claude API</p>
+                </div>
+                <div style="margin-top: 100px; border-top: 2px solid var(--border); padding-top: 30px;">
+                    <p style="color: var(--secondary); font-size: 14px;">本教材版本 v1.0 | 編寫於 2026 年 8 月</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 目錄頁 ========== -->
+        <div class="page">
+            <h1 style="text-align: left; border: none; border-bottom: 4px solid var(--primary);">目錄</h1>
+            <ol style="font-size: 18px; line-height: 2.5;">
+                <li><strong>第一部分：專案概述</strong>
+                    <ul style="margin-top: 10px;">
+                        <li>1.1 專案目標</li>
+                        <li>1.2 核心概念</li>
+                        <li>1.3 為什麼選擇這個專案</li>
+                    </ul>
+                </li>
+                <li><strong>第二部分：工作目標與項目劃分</strong>
+                    <ul style="margin-top: 10px;">
+                        <li>2.1 總體目標</li>
+                        <li>2.2 分階段工作項目</li>
+                        <li>2.3 時間規劃</li>
+                        <li>2.4 學習成果檢查清單</li>
+                    </ul>
+                </li>
+                <li><strong>第三部分：系統架構分析</strong>
+                    <ul style="margin-top: 10px;">
+                        <li>3.1 整體架構</li>
+                        <li>3.2 資料結構設計</li>
+                        <li>3.3 後端架構</li>
+                        <li>3.4 前端架構</li>
+                    </ul>
+                </li>
+                <li><strong>第四部分：系統詳細分析</strong>
+                    <ul style="margin-top: 10px;">
+                        <li>4.1 資料流分析</li>
+                        <li>4.2 複雜度分析</li>
+                        <li>4.3 系統交互分析</li>
+                        <li>4.4 潛在問題與優化</li>
+                    </ul>
+                </li>
+            </ol>
+            <div class="page-number">- 目錄頁 -</div>
+        </div>
+
+        <!-- ========== 第一部分：專案概述 ========== -->
+        <div class="page">
+            <h1>第一部分：專案概述</h1>
+
+            <h2>1.1 專案目標</h2>
+
+            <h3>總體目標</h3>
+            <p>
+                通過構建一個<strong>具備對話記憶、上下文管理的 AI Agent 系統</strong>，深入學習和掌握資料結構在實際應用中的設計與實現。
+                本專案不僅教授資料結構的理論知識，更重要的是通過實戰開發，理解<strong>如何選擇合適的資料結構來解決實際問題</strong>。
+            </p>
+
+            <h3>具體目標</h3>
+            <div class="objectives">
+                <ul>
+                    <li><strong>資料結構掌握</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>從零實現棧（Stack）、佇列（Queue）、雜湊表（Hash Table）</li>
+                            <li>深入理解三種結構的優缺點和適用場景</li>
+                            <li>掌握時間/空間複雜度分析方法</li>
+                        </ul>
+                    </li>
+                    <li><strong>系統設計能力</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>學會如何為特定需求選擇合適的資料結構</li>
+                            <li>理解前後端分離架構設計原則</li>
+                            <li>學習 API 設計和實現</li>
+                        </ul>
+                    </li>
+                    <li><strong>AI Agent 開發</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>理解 AI Agent 的基本構成和工作流程</li>
+                            <li>掌握對話管理和上下文維護</li>
+                            <li>學會與 Claude API 集成</li>
+                        </ul>
+                    </li>
+                    <li><strong>全棧開發能力</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>Python 後端開發（FastAPI）</li>
+                            <li>前端開發（HTML/CSS/JavaScript）</li>
+                            <li>前後端交互和調試</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 1 頁 -</div>
+        </div>
+
+        <!-- ========== 1.2 核心概念 ========== -->
+        <div class="page">
+            <h2>1.2 核心概念</h2>
+
+            <h3>為什麼選擇「對話記憶管理」作為背景？</h3>
+
+            <div class="concept">
+                <strong>核心洞察：</strong> 對話系統天然需要使用不同的資料結構來解決不同的問題。
+                這使得我們可以在一個統一、有趣的應用背景下，學習多種資料結構及其實際應用。
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>需求</th>
+                        <th>對話系統中的問題</th>
+                        <th>解決方案</th>
+                        <th>資料結構</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>消息撤回</strong></td>
+                        <td>用戶發送了消息又想撤回，需要「回到上一步」</td>
+                        <td>存儲消息序列，支持反向遍歷</td>
+                        <td><strong>棧（Stack）</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>任務調度</strong></td>
+                        <td>多個任務要按順序執行，先進先出</td>
+                        <td>任務佇列，保證順序執行</td>
+                        <td><strong>佇列（Queue）</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>會話查詢</strong></td>
+                        <td>100 個活躍用戶，快速查詢特定用戶會話</td>
+                        <td>用 user_id 直接定位會話</td>
+                        <td><strong>雜湊表</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>為什麼是「AI 時代」的資料結構？</h3>
+            <div class="box info">
+                <p>
+                    <strong>傳統資料結構課程的問題：</strong> 只教理論和經典算法問題（排序、搜尋等），學生不理解「為什麼要學這個」。
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>本專案的創新：</strong> 在 AI Agent 系統的背景下教授資料結構，讓學生親眼看到資料結構如何：
+                </p>
+                <ul style="margin-top: 10px;">
+                    <li>直接解決實際問題</li>
+                    <li>影響系統性能（棧 vs 列表的查詢效率）</li>
+                    <li>支持新型應用（AI Agent 對話系統）</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 2 頁 -</div>
+        </div>
+
+        <!-- ========== 1.3 為什麼選擇 ========== -->
+        <div class="page">
+            <h2>1.3 為什麼選擇這個專案</h2>
+
+            <h3>🎯 對學生的好處</h3>
+            <ol>
+                <li><strong>實踐導向</strong> - 不是做練習題，而是開發真實產品</li>
+                <li><strong>多領域學習</strong> - 資料結構、AI、全棧開發一次掌握</li>
+                <li><strong>高度可視化</strong> - 通過聊天界面直觀看到資料結構的效果</li>
+                <li><strong>可擴展性強</strong> - 基礎版本完成後，可輕鬆添加新功能</li>
+                <li><strong>現代技術棧</strong> - 使用業界常用工具（FastAPI、Claude API）</li>
+            </ol>
+
+            <h3>🏆 學習成果的驗證方式</h3>
+            <div class="comparison">
+                <div class="comparison-item">
+                    <h4>傳統方式</h4>
+                    <p>✗ 考試做題目</p>
+                    <p>✗ 無法知道實際應用</p>
+                    <p>✗ 容易遺忘</p>
+                </div>
+                <div class="comparison-item">
+                    <h4>本專案方式</h4>
+                    <p>✓ 實際系統運行</p>
+                    <p>✓ 性能數據驗證</p>
+                    <p>✓ 深度理解</p>
+                </div>
+            </div>
+
+            <h3>📈 與其他學習項目的對比</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>維度</th>
+                        <th>算法競賽</th>
+                        <th>爬蟲項目</th>
+                        <th>本項目</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>資料結構深度</td>
+                        <td>★★★★★</td>
+                        <td>★★☆☆☆</td>
+                        <td>★★★★★</td>
+                    </tr>
+                    <tr>
+                        <td>實際應用性</td>
+                        <td>★★☆☆☆</td>
+                        <td>★★★★☆</td>
+                        <td>★★★★★</td>
+                    </tr>
+                    <tr>
+                        <td>系統設計學習</td>
+                        <td>★☆☆☆☆</td>
+                        <td>★★★☆☆</td>
+                        <td>★★★★★</td>
+                    </tr>
+                    <tr>
+                        <td>AI 技術應用</td>
+                        <td>☆☆☆☆☆</td>
+                        <td>★★☆☆☆</td>
+                        <td>★★★★★</td>
+                    </tr>
+                    <tr>
+                        <td>趣味性</td>
+                        <td>★★★☆☆</td>
+                        <td>★★★★☆</td>
+                        <td>★★★★★</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">- 第 3 頁 -</div>
+        </div>
+
+        <!-- ========== 第二部分：工作目標與項目劃分 ========== -->
+        <div class="page">
+            <h1>第二部分：工作目標與項目劃分</h1>
+
+            <h2>2.1 總體目標</h2>
+
+            <h3>六週教學計劃</h3>
+            <div class="box success">
+                <p><strong>目標：</strong> 在 6 週內完成一個功能完整的對話 AI Agent 系統</p>
+                <p><strong>成果：</strong> 一個可以實際運行的全棧應用，展示資料結構的實際應用</p>
+                <p><strong>檢驗：</strong> 系統能夠支持多用戶並發對話，每個用戶擁有獨立的對話記憶</p>
+            </div>
+
+            <h3>里程碑和關鍵節點</h3>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <strong>第 1-2 週</strong>
+                    <p>資料結構基礎實現</p>
+                    <p style="color: var(--secondary); font-size: 14px; margin-top: 5px;">完成：Stack、Queue、HashTable 的代碼實現和單元測試</p>
+                </div>
+
+                <div class="timeline-item">
+                    <strong>第 2-3 週</strong>
+                    <p>後端邏輯開發</p>
+                    <p style="color: var(--secondary); font-size: 14px; margin-top: 5px;">完成：Agent 類、會話管理、API 設計</p>
+                </div>
+
+                <div class="timeline-item">
+                    <strong>第 3-4 週</strong>
+                    <p>API 端點實現</p>
+                    <p style="color: var(--secondary); font-size: 14px; margin-top: 5px;">完成：9 個 REST API 端點，支持會話管理和對話</p>
+                </div>
+
+                <div class="timeline-item">
+                    <strong>第 4-5 週</strong>
+                    <p>前端開發</p>
+                    <p style="color: var(--secondary); font-size: 14px; margin-top: 5px;">完成：聊天界面、會話管理、實時統計</p>
+                </div>
+
+                <div class="timeline-item">
+                    <strong>第 5-6 週</strong>
+                    <p>集成與優化</p>
+                    <p style="color: var(--secondary); font-size: 14px; margin-top: 5px;">完成：前後端集成、性能測試、文檔編寫</p>
+                </div>
+            </div>
+
+            <div class="page-number">- 第 4 頁 -</div>
+        </div>
+
+        <!-- ========== 2.2 分階段工作項目 ========== -->
+        <div class="page">
+            <h2>2.2 分階段工作項目詳解</h2>
+
+            <h3>階段 1：資料結構實現（第 1-2 週）</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>任務</th>
+                        <th>具體工作</th>
+                        <th>驗收標準</th>
+                        <th>時間</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>棧實現</strong></td>
+                        <td>
+                            • 實現 push/pop/peek 等操作<br>
+                            • 編寫單元測試<br>
+                            • 分析時間複雜度
+                        </td>
+                        <td>所有方法實現正確，測試通過</td>
+                        <td>3 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>佇列實現</strong></td>
+                        <td>
+                            • 實現 enqueue/dequeue 等操作<br>
+                            • 使用 deque 優化<br>
+                            • 單元測試
+                        </td>
+                        <td>所有方法實現正確，測試通過</td>
+                        <td>3 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>雜湊表實現</strong></td>
+                        <td>
+                            • 實現 put/get/remove 等操作<br>
+                            • 碰撞處理<br>
+                            • 性能測試
+                        </td>
+                        <td>所有方法實現正確，測試通過</td>
+                        <td>4 天</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>階段 2：後端邏輯開發（第 2-3 週）</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>任務</th>
+                        <th>具體工作</th>
+                        <th>驗收標準</th>
+                        <th>時間</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Agent 核心</strong></td>
+                        <td>
+                            • 實現 ConversationAgent 類<br>
+                            • 集成棧進行對話管理<br>
+                            • Claude API 調用
+                        </td>
+                        <td>Agent 能夠進行多轉對話，正確管理歷史</td>
+                        <td>4 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>多會話管理</strong></td>
+                        <td>
+                            • 實現 MultiSessionAgent<br>
+                            • 使用雜湊表管理會話<br>
+                            • 會話隔離測試
+                        </td>
+                        <td>支持多個獨立會話，互不干擾</td>
+                        <td>3 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>會話快取</strong></td>
+                        <td>
+                            • 實現 SessionCache 類<br>
+                            • 快速查詢和存儲<br>
+                            • 性能優化
+                        </td>
+                        <td>會話查詢響應時間 &lt; 1ms</td>
+                        <td>3 天</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">- 第 5 頁 -</div>
+        </div>
+
+        <!-- ========== 階段 3 和 4 ========== -->
+        <div class="page">
+            <h3>階段 3：API 端點實現（第 3-4 週）</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>API 端點</th>
+                        <th>功能</th>
+                        <th>HTTP 方法</th>
+                        <th>依賴資料結構</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>POST /sessions/{id}</code></td>
+                        <td>建立新會話</td>
+                        <td>POST</td>
+                        <td>雜湊表</td>
+                    </tr>
+                    <tr>
+                        <td><code>GET /sessions/{id}</code></td>
+                        <td>獲取會話信息</td>
+                        <td>GET</td>
+                        <td>雜湊表</td>
+                    </tr>
+                    <tr>
+                        <td><code>DELETE /sessions/{id}</code></td>
+                        <td>刪除會話</td>
+                        <td>DELETE</td>
+                        <td>雜湊表</td>
+                    </tr>
+                    <tr>
+                        <td><code>POST /sessions/{id}/messages</code></td>
+                        <td>發送消息</td>
+                        <td>POST</td>
+                        <td>棧</td>
+                    </tr>
+                    <tr>
+                        <td><code>GET /sessions/{id}/history</code></td>
+                        <td>獲取對話歷史</td>
+                        <td>GET</td>
+                        <td>棧</td>
+                    </tr>
+                    <tr>
+                        <td><code>POST /sessions/{id}/undo</code></td>
+                        <td>撤回消息</td>
+                        <td>POST</td>
+                        <td>棧</td>
+                    </tr>
+                    <tr>
+                        <td><code>DELETE /sessions/{id}/clear</code></td>
+                        <td>清空對話</td>
+                        <td>DELETE</td>
+                        <td>棧</td>
+                    </tr>
+                    <tr>
+                        <td><code>GET /sessions</code></td>
+                        <td>列出會話</td>
+                        <td>GET</td>
+                        <td>雜湊表</td>
+                    </tr>
+                    <tr>
+                        <td><code>GET /stats</code></td>
+                        <td>系統統計</td>
+                        <td>GET</td>
+                        <td>全部</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>階段 4：前端開發（第 4-5 週）</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>組件</th>
+                        <th>功能</th>
+                        <th>技術</th>
+                        <th>時間</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>聊天界面</strong></td>
+                        <td>顯示消息、自動滾動、消息分類</td>
+                        <td>HTML + CSS</td>
+                        <td>2 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>會話管理面板</strong></td>
+                        <td>建立、切換、刪除會話</td>
+                        <td>JavaScript + API</td>
+                        <td>2 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>消息輸入區</strong></td>
+                        <td>發送、撤回、清空</td>
+                        <td>JavaScript + API</td>
+                        <td>2 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>實時統計</strong></td>
+                        <td>活躍會話、消息統計</td>
+                        <td>JavaScript + CSS</td>
+                        <td>2 天</td>
+                    </tr>
+                    <tr>
+                        <td><strong>UI 優化</strong></td>
+                        <td>響應式設計、主題支持</td>
+                        <td>CSS</td>
+                        <td>2 天</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">- 第 6 頁 -</div>
+        </div>
+
+        <!-- ========== 2.3 時間規劃 ========== -->
+        <div class="page">
+            <h2>2.3 詳細時間規劃</h2>
+
+            <div class="diagram" style="text-align: left; white-space: normal;">
+                <strong>總體時間軸</strong>
+                <pre style="margin-top: 15px; text-align: center;">
+週 1-2: 資料結構 (10 小時)
+├─ 棧實現      (3 小時)
+├─ 佇列實現    (3 小時)
+└─ 雜湊表實現  (4 小時)
+       ↓
+週 2-3: 後端邏輯 (12 小時)
+├─ Agent 實現  (4 小時)
+├─ 會話管理    (4 小時)
+└─ API 設計    (4 小時)
+       ↓
+週 3-4: API 實現 (10 小時)
+├─ 會話端點    (3 小時)
+├─ 對話端點    (4 小時)
+├─ 統計端點    (2 小時)
+└─ 測試        (1 小時)
+       ↓
+週 4-5: 前端開發 (12 小時)
+├─ HTML 結構   (2 小時)
+├─ CSS 樣式    (3 小時)
+├─ JavaScript  (5 小時)
+└─ 測試和調整  (2 小時)
+       ↓
+週 5-6: 集成與優化 (8 小時)
+├─ 前後端集成  (3 小時)
+├─ 性能優化    (2 小時)
+├─ 文檔編寫    (2 小時)
+└─ 最終測試    (1 小時)
+                </pre>
+            </div>
+
+            <h3>每週工作量預估</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>週次</th>
+                        <th>主要工作</th>
+                        <th>完成項目</th>
+                        <th>預計時間</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1-2</strong></td>
+                        <td>資料結構實現</td>
+                        <td>Stack + Queue + HashTable</td>
+                        <td>10 小時</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2-3</strong></td>
+                        <td>後端邏輯開發</td>
+                        <td>Agent + 會話管理</td>
+                        <td>12 小時</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3-4</strong></td>
+                        <td>API 實現</td>
+                        <td>9 個 REST 端點</td>
+                        <td>10 小時</td>
+                    </tr>
+                    <tr>
+                        <td><strong>4-5</strong></td>
+                        <td>前端開發</td>
+                        <td>完整 UI 和交互</td>
+                        <td>12 小時</td>
+                    </tr>
+                    <tr>
+                        <td><strong>5-6</strong></td>
+                        <td>集成與優化</td>
+                        <td>完整可運行系統</td>
+                        <td>8 小時</td>
+                    </tr>
+                    <tr style="background-color: #f0f4ff; font-weight: bold;">
+                        <td colspan="3" style="text-align: right;">總時間：</td>
+                        <td>52 小時</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>每週課堂活動安排（以 3 小時課程為例）</h3>
+            <ul>
+                <li><strong>課堂時間（1.5 小時）：</strong> 講解、演示、答疑</li>
+                <li><strong>實驗室/作業時間（1.5 小時）：</strong> 動手編碼、測試</li>
+                <li><strong>課後自學（4-6 小時）：</strong> 完成項目、拓展練習</li>
+            </ul>
+
+            <div class="page-number">- 第 7 頁 -</div>
+        </div>
+
+        <!-- ========== 2.4 學習成果檢查 ========== -->
+        <div class="page">
+            <h2>2.4 學習成果檢查清單</h2>
+
+            <h3>資料結構理解（第 1-2 週）</h3>
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px;">
+                <p><strong style="color: var(--secondary);">棧（Stack）</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 能解釋棧的 LIFO 原理</li>
+                    <li>☐ 能手寫 Stack 類的所有方法</li>
+                    <li>☐ 理解棧的時間複雜度：O(1) push/pop</li>
+                    <li>☐ 知道三個實際應用：撤回操作、括號匹配、表達式求值</li>
+                    <li>☐ 能用棧解決至少 2 個 LeetCode 問題</li>
+                </ul>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin-top: 15px;">
+                <p><strong style="color: var(--secondary);">佇列（Queue）</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 能解釋佇列的 FIFO 原理</li>
+                    <li>☐ 能手寫 Queue 類，使用 deque</li>
+                    <li>☐ 理解為什麼用 deque 而不是列表</li>
+                    <li>☐ 知道三個實際應用：BFS、打印隊列、消息隊列</li>
+                    <li>☐ 能用佇列實現至少一個圖搜索算法</li>
+                </ul>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin-top: 15px;">
+                <p><strong style="color: var(--secondary);">雜湊表（Hash Table）</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 理解雜湊函數和碰撞的概念</li>
+                    <li>☐ 能手寫簡單的 HashTable 類</li>
+                    <li>☐ 理解雜湊表的平均複雜度：O(1)</li>
+                    <li>☐ 知道載因（load factor）的含義</li>
+                    <li>☐ 能比較雜湊表和列表的性能差異</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 8 頁 -</div>
+        </div>
+
+        <!-- ========== 系統設計檢查清單 ========== -->
+        <div class="page">
+            <h3>系統設計理解（第 2-4 週）</h3>
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px;">
+                <p><strong style="color: var(--secondary);">後端架構</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 理解為什麼用棧管理對話歷史</li>
+                    <li>☐ 理解為什麼用雜湊表管理會話</li>
+                    <li>☐ 能解釋 Agent 的基本工作流程</li>
+                    <li>☐ 知道每個 API 端點依賴哪個資料結構</li>
+                    <li>☐ 能設計新的 API 端點並實現</li>
+                </ul>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin-top: 15px;">
+                <p><strong style="color: var(--secondary);">API 設計</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 理解 REST API 的設計原則</li>
+                    <li>☐ 能區分 GET/POST/DELETE 的用途</li>
+                    <li>☐ 能用 curl 或 Postman 測試 API</li>
+                    <li>☐ 能設計正確的請求/響應格式</li>
+                    <li>☐ 理解狀態碼和錯誤處理</li>
+                </ul>
+            </div>
+
+            <h3>實現能力檢查（第 4-5 週）</h3>
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px;">
+                <p><strong style="color: var(--secondary);">前端開發</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 能修改 HTML 結構添加新元素</li>
+                    <li>☐ 能使用 CSS 實現複雜布局</li>
+                    <li>☐ 能用 JavaScript 調用後端 API</li>
+                    <li>☐ 能實現事件監聽和 DOM 操作</li>
+                    <li>☐ 能調試 JavaScript 錯誤</li>
+                </ul>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin-top: 15px;">
+                <p><strong style="color: var(--secondary);">整體系統</strong></p>
+                <ul style="margin: 10px 0;">
+                    <li>☐ 後端和前端能正確通信</li>
+                    <li>☐ 系統支持多用戶並發</li>
+                    <li>☐ 能創建、切換、刪除會話</li>
+                    <li>☐ 對話歷史正確管理和顯示</li>
+                    <li>☐ 撤回功能正常工作</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 9 頁 -</div>
+        </div>
+
+        <!-- ========== 第三部分：系統架構分析 ========== -->
+        <div class="page">
+            <h1>第三部分：系統架構分析</h1>
+
+            <h2>3.1 整體架構</h2>
+
+            <h3>三層架構</h3>
+            <div style="margin: 30px 0;">
+                <div class="layer frontend">
+                    🖥️ 前端層（Presentation Layer）<br>
+                    <span style="font-size: 12px; font-weight: normal;">HTML + CSS + JavaScript</span>
+                </div>
+                <div style="text-align: center; color: var(--secondary); margin: 10px 0;">↕️ HTTP/REST</div>
+                <div class="layer backend">
+                    ⚙️ 應用層（Business Logic Layer）<br>
+                    <span style="font-size: 12px; font-weight: normal;">FastAPI + Agent + 資料結構</span>
+                </div>
+                <div style="text-align: center; color: var(--secondary); margin: 10px 0;">↕️ Python Objects</div>
+                <div class="layer database">
+                    💾 數據層（Data Layer）<br>
+                    <span style="font-size: 12px; font-weight: normal;">會話快取 + 對話棧 + 任務隊列</span>
+                </div>
+            </div>
+
+            <h3>核心模塊</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>模塊</th>
+                        <th>職責</th>
+                        <th>關鍵類</th>
+                        <th>依賴</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>data_structures.py</strong></td>
+                        <td>實現基礎資料結構</td>
+                        <td>Stack, Queue, HashTable</td>
+                        <td>無</td>
+                    </tr>
+                    <tr>
+                        <td><strong>agent.py</strong></td>
+                        <td>AI Agent 核心邏輯</td>
+                        <td>ConversationAgent, MultiSessionAgent</td>
+                        <td>data_structures, anthropic</td>
+                    </tr>
+                    <tr>
+                        <td><strong>main.py</strong></td>
+                        <td>REST API 實現</td>
+                        <td>FastAPI app</td>
+                        <td>agent</td>
+                    </tr>
+                    <tr>
+                        <td><strong>frontend/</strong></td>
+                        <td>用戶交互界面</td>
+                        <td>HTML/CSS/JS</td>
+                        <td>main.py API</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">- 第 10 頁 -</div>
+        </div>
+
+        <!-- ========== 3.2 資料結構設計 ========== -->
+        <div class="page">
+            <h2>3.2 資料結構設計</h2>
+
+            <h3>棧（ConversationStack）- 對話歷史管理</h3>
+            <div class="box info">
+                <p><strong>目的：</strong> 存儲和管理對話消息序列</p>
+                <p><strong>為什麼選擇棧？</strong> 消息撤回需要從最後一條開始移除（LIFO）</p>
+            </div>
+
+            <div class="diagram">
+push("用戶：你好")
+push("AI：你好！")
+push("用戶：告訴我 Python")
+push("AI：Python 是...")
+
+當用戶點擊「撤回」時：
+pop() → "AI：Python 是..." (移除)
+pop() → "用戶：告訴我 Python" (移除)
+            </div>
+
+            <h3>佇列（TaskQueue）- 任務調度</h3>
+            <div class="box info">
+                <p><strong>目的：</strong> 管理後台任務，按順序執行</p>
+                <p><strong>為什麼選擇佇列？</strong> 任務需要按先進先出（FIFO）順序執行</p>
+            </div>
+
+            <div class="diagram">
+enqueue(task1: "分析用戶輸入")
+enqueue(task2: "調用 Claude API")
+enqueue(task3: "存儲結果")
+
+執行順序（自動）：
+task1 → task2 → task3
+            </div>
+
+            <h3>雜湊表（SessionCache）- 會話管理</h3>
+            <div class="box info">
+                <p><strong>目的：</strong> 快速查詢和存儲用戶會話</p>
+                <p><strong>為什麼選擇雜湊表？</strong> O(1) 時間複雜度快速查詢特定用戶</p>
+            </div>
+
+            <div class="diagram">
+SessionCache = {
+    "user1": Session(conversation_stack, task_queue),
+    "user2": Session(conversation_stack, task_queue),
+    "user3": Session(conversation_stack, task_queue),
+    ...
+}
+
+查詢 user2 的會話：O(1)，直接定位！
+            </div>
+
+            <h3>資料結構的嵌套關係</h3>
+            <pre style="background-color: #f9fafb; padding: 20px; border-radius: 6px; font-size: 13px;">
+Session = {
+    user_id: str
+    conversation_stack: Stack[Message]  ← 存儲對話消息
+    task_queue: Queue[Task]              ← 存儲待執行任務
+    metadata: dict
+}
+
+SessionCache = HashTable[user_id, Session]  ← 快速查詢會話
+            </pre>
+
+            <div class="page-number">- 第 11 頁 -</div>
+        </div>
+
+        <!-- ========== 3.3 後端架構 ========== -->
+        <div class="page">
+            <h2>3.3 後端架構詳解</h2>
+
+            <h3>類層次結構</h3>
+
+            <pre style="background-color: #f3f4f6; padding: 20px; border-radius: 6px; font-size: 12px; line-height: 1.6;">
+┌─ ConversationAgent
+│  ├─ conversation_stack: ConversationStack
+│  ├─ model: str
+│  └─ methods:
+│     ├─ generate_response(user_input)
+│     ├─ add_user_message(content)
+│     ├─ get_conversation_history()
+│     └─ undo_last_message()
+│
+├─ MultiSessionAgent
+│  ├─ agents: Dict[session_id, ConversationAgent]
+│  └─ methods:
+│     ├─ create_session(session_id)
+│     ├─ get_session(session_id)
+│     ├─ generate_response(session_id, content)
+│     └─ delete_session(session_id)
+│
+└─ SessionCache (繼承自 HashTable)
+   ├─ _table: dict
+   └─ methods:
+      ├─ create_session(user_id, data)
+      ├─ get_session(user_id)
+      ├─ delete_session(user_id)
+      └─ session_exists(user_id)
+            </pre>
+
+            <h3>初始化流程</h3>
+            <div class="diagram" style="text-align: left;">
+1. FastAPI 啟動 → 創建 MultiSessionAgent() 和 SessionCache()
+2. 用戶請求建立會話 → MultiSessionAgent.create_session()
+3. 新會話包含：
+   - ConversationAgent（含 ConversationStack）
+   - 存儲在 SessionCache 中
+4. 用戶發送消息 → MultiSessionAgent.generate_response()
+   - 消息推入 ConversationStack
+   - 調用 Claude API
+   - 回應推入 Stack
+5. 返回 JSON 響應給前端
+            </div>
+
+            <div class="page-number">- 第 12 頁 -</div>
+        </div>
+
+        <!-- ========== 3.4 前端架構 ========== -->
+        <div class="page">
+            <h2>3.4 前端架構詳解</h2>
+
+            <h3>頁面結構</h3>
+
+            <pre style="background-color: #f3f4f6; padding: 20px; border-radius: 6px; font-size: 12px;">
+index.html
+├─ <aside class="sidebar">
+│  ├─ 會話管理面板
+│  │  ├─ 建立新會話
+│  │  ├─ 會話輸入框
+│  │  └─ 活躍會話列表
+│  └─ 統計信息
+│
+├─ <main class="main-content">
+│  ├─ <header>
+│  │  ├─ 標題
+│  │  ├─ 當前會話信息
+│  │  └─ 消息計數
+│  │
+│  ├─ <section class="chat-section">
+│  │  ├─ 消息顯示區域
+│  │  │  └─ 用戶消息 + AI 回應
+│  │  └─ 輸入區域
+│  │     ├─ textarea 輸入框
+│  │     └─ 按鈕組（發送、撤回、清空）
+│  │
+│  └─ <section class="stats-section">
+│     ├─ 活躍會話數
+│     ├─ 總消息數
+│     └─ 當前會話消息數
+            </pre>
+
+            <h3>JavaScript 模塊結構</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>模塊</th>
+                        <th>職責</th>
+                        <th>關鍵函數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>會話管理</strong></td>
+                        <td>建立、選擇、刪除會話</td>
+                        <td>createSession, selectSession, deleteSession</td>
+                    </tr>
+                    <tr>
+                        <td><strong>消息管理</strong></td>
+                        <td>發送、接收、撤回、清空</td>
+                        <td>sendMessage, undoMessage, clearHistory</td>
+                    </tr>
+                    <tr>
+                        <td><strong>UI 更新</strong></td>
+                        <td>添加消息、更新列表、刷新統計</td>
+                        <td>addMessageToUI, updateSessionsList, updateStats</td>
+                    </tr>
+                    <tr>
+                        <td><strong>API 調用</strong></td>
+                        <td>與後端通信</td>
+                        <td>fetch() 調用</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>狀態管理</h3>
+            <pre style="background-color: #f3f4f6; padding: 20px; border-radius: 6px; font-size: 12px;">
+全局狀態：
+├─ currentSessionId: string (當前選擇的會話 ID)
+├─ currentSessionName: string (當前會話用戶名)
+└─ elements: object (緩存的 DOM 元素引用)
+
+實時數據：
+├─ 消息列表 (從 API 獲取)
+├─ 會話列表 (從 API 獲取)
+└─ 統計信息 (每 10 秒更新一次)
+            </pre>
+
+            <div class="page-number">- 第 13 頁 -</div>
+        </div>
+
+        <!-- ========== 第四部分：系統詳細分析 ========== -->
+        <div class="page">
+            <h1>第四部分：系統詳細分析</h1>
+
+            <h2>4.1 數據流分析</h2>
+
+            <h3>完整的消息流程</h3>
+
+            <div class="diagram" style="text-align: left; white-space: pre-wrap;">
+【前端】                【後端】              【Claude API】
+用戶輸入 "你好"
+  ↓
+點擊「發送」按鈕
+  ↓
+sendMessage()
+  ↓
+addMessageToUI()         添加用戶消息到界面
+  ↓
+POST /sessions/{id}/messages  →  send_message()
+                        ↓
+                   add_user_message()
+                        ↓
+              conversation_stack.push()
+                        ↓
+                  generate_response()
+                        ↓
+                client.messages.create()  →  調用 Claude
+                                       ←  返回回應文本
+                        ↓
+              add_assistant_message()
+                        ↓
+              conversation_stack.push()
+                        ↓
+返回 JSON 回應  ←
+  ↓
+接收回應
+  ↓
+addMessageToUI(回應文本)
+  ↓
+updateStats()
+  ↓
+用戶看到 AI 的回應
+            </div>
+
+            <h3>會話建立流程</h3>
+
+            <pre style="background-color: #f3f4f6; padding: 20px; border-radius: 6px; font-size: 12px;">
+用戶在前端輸入：user123
+  ↓
+POST /sessions/user123
+  ↓
+create_session("user123")
+  ↓
+MultiSessionAgent.create_session()
+  ├─ agents["user123"] = ConversationAgent()
+  │  └─ conversation_stack = ConversationStack()
+  └─ 返回確認
+  ↓
+SessionCache.create_session()
+  └─ _table["user123"] = Session 對象
+  ↓
+前端更新會話列表
+  ↓
+啟用聊天界面
+            </pre>
+
+            <div class="page-number">- 第 14 頁 -</div>
+        </div>
+
+        <!-- ========== 4.2 複雜度分析 ========== -->
+        <div class="page">
+            <h2>4.2 複雜度分析</h2>
+
+            <h3>各個操作的時間複雜度</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>操作</th>
+                        <th>時間複雜度</th>
+                        <th>空間複雜度</th>
+                        <th>備註</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>添加用戶消息（Stack.push）</td>
+                        <td>O(1)</td>
+                        <td>O(n)</td>
+                        <td>n = 消息總數</td>
+                    </tr>
+                    <tr>
+                        <td>撤回消息（Stack.pop）</td>
+                        <td>O(1)</td>
+                        <td>-</td>
+                        <td>直接移除</td>
+                    </tr>
+                    <tr>
+                        <td>獲取對話歷史</td>
+                        <td>O(n)</td>
+                        <td>O(n)</td>
+                        <td>需要遍歷所有消息</td>
+                    </tr>
+                    <tr>
+                        <td>查詢會話（HashTable.get）</td>
+                        <td>O(1) 平均</td>
+                        <td>-</td>
+                        <td>直接哈希查詢</td>
+                    </tr>
+                    <tr>
+                        <td>建立新會話</td>
+                        <td>O(1)</td>
+                        <td>O(1)</td>
+                        <td>HashTable 插入</td>
+                    </tr>
+                    <tr>
+                        <td>刪除會話</td>
+                        <td>O(1) 平均</td>
+                        <td>-</td>
+                        <td>HashTable 刪除</td>
+                    </tr>
+                    <tr>
+                        <td>列出所有會話</td>
+                        <td>O(m)</td>
+                        <td>O(m)</td>
+                        <td>m = 活躍會話數</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>性能分析示例</h3>
+
+            <div class="box">
+                <p><strong>場景：</strong> 系統有 100 個活躍用戶，每個用戶平均 50 條消息</p>
+
+                <p style="margin-top: 15px;">
+                    <strong>用列表實現 SessionCache：</strong>
+                </p>
+                <ul>
+                    <li>查詢特定用戶的會話 → O(100) = 掃描全部用戶</li>
+                    <li>100 個這樣的查詢 → O(10,000) 操作</li>
+                </ul>
+
+                <p style="margin-top: 15px;">
+                    <strong>用雜湊表實現 SessionCache：</strong>
+                </p>
+                <ul>
+                    <li>查詢特定用戶的會話 → O(1) = 直接定位</li>
+                    <li>100 個這樣的查詢 → O(100) 操作</li>
+                </ul>
+
+                <p style="margin-top: 15px; font-weight: bold; color: var(--success);">
+                    ✓ 性能提升：100 倍！
+                </p>
+            </div>
+
+            <div class="page-number">- 第 15 頁 -</div>
+        </div>
+
+        <!-- ========== 4.3 系統交互分析 ========== -->
+        <div class="page">
+            <h2>4.3 系統交互分析</h2>
+
+            <h3>多用戶並發場景</h3>
+
+            <div class="diagram" style="text-align: left; font-size: 11px;">
+時間→
+
+User1: POST /sessions/user1
+User2:                  POST /sessions/user2
+                           ↓
+                    User1 和 User2 的會話
+                    完全獨立，互不影響
+User1:              POST /messages (user1)
+User2:                               POST /messages (user2)
+                        ↓
+                   Agent1 處理 User1
+                   Agent2 處理 User2
+                   （並行）
+                        ↓
+User1: GET /history (user1)  →  看到 User1 的對話
+User2: GET /history (user2)  →  看到 User2 的對話
+            </div>
+
+            <h3>為什麼能支持並發？</h3>
+
+            <div class="box success">
+                <p><strong>1. 會話隔離：</strong> 每個用戶有獨立的 Agent 和 Stack</p>
+                <p style="margin-top: 10px;">
+                    <strong>2. 快速查詢：</strong> 雜湊表 O(1) 查詢，不會因為用戶數增多而變慢
+                </p>
+                <p style="margin-top: 10px;">
+                    <strong>3. 無全局狀態：</strong> 每個會話獨立操作，不需要鎖定資源
+                </p>
+            </div>
+
+            <h3>錯誤處理流程</h3>
+
+            <div class="diagram" style="text-align: left;">
+用戶操作
+  ↓
+前端驗證
+  ├─ 會話是否存在？ ← 不存在 → 顯示錯誤信息
+  ├─ 消息是否為空？ ← 為空 → 顯示錯誤信息
+  └─ 內容格式正確？ ← 不正確 → 顯示錯誤信息
+  ↓
+發送到後端
+  ↓
+後端驗證
+  ├─ 會話 ID 是否有效？ ← 無效 → 返回 404
+  ├─ 消息內容是否合法？ ← 不合法 → 返回 400
+  └─ API 密鑰是否正確？ ← 不正確 → 返回 401
+  ↓
+處理成功 → 返回 200 + 數據
+  ↓
+前端更新 UI
+            </div>
+
+            <div class="page-number">- 第 16 頁 -</div>
+        </div>
+
+        <!-- ========== 4.4 潛在問題與優化 ========== -->
+        <div class="page">
+            <h2>4.4 潛在問題與優化建議</h2>
+
+            <h3>當前版本的限制</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>問題</th>
+                        <th>影響</th>
+                        <th>優化方案</th>
+                        <th>優先級</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>內存只存</strong></td>
+                        <td>重啟後數據丟失</td>
+                        <td>添加 SQLite/PostgreSQL</td>
+                        <td>高</td>
+                    </tr>
+                    <tr>
+                        <td><strong>無會話超時</strong></td>
+                        <td>僵屍會話占用內存</td>
+                        <td>實現自動清理機制</td>
+                        <td>中</td>
+                    </tr>
+                    <tr>
+                        <td><strong>無速率限制</strong></td>
+                        <td>可能被濫用或 DoS</td>
+                        <td>添加 rate limiting 中間件</td>
+                        <td>高</td>
+                    </tr>
+                    <tr>
+                        <td><strong>無認證機制</strong></td>
+                        <td>任何人都能訪問</td>
+                        <td>添加 JWT 認證</td>
+                        <td>中</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Stack 無大小限制</strong></td>
+                        <td>長期對話可能爆內存</td>
+                        <td>限制保留最近 1000 條消息</td>
+                        <td>中</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>性能優化方向</h3>
+
+            <div class="box">
+                <p><strong>1. 緩存優化</strong></p>
+                <ul style="margin-top: 8px;">
+                    <li>使用 Redis 實現分布式快取</li>
+                    <li>緩存熱點數據（活躍會話）</li>
+                </ul>
+            </div>
+
+            <div class="box" style="margin-top: 15px;">
+                <p><strong>2. 數據庫優化</strong></p>
+                <ul style="margin-top: 8px;">
+                    <li>添加索引加快會話查詢</li>
+                    <li>定期歸檔舊對話</li>
+                </ul>
+            </div>
+
+            <div class="box" style="margin-top: 15px;">
+                <p><strong>3. 異步優化</strong></p>
+                <ul style="margin-top: 8px;">
+                    <li>使用異步任務隊列（Celery）</li>
+                    <li>長時間操作不阻塞主線程</li>
+                </ul>
+            </div>
+
+            <div class="box" style="margin-top: 15px;">
+                <p><strong>4. 前端優化</strong></p>
+                <ul style="margin-top: 8px;">
+                    <li>虛擬化消息列表（只渲染可見部分）</li>
+                    <li>消息懶加載</li>
+                </ul>
+            </div>
+
+            <h3>擴展功能建議</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>功能</th>
+                        <th>優先級</th>
+                        <th>涉及資料結構</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>消息搜尋</td>
+                        <td>中</td>
+                        <td>倒排索引</td>
+                    </tr>
+                    <tr>
+                        <td>會話分享</td>
+                        <td>低</td>
+                        <td>許可系統</td>
+                    </tr>
+                    <tr>
+                        <td>優先級隊列任務</td>
+                        <td>高</td>
+                        <td>優先隊列（堆）</td>
+                    </tr>
+                    <tr>
+                        <td>知識圖譜</td>
+                        <td>中</td>
+                        <td>圖結構</td>
+                    </tr>
+                    <tr>
+                        <td>分析報表</td>
+                        <td>低</td>
+                        <td>統計結構</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="page-number">- 第 17 頁 -</div>
+        </div>
+
+        <!-- ========== 總結頁 ========== -->
+        <div class="page">
+            <h1>總結與展望</h1>
+
+            <h2>核心收穫</h2>
+
+            <div class="objectives" style="background-color: #ecfdf5;">
+                <ul>
+                    <li><strong>資料結構實戰應用</strong> - 看到棧、佇列、雜湊表如何解決真實問題</li>
+                    <li><strong>系統設計思維</strong> - 理解如何為不同需求選擇合適的資料結構</li>
+                    <li><strong>全棧開發能力</strong> - 從資料結構到前端的完整開發流程</li>
+                    <li><strong>AI 時代技能</strong> - 學會與 AI 模型集成，構建現代應用</li>
+                </ul>
+            </div>
+
+            <h2>學習路線圖</h2>
+
+            <div style="margin: 20px 0;">
+                <p style="margin-bottom: 20px;"><strong>本專案（Project 1）→ 基礎資料結構</strong></p>
+                <p style="margin: 10px 0; color: var(--secondary);">
+                    Stack, Queue, HashTable | 對話系統 | 多用戶管理
+                </p>
+
+                <p style="margin: 30px 0 20px 0;"><strong>下一專案（Project 2）→ 高級資料結構</strong></p>
+                <p style="margin: 10px 0; color: var(--secondary);">
+                    圖結構 | 優先隊列 | 知識圖譜 | 知識推理
+                </p>
+
+                <p style="margin: 30px 0 20px 0;"><strong>進階專案（Project 3）→ 系統優化</strong></p>
+                <p style="margin: 10px 0; color: var(--secondary);">
+                    數據庫優化 | 分布式系統 | 高性能架構
+                </p>
+            </div>
+
+            <h2>評估方式</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>評估維度</th>
+                        <th>權重</th>
+                        <th>標準</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>代碼實現</td>
+                        <td>30%</td>
+                        <td>資料結構正確、代碼質量高、有註釋</td>
+                    </tr>
+                    <tr>
+                        <td>系統功能</td>
+                        <td>40%</td>
+                        <td>所有 API 工作、前後端集成、支持並發</td>
+                    </tr>
+                    <tr>
+                        <td>理解深度</td>
+                        <td>20%</td>
+                        <td>能解釋設計選擇、複雜度分析、優化方案</td>
+                    </tr>
+                    <tr>
+                        <td>擴展功能</td>
+                        <td>10%</td>
+                        <td>額外添加的功能或優化</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>資源與參考</h2>
+
+            <ul>
+                <li><strong>官方文檔：</strong> FastAPI（fastapi.tiangolo.com）、Claude API（anthropic.com）</li>
+                <li><strong>教材：</strong> 《算法導論》第 10 章、《Python 食譜》第 1 章</li>
+                <li><strong>實踐平台：</strong> LeetCode、HackerRank（資料結構練習）</li>
+                <li><strong>課程：</strong> MIT 6.006、CMU 15-210（算法與資料結構）</li>
+            </ul>
+
+            <div class="box success">
+                <p><strong>記住：</strong></p>
+                <p style="margin-top: 10px;">
+                    資料結構不是為了通過考試，而是為了設計更好的系統。
+                    本專案就是證明 —— 通過選擇正確的資料結構，
+                    我們能構建高效、可擴展的實際應用。
+                </p>
+            </div>
+
+            <div class="page-number">- 第 18 頁 -</div>
+        </div>
+
+        <!-- ========== 附錄 ========== -->
+        <div class="page">
+            <h1>附錄：快速參考</h1>
+
+            <h2>A. 資料結構 API 總結</h2>
+
+            <h3>Stack API</h3>
+            <pre style="background-color: #f3f4f6; padding: 15px; border-radius: 6px;">
+stack.push(item)              # 添加元素
+stack.pop()                   # 移除並返回頂部元素
+stack.peek()                  # 查看頂部元素
+stack.is_empty()              # 檢查是否為空
+stack.size()                  # 返回大小
+            </pre>
+
+            <h3>Queue API</h3>
+            <pre style="background-color: #f3f4f6; padding: 15px; border-radius: 6px;">
+queue.enqueue(item)           # 添加元素
+queue.dequeue()               # 移除並返回首部元素
+queue.peek()                  # 查看首部元素
+queue.is_empty()              # 檢查是否為空
+queue.size()                  # 返回大小
+            </pre>
+
+            <h3>HashTable API</h3>
+            <pre style="background-color: #f3f4f6; padding: 15px; border-radius: 6px;">
+ht.put(key, value)            # 存儲鍵值對
+ht.get(key)                   # 取得值
+ht.remove(key)                # 移除鍵值對
+ht.contains(key)              # 檢查鍵是否存在
+ht.size()                     # 返回元素個數
+ht.keys()                     # 返回所有鍵
+            </pre>
+
+            <h2>B. API 端點速查表</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>端點</th>
+                        <th>方法</th>
+                        <th>參數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>/sessions/{id}</td>
+                        <td>POST</td>
+                        <td>user_name (optional)</td>
+                    </tr>
+                    <tr>
+                        <td>/sessions/{id}/messages</td>
+                        <td>POST</td>
+                        <td>content</td>
+                    </tr>
+                    <tr>
+                        <td>/sessions/{id}/history</td>
+                        <td>GET</td>
+                        <td>limit (optional)</td>
+                    </tr>
+                    <tr>
+                        <td>/sessions/{id}/undo</td>
+                        <td>POST</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>C. 常見問題解答</h2>
+
+            <h3>Q: 為什麼用 Python deque 而不是列表？</h3>
+            <p>
+                列表的 pop(0) 是 O(n)，因為需要移動所有元素。
+                deque 的 popleft() 是 O(1)，更高效。
+            </p>
+
+            <h3>Q: 棧和佇列的區別？</h3>
+            <p>
+                棧：LIFO（後進先出） - 適合撤回、回溯
+                佇列：FIFO（先進先出） - 適合排隊、調度
+            </p>
+
+            <h3>Q: 如何處理雜湊表碰撞？</h3>
+            <p>
+                本實現使用鏈式法（chaining）。Python 字典內部也是這樣做的。
+            </p>
+
+            <div class="page-number">- 第 19 頁 -</div>
+        </div>
+
+    </div>
+</body>
+</html>

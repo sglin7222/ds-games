@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>約瑟夫問題 - Queue 互動遊戲</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%);
+  min-height:100vh; padding:20px; color:#e2e8f0;
+}
+.wrap { max-width:1150px; margin:0 auto; }
+.card {
+  background:#fff; color:#1e293b; border-radius:16px;
+  box-shadow:0 20px 50px rgba(0,0,0,.35); padding:28px; margin-bottom:22px;
+}
+h1 { font-size:32px; text-align:center; color:#1e3a8a; margin-bottom:6px; }
+.sub { text-align:center; color:#64748b; font-size:14px; margin-bottom:22px; }
+h2 { font-size:20px; color:#1e3a8a; margin:22px 0 12px; border-left:5px solid #3b82f6; padding-left:12px; }
+
+.controls { display:flex; gap:14px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom:20px; }
+.ctl { display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:8px 14px; border-radius:8px; }
+.ctl label { font-weight:700; font-size:14px; color:#334155; }
+input[type=number] { width:70px; padding:7px; border:2px solid #cbd5e1; border-radius:6px; font-size:15px; text-align:center; font-family:inherit; }
+input[type=range] { width:120px; }
+button {
+  padding:10px 18px; border:none; border-radius:8px; background:#3b82f6; color:#fff;
+  font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s;
+}
+button:hover { background:#2563eb; transform:translateY(-2px); }
+button:disabled { background:#cbd5e1; cursor:not-allowed; transform:none; }
+button.alt { background:#10b981; } button.alt:hover { background:#059669; }
+button.warn { background:#64748b; } button.warn:hover { background:#475569; }
+
+.stage { display:grid; grid-template-columns:440px 1fr; gap:24px; align-items:start; }
+@media(max-width:900px){ .stage { grid-template-columns:1fr; } }
+
+#circle { position:relative; width:420px; height:420px; margin:0 auto; }
+#circle::before {
+  content:''; position:absolute; left:50px; top:50px; width:320px; height:320px;
+  border:2px dashed #cbd5e1; border-radius:50%;
+}
+.person {
+  position:absolute; width:46px; height:46px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:16px; color:#fff; background:#3b82f6;
+  box-shadow:0 3px 8px rgba(0,0,0,.25); transition:all .25s; border:3px solid transparent;
+}
+.person.counting { background:#f59e0b; transform:scale(1.28); border-color:#fff; z-index:5; }
+.person.out { background:#e2e8f0; color:#94a3b8; opacity:.45; transform:scale(.75); }
+.person.survivor { background:#10b981; transform:scale(1.35); border-color:#fbbf24; box-shadow:0 0 22px #fbbf24; }
+.person.guess { box-shadow:0 0 0 4px #a855f7, 0 3px 8px rgba(0,0,0,.25); }
+.badge {
+  position:absolute; top:-10px; right:-6px; background:#dc2626; color:#fff;
+  font-size:11px; width:22px; height:22px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-weight:800;
+}
+
+.panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; }
+.qlabel { font-size:13px; font-weight:700; color:#475569; margin-bottom:8px; }
+.queue-view { display:flex; gap:5px; flex-wrap:wrap; min-height:44px; padding:10px; background:#fff; border:2px solid #e2e8f0; border-radius:8px; }
+.qitem {
+  width:34px; height:34px; border-radius:6px; background:#dbeafe; color:#1e40af;
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;
+}
+.qitem.front { background:#f59e0b; color:#fff; box-shadow:0 0 0 3px #fde68a; }
+.arrowrow { display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-top:4px; font-weight:700; }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.stat .k { font-size:11px; color:#64748b; font-weight:700; }
+.stat .v { font-size:22px; font-weight:800; color:#1e3a8a; }
+
+#log {
+  margin-top:16px; height:190px; overflow-y:auto; background:#0f172a; color:#94a3b8;
+  border-radius:8px; padding:12px; font-family:Consolas,monospace; font-size:12px; line-height:1.7;
+}
+#log .out-line { color:#fca5a5; font-weight:700; }
+#log .win-line { color:#6ee7b7; font-weight:700; }
+
+.msg { text-align:center; font-size:17px; font-weight:800; min-height:30px; margin:14px 0; }
+.msg.good { color:#059669; } .msg.bad { color:#dc2626; }
+
+.code { background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-family:Consolas,monospace; font-size:13px; line-height:1.7; overflow-x:auto; white-space:pre; }
+.note { background:#eff6ff; border-left:5px solid #3b82f6; padding:14px 18px; border-radius:8px; margin:14px 0; color:#1e40af; font-size:14px; }
+.note b { color:#1e3a8a; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+th { background:#1e3a8a; color:#fff; padding:10px; text-align:left; }
+td { padding:10px; border-bottom:1px solid #e2e8f0; }
+tr:nth-child(even) td { background:#f8fafc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>⭕ 約瑟夫問題</h1>
+    <p class="sub">n 個人圍成一圈報數，數到 k 的人出局 —— 你要站哪個位置才能活到最後？</p>
+
+    <div class="controls">
+      <div class="ctl"><label>人數 n</label><input type="number" id="nIn" value="10" min="3" max="24"></div>
+      <div class="ctl"><label>報數到 k</label><input type="number" id="kIn" value="3" min="2" max="9"></div>
+      <div class="ctl"><label>我猜第</label><input type="number" id="guessIn" value="1" min="1"><label>號活</label></div>
+      <div class="ctl"><label>速度</label><input type="range" id="spd" min="60" max="900" value="420"></div>
+    </div>
+    <div class="controls">
+      <button onclick="resetGame()">🔄 重新開始</button>
+      <button class="alt" id="btnAuto" onclick="toggleAuto()">▶ 自動播放</button>
+      <button class="warn" id="btnStep" onclick="microStep()">⏭ 單步（一次 dequeue）</button>
+    </div>
+
+    <div class="msg" id="msg">設定好人數與 k，猜一個位置，然後按「自動播放」</div>
+
+    <div class="stage">
+      <div id="circle"></div>
+
+      <div class="panel">
+        <div class="qlabel">📦 Queue 即時狀態（左邊是隊頭 front）</div>
+        <div class="queue-view" id="queueView"></div>
+        <div class="arrowrow"><span>▲ front（下一個報數）</span><span>rear ▼</span></div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">已報數次數</div><div class="v" id="sCount">0</div></div>
+          <div class="stat"><div class="k">出局人數</div><div class="v" id="sOut">0</div></div>
+          <div class="stat"><div class="k">剩餘人數</div><div class="v" id="sAlive">10</div></div>
+          <div class="stat"><div class="k">目前報到</div><div class="v" id="sTick">-</div></div>
+        </div>
+
+        <div class="qlabel" style="margin-top:16px;">📜 操作紀錄</div>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>這跟 Queue 有什麼關係？</h2>
+    <div class="note">
+      <b>核心洞察：</b>「圍成一圈輪流報數」＝「排隊，報完數不出局的人走到隊伍最後面重新排」。<br>
+      這正好就是 Queue 的兩個操作：<b>dequeue（出隊報數）</b> 和 <b>enqueue（沒中，回到隊尾）</b>。
+    </div>
+
+    <div class="code">queue = [1, 2, 3, ..., n]          # 所有人排成一列
+
+while len(queue) > 1:
+    for i in range(k - 1):
+        queue.enqueue(queue.dequeue())   # 報數 1~k-1：出隊，再回到隊尾
+    out = queue.dequeue()                # 報數第 k 個：出隊，直接淘汰
+    print(f"{out} 號出局")
+
+print(f"生還者是 {queue.dequeue()} 號")</div>
+
+    <div class="note" style="background:#f0fdf4;border-color:#10b981;color:#065f46;">
+      <b>為什麼不能用 List？</b> 用 list 模擬「回到隊尾」要做 <code>lst.pop(0)</code>，時間複雜度是 O(n)（所有元素往前搬一格）。<br>
+      用 <code>deque</code> 的 <code>popleft()</code> 是 O(1)。n = 10 萬人時，兩者差距超過 1000 倍。
+    </div>
+
+    <h2>歷史故事</h2>
+    <p style="font-size:14px;line-height:1.9;color:#475569;">
+      西元 67 年，猶太史學家 <b>Flavius Josephus</b> 和 40 名同伴被羅馬軍隊困在山洞裡。同伴決定集體自殺也不投降，
+      辦法是圍成一圈，每數到 3 的人就被殺死。約瑟夫不想死，他快速算出「第幾個位置會活到最後」，
+      悄悄站到那個位置 —— 最後他和另一人活了下來，並向羅馬投降。<br><br>
+      這就是為什麼這個問題叫「約瑟夫問題」。你剛剛玩的，就是他當年在山洞裡算的東西。
+    </p>
+
+    <h2>進階：k = 2 時的神奇規律</h2>
+    <p style="font-size:14px;color:#475569;margin-bottom:10px;">把 k 設成 2，然後試試不同的 n，把生還者記下來：</p>
+    <table>
+      <tr><th>n（人數）</th><th>生還者位置</th><th>觀察</th></tr>
+      <tr><td>1</td><td>1</td><td>n = 2⁰ + 0</td></tr>
+      <tr><td>2</td><td>1</td><td>n = 2¹ + 0</td></tr>
+      <tr><td>3</td><td>3</td><td>n = 2¹ + 1</td></tr>
+      <tr><td>4</td><td>1</td><td>n = 2² + 0</td></tr>
+      <tr><td>5</td><td>3</td><td>n = 2² + 1</td></tr>
+      <tr><td>6</td><td>5</td><td>n = 2² + 2</td></tr>
+      <tr><td>7</td><td>7</td><td>n = 2² + 3</td></tr>
+      <tr><td>8</td><td>1</td><td>n = 2³ + 0</td></tr>
+    </table>
+    <div class="note">
+      <b>公式：</b>把 n 寫成 n = 2<sup>m</sup> + L（其中 0 ≤ L &lt; 2<sup>m</sup>），生還者就是 <b>2L + 1</b>。<br>
+      更酷的寫法：把 n 轉成二進位，然後把<b>最高位的 1 搬到最右邊</b>，就是答案。<br>
+      例：n = 13 = 1101₂ → 1011₂ = 11 → 第 11 號生還。用上面的遊戲驗證看看！
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 給 Claude 的 Prompt</h2>
+    <div class="code">用 Queue（佇列）實作約瑟夫問題。
+
+情境：
+n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
+出局後由下一個人重新從 1 開始報數，直到只剩一個人。
+
+要求：
+1. 用 collections.deque 實作，不要用 list.pop(0)
+2. 函式 josephus(n, k) 回傳生還者編號
+3. 加一個 josephus_verbose(n, k) 印出每一步的出局過程
+4. 說明為什麼「報數不中就回到隊尾」正好是 dequeue + enqueue
+5. 分析時間複雜度
+
+寫完後，用 n=10, k=3 測試，並驗證答案是 4。</div>
+
+    <div class="code" style="margin-top:16px;">延伸題：
+
+1. 用數學公式 O(n) 解約瑟夫問題（不用模擬），
+   公式：J(1)=0, J(n) = (J(n-1) + k) % n，最後 +1
+   比較「模擬法 O(n·k)」和「公式法 O(n)」在 n=100000 時的執行時間
+
+2. k=2 的特殊解：把 n 轉二進位，最高位的 1 移到最右邊。
+   驗證這個規律對 n=1~100 都成立
+
+3. 反問：如果我想活下來，給我一個函式 safe_position(n, k)
+   直接告訴我該站哪裡</div>
+  </div>
+
+</div>
+
+<script>
+let n = 10, k = 3;
+let queue = [];          // 目前還活著的人（隊列順序）
+let outSet = new Set();  // 已出局
+let tick = 0;            // 目前報到第幾聲
+let totalCounts = 0;     // 總共報了幾次數
+let running = false;
+let timer = null;
+let finished = false;
+let guess = 1;
+
+const $ = id => document.getElementById(id);
+
+function resetGame(){
+  stopAuto();
+  n = Math.max(3, Math.min(24, parseInt($('nIn').value) || 10));
+  k = Math.max(2, Math.min(9,  parseInt($('kIn').value) || 3));
+  $('nIn').value = n; $('kIn').value = k;
+  $('guessIn').max = n;
+  guess = Math.max(1, Math.min(n, parseInt($('guessIn').value) || 1));
+  $('guessIn').value = guess;
+
+  queue = [];
+  for (let i = 1; i <= n; i++) queue.push(i);
+  outSet = new Set();
+  tick = 0; totalCounts = 0; finished = false;
+
+  $('log').innerHTML = '';
+  $('btnStep').disabled = false;
+  setMsg(`${n} 個人圍成一圈，數到 ${k} 的人出局。你猜 ${guess} 號會活下來。`, '');
+  render();
+}
+
+function setMsg(t, cls){ const m = $('msg'); m.textContent = t; m.className = 'msg ' + (cls||''); }
+
+function log(text, cls){
+  const el = $('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ---------- 核心：一次 dequeue ---------- */
+function microStep(){
+  if (finished || queue.length <= 1) return;
+
+  tick++;
+  totalCounts++;
+  const front = queue.shift();          // dequeue
+
+  if (tick < k){
+    queue.push(front);                  // enqueue 回隊尾
+    log(`報數 ${tick}：${front} 號 → dequeue 後 enqueue 回隊尾`);
+  } else {
+    outSet.add(front);                  // 第 k 個 → 淘汰
+    log(`報數 ${k}：${front} 號 → 出局 ❌`, 'out-line');
+    tick = 0;
+  }
+
+  render();
+
+  if (queue.length === 1){
+    finished = true;
+    stopAuto();
+    $('btnStep').disabled = true;
+    const survivor = queue[0];
+    log(`\n🏆 生還者是 ${survivor} 號`, 'win-line');
+    if (survivor === guess){
+      setMsg(`🎉 猜對了！生還者就是 ${survivor} 號`, 'good');
+    } else {
+      setMsg(`生還者是 ${survivor} 號，你猜的是 ${guess} 號 —— 再試一次？`, 'bad');
+    }
+    render();
+  }
+}
+
+function toggleAuto(){
+  if (finished){ resetGame(); }
+  if (running) stopAuto(); else startAuto();
+}
+function startAuto(){
+  running = true;
+  $('btnAuto').textContent = '⏸ 暫停';
+  const speed = 1000 - parseInt($('spd').value);
+  timer = setInterval(() => {
+    if (finished) { stopAuto(); return; }
+    microStep();
+  }, Math.max(60, speed));
+}
+function stopAuto(){
+  running = false;
+  if (timer) { clearInterval(timer); timer = null; }
+  $('btnAuto').textContent = '▶ 自動播放';
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  // 圓圈
+  const c = $('circle');
+  c.innerHTML = '';
+  const R = 160, cx = 210, cy = 210;
+  const frontPerson = queue.length ? queue[0] : null;
+
+  for (let i = 1; i <= n; i++){
+    const ang = (2 * Math.PI * (i - 1)) / n - Math.PI / 2;
+    const x = cx + R * Math.cos(ang);
+    const y = cy + R * Math.sin(ang);
+
+    const el = document.createElement('div');
+    el.className = 'person';
+    el.textContent = i;
+    el.style.left = (x - 23) + 'px';
+    el.style.top  = (y - 23) + 'px';
+
+    if (outSet.has(i)) el.classList.add('out');
+    else if (finished && queue.length === 1 && queue[0] === i) el.classList.add('survivor');
+    else if (i === frontPerson && !finished) el.classList.add('counting');
+
+    if (i === guess && !outSet.has(i)) el.classList.add('guess');
+
+    if (i === frontPerson && !finished && tick >= 0){
+      const b = document.createElement('div');
+      b.className = 'badge';
+      b.textContent = tick + 1 > k ? 1 : tick + 1;
+      el.appendChild(b);
+    }
+    c.appendChild(el);
+  }
+
+  // Queue 視覺
+  const qv = $('queueView');
+  qv.innerHTML = '';
+  queue.forEach((p, idx) => {
+    const d = document.createElement('div');
+    d.className = 'qitem' + (idx === 0 ? ' front' : '');
+    d.textContent = p;
+    qv.appendChild(d);
+  });
+
+  $('sCount').textContent = totalCounts;
+  $('sOut').textContent   = outSet.size;
+  $('sAlive').textContent = queue.length;
+  $('sTick').textContent  = finished ? '完成' : (tick + 1 > k ? 1 : tick + 1);
+}
+
+['nIn','kIn'].forEach(id => $(id).addEventListener('change', resetGame));
+$('guessIn').addEventListener('change', () => {
+  guess = Math.max(1, Math.min(n, parseInt($('guessIn').value) || 1));
+  $('guessIn').value = guess;
+  render();
+});
+
+resetGame();
+</script>
+</body>
+</html>

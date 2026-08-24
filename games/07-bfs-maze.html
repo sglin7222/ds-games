@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>迷宮 BFS 對 DFS — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：迷宮格 ============ */
+.maze-wrap{overflow-x:auto;padding:2px}
+.maze{display:grid;gap:1px;background:var(--line);padding:1px;border-radius:8px;
+  user-select:none;width:max-content;margin:0 auto}
+.cell{width:24px;height:24px;background:var(--surface);position:relative;
+  transition:background .12s}
+.cell.wall{background:var(--ink)}
+.cell.seen{background:color-mix(in srgb, var(--ink-faint) 32%, var(--surface))}
+.cell.frontier{background:var(--accent)}
+.cell.path{background:var(--jade)}
+.cell.start,.cell.end{background:var(--jade)}
+.cell.end{background:var(--alarm)}
+.cell.start::after,.cell.end::after{
+  content:'';position:absolute;inset:6px;background:var(--surface);border-radius:50%}
+
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+  font-size:11.5px;color:var(--ink-soft)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:14px;height:14px;border-radius:3px;border:1px solid var(--line)}
+
+/* 演算法大開關 */
+.algo-switch{display:flex;justify-content:center}
+.algo-btn{padding:12px 26px;border:2px solid var(--line);background:var(--surface-2);
+  color:var(--ink-soft);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;
+  transition:background var(--dur),color var(--dur),border-color var(--dur)}
+.algo-btn:first-child{border-radius:9px 0 0 9px}
+.algo-btn:last-child{border-radius:0 9px 9px 0;border-left:0}
+.algo-btn.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.algo-hint{text-align:center;font-size:13px;color:var(--ink-soft)}
+.algo-hint code{background:var(--sunken);padding:3px 9px;border-radius:5px;
+  font-size:12.5px;color:var(--ink);font-weight:700}
+
+/* frontier 內容 */
+.fview{display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto;
+  background:var(--sunken);border-radius:8px;padding:8px;
+  font-family:var(--font-mono);font-size:11.5px}
+.fitem{padding:3px 8px;border-radius:4px;background:var(--surface-2);
+  color:var(--ink-soft);font-weight:700}
+.fitem.next{background:var(--accent);color:var(--surface)}
+.fitem.tag{background:transparent;color:var(--ink-faint);text-align:center;font-weight:500}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){ .two{grid-template-columns:1fr} }
+.box{border:1.5px solid var(--line);border-radius:var(--r);padding:15px 17px;
+  display:flex;flex-direction:column;gap:8px}
+.box.q{border-color:var(--accent);background:var(--accent-soft)}
+.box.s{border-color:var(--jade);background:var(--jade-soft)}
+.box h4{font-size:15px;font-weight:800;margin:0}
+.box.q h4{color:var(--accent)}
+.box.s h4{color:var(--jade)}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">07 · 佇列 vs 堆疊</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 07 · BFS vs DFS</p>
+    <h1>迷宮 BFS 對 DFS</h1>
+    <p class="lede">同一份程式碼，只改「取出元素」那一行 —— 用佇列就變成一圈一圈擴散的 BFS，用堆疊就變成一路鑽到底的 DFS。這是整個課程裡「換一個資料結構，行為就完全不同」最清楚的一次示範。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>佇列 vs 堆疊</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>O(V + E)</b></div>
+      <div class="fact"><span>差別</span><b>只有一行</b></div>
+      <div class="fact"><span>先備知識</span><b>Queue、Stack、二維陣列</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">重點是「同一個迷宮跑兩次」，不是跑一次就好。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <ol class="steps">
+            <li>按 <b>隨機迷宮</b> 產生一張圖，或用滑鼠<b>拖曳畫牆</b>自己設計。</li>
+            <li>上方大開關選 <b>Queue → BFS</b> 或 <b>Stack → DFS</b>。</li>
+            <li>按 <b>開始搜尋</b>，看橘色的「待處理格子」怎麼往外長。</li>
+            <li>記下結果的<b>路徑長度</b>和<b>走訪格數</b>。</li>
+            <li><b>關鍵步驟：</b>不要重新產生迷宮，直接切到另一個演算法再跑一次，比較兩組數字。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">看形狀</span>
+            <span class="txt">BFS 的橘色區域像<b>水波紋</b>，均勻往外推；DFS 像<b>一條蛇</b>，細細長長鑽到底再回頭。這個形狀差異就是 FIFO 和 LIFO 的差別長出來的樣子。</span>
+          </div>
+          <p style="font-size:13.5px;color:var(--ink-soft)">滑鼠模式可以切換畫牆、擦除、移動起點與終點。改動任何東西都會自動重設搜尋。</p>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>BFS 與 DFS 只差一個資料結構</b> —— 程式碼其他部分一字不改，換容器就換演算法。</li>
+            <li><b>為什麼 BFS 保證最短路徑</b> —— 因為它嚴格按「距離由近到遠」的順序走訪。</li>
+            <li><b>為什麼 DFS 不保證</b> —— 它會先一路衝到底，第一次碰到終點時可能繞了一大圈。</li>
+            <li><b>搜尋的三件套</b> —— <code>frontier</code>（待處理）、<code>seen</code>（已排隊過）、<code>parent</code>（從哪來的），少一個就會出錯。</li>
+            <li><b>為什麼要在放入時就標記 seen</b> —— 這是最多人寫錯的一行，會讓同一格被重複排隊。</li>
+            <li><b>怎麼把路徑還原出來</b> —— 從終點沿著 <code>parent</code> 一路回溯到起點。</li>
+            <li><b>空間複雜度的差別</b> —— BFS 存「最寬那一層」，DFS 存「最深那條路」。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用 <b>清空</b> 做一個沒有牆的空白場地跑 BFS —— 你會看到一個完美的菱形波紋，那就是「距離相同的格子同時被走訪」。看懂這個，就懂為什麼 BFS 是最短路徑。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">同一個迷宮，兩種容器，跑兩次比較。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="algo-switch">
+        <button class="algo-btn on" id="btnQ" type="button">Queue → BFS</button>
+        <button class="algo-btn" id="btnS" type="button">Stack → DFS</button>
+      </div>
+      <p class="algo-hint">目前取出方式：<code id="opHint">cur = frontier.front(); pop_front()　← 佇列，先進先出</code></p>
+
+      <div class="bar">
+        <span class="bar-label">迷宮</span>
+        <button class="btn" id="btnGen" type="button">🌀 隨機迷宮</button>
+        <button class="btn" id="btnClear" type="button">🧹 清空</button>
+        <span class="bar-label" style="margin-left:8px">滑鼠</span>
+        <div class="modes">
+          <button class="mode-btn is-on" data-mode="wall" type="button">畫牆</button>
+          <button class="mode-btn" data-mode="erase" type="button">擦除</button>
+          <button class="mode-btn" data-mode="start" type="button">移起點</button>
+          <button class="mode-btn" data-mode="end" type="button">移終點</button>
+        </div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">迷宮</h3>
+            <span class="panel-note" id="mazeNote">17 × 25</span>
+          </div>
+
+          <div class="maze-wrap"><div class="maze" id="maze"></div></div>
+
+          <div class="legend">
+            <span><i style="background:var(--jade)"></i>起點</span>
+            <span><i style="background:var(--alarm)"></i>終點</span>
+            <span><i style="background:var(--ink)"></i>牆</span>
+            <span><i style="background:var(--accent)"></i>待處理（在容器裡）</span>
+            <span><i style="background:color-mix(in srgb,var(--ink-faint) 32%,var(--surface))"></i>已走訪</span>
+            <span><i style="background:var(--jade)"></i>找到的路徑</span>
+          </div>
+
+          <div class="controls">
+            <button class="btn btn-primary" id="btnRun" type="button">▶ 開始搜尋</button>
+            <button class="btn" id="btnStep" type="button">⏭ 單步</button>
+            <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="72"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">READY</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">按「開始搜尋」，或先用滑鼠拖曳畫牆</div>
+              <div class="say-text" id="sayText">同一個迷宮記得用兩種演算法各跑一次。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title" id="fLabel">Queue 內容</h3>
+              <span class="panel-note" id="fNote">front 在最上</span>
+            </div>
+            <div class="fview" id="fview"></div>
+            <div class="stats">
+              <div class="stat"><div class="k">走訪格數</div><div class="v" id="sVisited">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">容器大小</div><div class="v" id="sSize">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">路徑長度</div><div class="v" id="sPath">—</div></div>
+              <div class="stat"><div class="k">是否最短</div><div class="v" id="sOpt" style="font-size:15px">—</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">演算法</h3>
+              <span class="panel-note">O(V+E)</span>
+            </div>
+            <ol class="algo" id="algo"></ol>
+          </div>
+
+        </div>
+      </div>
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>你按「單步」跑的就是這一段。把 <code>front()/pop_front()</code> 改成 <code>back()/pop_back()</code>，就是上面那顆開關做的事。<code>while</code> 迴圈自然結束（frontier 空了還沒碰到終點）就是「走不到終點」的情況：</p>
+                <pre class="code">#include &lt;deque&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+<i>// grid[r][c] == 1 是牆。回傳起點到終點的最短步數，找不到回傳 -1。</i>
+int bfs(const vector&lt;vector&lt;int&gt;&gt;&amp; grid, int sr, int sc, int gr, int gc) {
+    int R = grid.size(), C = grid[0].size();
+    deque&lt;pair&lt;int,int&gt;&gt; frontier = {{sr, sc}};
+    vector&lt;vector&lt;int&gt;&gt; dist(R, vector&lt;int&gt;(C, -1));   <i>// -1 = 還沒 seen 過</i>
+    dist[sr][sc] = 0;
+    int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
+
+    while (!frontier.empty()) {
+        <b>auto [r, c] = frontier.front(); frontier.pop_front();</b>
+        <i>// ↑ 改成 back() + pop_back() 就變 DFS —— 整支程式只差這一行</i>
+        if (r == gr &amp;&amp; c == gc) return dist[r][c];
+        for (int i = 0; i &lt; 4; i++) {
+            int nr = r + dr[i], nc = c + dc[i];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C) continue;
+            if (grid[nr][nc] == 1 || dist[nr][nc] != -1) continue;
+            <b>dist[nr][nc] = dist[r][c] + 1;</b>             <i>// 放進去的當下就標記</i>
+            frontier.push_back({nr, nc});
+        }
+    }
+    return -1;                             <i>// frontier 空了還沒碰到終點</i>
+}
+<i>// 要畫出路徑就再開一個 parent[][]，從終點沿 parent 一路走回起點（見第 03 段）</i></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">一個模板，兩種演算法。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一張格子地圖，有起點、終點和牆。每次只能往上下左右移動一格，不能穿牆。找出一條從起點到終點的路 —— 而且最好是<b>最短</b>的那條。</p>
+      </div>
+
+      <div class="block">
+        <h3>通用搜尋模板</h3>
+        <p>BFS 和 DFS 是同一個模板。整段程式碼只有一行不一樣：</p>
+                <pre class="code">deque  frontier = { 起點 };    <i>// 待處理：知道可以走、但還沒展開的格子</i>
+set    seen     = { 起點 };    <i>// 已經排過隊的格子（避免重複）</i>
+map    parent;                <i>// 每一格是從哪一格走過來的</i>
+
+while (!frontier.empty()) {
+    <b>cur = frontier.front();  frontier.pop_front();</b>   <i>// ← 佇列（FIFO）→ BFS</i>
+    <b>cur = frontier.back();   frontier.pop_back();</b>    <i>// ← 堆疊（LIFO）→ DFS</i>
+
+    if (cur == 終點) break;
+
+    for (nb : cur 的四個鄰居)
+        if (nb 不是牆 &amp;&amp; !seen.count(nb)) {
+            seen.insert(nb);             <i>// 注意：放進去的當下就標記</i>
+            parent[nb] = cur;
+            frontier.push_back(nb);
+        }
+}</pre>
+        <div class="callout" data-k="key">
+          <span class="tag">整題重點</span>
+          <span class="txt">兩個演算法的差別<b>只有取出的那一行</b>。放進去的方式一樣、判斷條件一樣、記錄方式一樣。換掉容器，行為就整個改變 —— 這就是「選對資料結構」的威力。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>搜尋的三件套，少一個就出錯</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">名稱</th><th>裝什麼</th><th>拿掉會怎樣</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono">frontier</td>
+                <td>已經知道可以走、但還沒去展開鄰居的格子</td>
+                <td>沒有待辦清單，程式不知道下一步要去哪</td>
+              </tr>
+              <tr>
+                <td class="mono">seen</td>
+                <td>所有<b>曾經放進 frontier</b> 的格子</td>
+                <td style="color:var(--alarm)">會在原地來回無限繞圈，永遠跑不完</td>
+              </tr>
+              <tr>
+                <td class="mono">parent</td>
+                <td>每一格是從哪一格走過來的</td>
+                <td>找得到終點，但<b>畫不出路徑</b>，只知道有路不知道路在哪</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">最常寫錯</span>
+          <span class="txt">很多人把 <code>seen.add()</code> 寫在<b>取出</b>的時候，而不是<b>放進去</b>的時候。這樣同一格會被不同鄰居重複塞進 frontier 好幾次，容器爆大、速度變慢，路徑長度也可能算錯。<b>放進去的當下就標記</b>，這是對的寫法。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>為什麼 BFS 保證是最短路徑</h3>
+        <p>把 frontier 想成一圈水波。用佇列（先進先出）時，會發生一件很整齊的事：</p>
+        <ul class="bullets ok">
+          <li>第 1 輪：處理所有<b>距離 1</b> 的格子。</li>
+          <li>第 2 輪：處理所有<b>距離 2</b> 的格子。</li>
+          <li>第 d 輪：處理所有<b>距離 d</b> 的格子。</li>
+        </ul>
+        <p>因為佇列永遠先吐出比較早放進去的東西，而距離小的一定比距離大的早放進去，所以 BFS 是<b>嚴格按照距離由近到遠</b>走訪的。</p>
+        <div class="callout" data-k="ok">
+          <span class="tag">所以</span>
+          <span class="txt">當 BFS <b>第一次</b>碰到終點時，那個距離一定是最小的 —— 因為所有更近的格子都已經檢查過了，如果有更短的路早就找到了。這就是「保證最短」的完整理由。</span>
+        </div>
+        <p>在上面的遊戲按「清空」做一片空地再跑 BFS，你會看到一個完美的<b>菱形</b>往外長。菱形的每一圈就是「距離相同」的所有格子。</p>
+      </div>
+
+      <div class="block">
+        <h3>為什麼 DFS 不保證</h3>
+        <p>堆疊永遠吐出最晚放進去的，所以程式會一頭鑽進最新發現的方向，一路走到不能走為止，才回頭試別的分岔。</p>
+        <p>它<b>找得到路</b>（只要有路就一定找得到），但第一次碰到終點時走的那條，很可能是繞了一大圈的路。用同一個迷宮跑兩次，看「路徑長度」那個數字的差距，就很有感覺。</p>
+        <div class="two">
+          <div class="box q">
+            <h4>佇列 → BFS 廣度優先</h4>
+            <ul class="bullets">
+              <li>像水波紋，均勻一圈一圈擴散</li>
+              <li><b>保證最短路徑</b>（每步成本相同時）</li>
+              <li>記憶體較大：要存整圈的邊界</li>
+              <li>用途：最短路徑、社群「幾度分隔」、西洋棋馬走日最少步數</li>
+            </ul>
+          </div>
+          <div class="box s">
+            <h4>堆疊 → DFS 深度優先</h4>
+            <ul class="bullets">
+              <li>像一條蛇，一路鑽到底再回頭</li>
+              <li><b>不保證最短</b>，可能繞很大一圈</li>
+              <li>記憶體較小：大致只存一條路徑</li>
+              <li>用途：判斷「有沒有路」、拓撲排序、解數獨、迷宮生成</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>怎麼把路徑還原出來</h3>
+        <p>搜尋過程中並沒有記錄「路徑」，只記錄了每一格的<b>上一格</b>。找到終點之後，從終點沿著 <code>parent</code> 一路往回走，走到起點為止，再把整串反過來，就是路徑。</p>
+                <pre class="code">vector&lt;Cell&gt; path;
+Cell cur = 終點;
+while (cur != 起點) {
+    path.push_back(cur);
+    cur = parent[cur];
+}
+path.push_back(起點);
+reverse(path.begin(), path.end());</pre>
+        <p>這招叫<b>回溯父節點</b>，在最短路徑、樹的走訪、遊戲 AI 裡到處都會再遇到。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>比較項目</th><th>佇列（BFS）</th><th>堆疊（DFS）</th></tr></thead>
+            <tbody>
+              <tr><td>取出的元素</td><td>最早放進去的（FIFO）</td><td>最晚放進去的（LIFO）</td></tr>
+              <tr><td>擴散形狀</td><td>圓形／菱形波紋</td><td>細長蛇形</td></tr>
+              <tr><td>最短路徑</td><td style="color:var(--jade);font-weight:700">保證</td><td style="color:var(--alarm);font-weight:700">不保證</td></tr>
+              <tr><td>時間複雜度</td><td class="mono">O(V + E)</td><td class="mono">O(V + E)</td></tr>
+              <tr><td>空間複雜度</td><td class="mono">O(最寬那一層)</td><td class="mono">O(最深那條路)</td></tr>
+              <tr><td>C++ 實作</td><td><code>deque::pop_front()</code></td><td><code>deque::pop_back()</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>兩者時間複雜度相同 —— 最壞情況都要看過每一格和每一條邊。差別在<b>順序</b>，以及順序帶來的最短性保證。</p>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「BFS 比 DFS 快」</b> —— 不一定。兩者都是 O(V+E)。BFS 常常走訪比較多格子（因為它把整圈都攤開），只是它換到了「最短」這個保證。</li>
+          <li><b>「DFS 一定要用遞迴」</b> —— 不用。這個遊戲的 DFS 就是用一個明確的堆疊寫成迴圈。遞迴版本只是借用了系統的呼叫堆疊而已（見 <a href="04-call-stack.html">04 呼叫堆疊</a>）。</li>
+          <li><b>「seen 和 frontier 是同一件事」</b> —— 不是。<code>frontier</code> 是「還沒展開」，<code>seen</code> 是「曾經排過隊」。已經處理完的格子還在 seen 裡，但早就不在 frontier 裡了。</li>
+          <li><b>「每格成本不同時 BFS 也保證最短」</b> —— 不保證。那要換成 Dijkstra，把佇列升級成優先佇列。BFS 的保證建立在「每一步成本都是 1」上。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：一個模板，一個開關</h3>
+        <p>本頁只寫了<b>一份</b>搜尋程式。演算法切換不是切換兩段程式碼，而是切換一個布林值：</p>
+        <pre class="code">var cur = useQueue ? frontier.shift() : frontier.pop();
+<i>//                  ↑ 取隊頭 O(n)*      ↑ 取堆疊頂端 O(1)</i></pre>
+        <p style="font-size:13px;color:var(--ink-faint)">* JavaScript 的 <code>shift()</code> 其實是 O(n)。教學用的格子數很小所以無所謂，但正式實作要用真正的 deque 或環形佇列 —— 這正是 <a href="06-josephus.html">06 約瑟夫問題</a> 講的那件事。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">為什麼這樣寫</span>
+          <span class="txt">寫成兩份程式碼，學生會以為 BFS 和 DFS 是兩個不同的演算法。寫成一份加一個開關，才看得出來它們<b>本來就是同一個演算法</b>。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>地圖</b></td><td class="mono">genMaze / clearWalls<br>paint</td><td>產生與編輯迷宮。任何改動都會呼叫 resetSearch()。</td></tr>
+              <tr><td><b>搜尋狀態</b></td><td class="mono">resetSearch</td><td>把 frontier、seen、parent 三件套歸零。</td></tr>
+              <tr><td><b>演算法</b></td><td class="mono">oneStep</td><td><b>核心。</b>取出一格、檢查是否到終點、把鄰居排進去。</td></tr>
+              <tr><td><b>路徑還原</b></td><td class="mono">buildPath</td><td>從終點沿 parent 回溯，並和裁判答案比對。</td></tr>
+              <tr><td><b>裁判</b></td><td class="mono">bfsShortest</td><td>獨立跑一次純 BFS 算真正的最短距離，用來判定 DFS 差幾步。</td></tr>
+              <tr><td><b>畫面</b></td><td class="mono">render</td><td>依 grid、seen、frontier、pathCells 決定每一格的顏色。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <span class="tag">誠實說明</span>
+          <span class="txt"><code>bfsShortest()</code> 是<b>只為了教學而存在的裁判</b>，不是演算法的一部分。它偷偷再跑一次標準 BFS，好讓畫面能顯示「你的 DFS 比最短多了幾步」。真實程式裡不會有這個函式。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心：oneStep() 的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">frontier 是空的嗎？</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">cur ← 取出一格 <small>useQueue ? shift() : pop()</small></div>
+          <div class="arrow"></div>
+          <div class="node">cur 是終點嗎？ <small>是 → buildPath() 收工</small></div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">出界？<small>跳過</small></div>
+            <div class="node">是牆？<small>跳過</small></div>
+            <div class="node">seen 過？<small>跳過</small></div>
+            <div class="node" data-k="data">都不是<small>標記 seen、記 parent、放進 frontier</small></div>
+          </div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+        </div>
+        <p>四個鄰居各跑一次這個判斷。三個「跳過」的條件順序可以互換，但<b>都必須存在</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>一個彩蛋：產生迷宮也用了堆疊</h3>
+        <p><code>genMaze()</code> 用的是「隨機深度優先挖路」：從一格出發，隨機挑一個還沒挖過的方向鑽進去，鑽不動了就 <code>pop()</code> 退回上一格再試別的方向。</p>
+        <p>換句話說 —— <b>這一頁用堆疊產生迷宮，然後用佇列或堆疊去解它</b>。同一個資料結構，在同一個檔案裡出現了兩種完全不同的用途。</p>
+        <p style="font-size:13.5px;color:var(--ink-soft)">挖完之後程式還會隨機打通約 30 面牆，製造多條路徑 —— 不這樣做的話迷宮只有唯一解，BFS 和 DFS 會找到同一條路，就比較不出差別了。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th></tr></thead>
+            <tbody>
+              <tr><td>改迷宮大小</td><td>最上面的 <code>ROWS</code>、<code>COLS</code></td></tr>
+              <tr><td>允許斜向移動</td><td><code>DIRS</code> 陣列加上四組對角方向</td></tr>
+              <tr><td>改成 Dijkstra</td><td>把 frontier 換成優先佇列，並給每格一個成本</td></tr>
+              <tr><td>多起點 BFS（爛橘子）</td><td>初始化時把多個起點一起放進 frontier</td></tr>
+              <tr><td>看 DFS 的遞迴版</td><td>見 <a href="04-call-stack.html">04 呼叫堆疊</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作 BFS 走迷宮，找出最短路徑。
+
+輸入格式：
+maze = [
+    "S.#.......",
+    ".#.###.##.",
+    ".#.....#..",
+    ".####.##.#",
+    "........#E",
+]
+S = 起點，E = 終點，# = 牆，. = 可走
+
+要求：
+1. 用 std::deque（或 std::queue）實作 BFS
+2. 回傳 (最短步數, 路徑座標列表)
+3. 找不到路時回傳 (-1, [])
+4. 額外做一個把路徑印在迷宮上的函式（用 * 標記）
+
+寫完後告訴我：為什麼 BFS 保證是最短路徑？用「一層一層擴散」解釋。</pre>
+        <h4>再挑戰：只改一行變成 DFS</h4>
+        <pre class="code">1. 把上面的程式碼複製一份，只把 front()/pop_front() 改成 back()/pop_back()
+2. 用同一個迷宮跑，比較：
+   - 找到的路徑長度
+   - 走訪了幾個格子
+3. 畫出兩者的走訪順序圖
+4. 解釋為什麼 DFS 找到的路比較長
+
+最後回答：什麼情況下我該用 DFS 而不是 BFS？</pre>
+        <h4>進階：同一個模板換三個題目</h4>
+        <pre class="code">1. 「幾度分隔」：給定朋友關係圖，算 A 到 B 最少透過幾個人認識
+2. 「爛橘子」：矩陣裡有新鮮/腐爛的橘子，每分鐘腐爛的會傳染給
+   上下左右的鄰居，問幾分鐘後全部爛掉（多起點 BFS）
+3. 「西洋棋的馬」：8x8 棋盤上，馬從 (0,0) 到 (7,7) 最少走幾步
+
+三題都用同一個 BFS 模板，只換 neighbors() 函式。
+寫給我看，並指出三題的共同結構。</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 07 迷宮 BFS 對 DFS</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var ROWS = 17, COLS = 25;
+  var DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+
+  var CODE = [
+    "frontier ← [起點]",
+    "while frontier 不是空的:",
+    "    cur ← 取出一格",
+    "    if cur 是終點: 收工",
+    "    for nb in cur 的四個鄰居:",
+    "        if 可走 and 沒 seen 過:",
+    "            seen、parent、放進 frontier"
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var key = function(r,c){ return r * COLS + c; };
+
+  var grid = [];
+  var start = {r:1, c:1}, goal = {r:ROWS-2, c:COLS-2};
+  var useQueue = true, mode = "wall", drawing = false;
+
+  var frontier = [], seen = null, parent = null;
+  var searching = false, timer = null, done = false;
+  var visitedCount = 0, pathCells = [];
+
+  /* ---------- 地圖 ---------- */
+  function buildDOM(){
+    var g = $("maze");
+    g.style.gridTemplateColumns = "repeat(" + COLS + ", 24px)";
+    g.innerHTML = "";
+    for(var r=0;r<ROWS;r++){
+      for(var c=0;c<COLS;c++){
+        (function(r,c){
+          var d = document.createElement("div");
+          d.className = "cell";
+          d.addEventListener("mousedown", function(e){ e.preventDefault(); drawing = true; paint(r,c); });
+          d.addEventListener("mouseenter", function(){ if(drawing) paint(r,c); });
+          g.appendChild(d);
+        })(r,c);
+      }
+    }
+    document.addEventListener("mouseup", function(){ drawing = false; });
+    $("mazeNote").textContent = ROWS + " × " + COLS;
+  }
+  function cellEl(r,c){ return $("maze").children[r * COLS + c]; }
+
+  function paint(r,c){
+    if(mode === "start"){
+      if(grid[r][c] === 1 || (r===goal.r && c===goal.c)) return;
+      start = {r:r, c:c};
+    } else if(mode === "end"){
+      if(grid[r][c] === 1 || (r===start.r && c===start.c)) return;
+      goal = {r:r, c:c};
+    } else {
+      if((r===start.r && c===start.c) || (r===goal.r && c===goal.c)) return;
+      grid[r][c] = (mode === "wall") ? 1 : 0;
+    }
+    resetSearch();
+  }
+
+  function genMaze(){
+    stopRun();
+    var r, c;
+    for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) grid[r][c] = 1;
+
+    // 隨機深度優先挖路：這裡自己就用了一個堆疊
+    var stack = [{r:1, c:1}];
+    grid[1][1] = 0;
+    while(stack.length){
+      var cur = stack[stack.length-1], opts = [];
+      [[-2,0],[2,0],[0,-2],[0,2]].forEach(function(d){
+        var nr = cur.r + d[0], nc = cur.c + d[1];
+        if(nr>0 && nr<ROWS-1 && nc>0 && nc<COLS-1 && grid[nr][nc] === 1)
+          opts.push({nr:nr, nc:nc, dr:d[0], dc:d[1]});
+      });
+      if(opts.length === 0){ stack.pop(); continue; }
+      var p = opts[Math.floor(Math.random()*opts.length)];
+      grid[cur.r + p.dr/2][cur.c + p.dc/2] = 0;
+      grid[p.nr][p.nc] = 0;
+      stack.push({r:p.nr, c:p.nc});
+    }
+    // 打通一些牆，製造多條路徑，BFS 和 DFS 的差別才看得出來
+    for(var i=0;i<30;i++){
+      r = 1 + Math.floor(Math.random()*(ROWS-2));
+      c = 1 + Math.floor(Math.random()*(COLS-2));
+      grid[r][c] = 0;
+    }
+    start = {r:1, c:1};
+    goal  = {r:ROWS-2, c:COLS-2};
+    grid[start.r][start.c] = 0;
+    grid[goal.r][goal.c] = 0;
+    resetSearch();
+    say("start", "迷宮產生完畢", "按「開始搜尋」。跑完之後<b>不要重新產生</b>，直接切另一個演算法再跑一次。");
+  }
+
+  function clearWalls(){
+    for(var r=0;r<ROWS;r++) for(var c=0;c<COLS;c++) grid[r][c] = 0;
+    resetSearch();
+    say("start", "空白場地", "這個場地跑 BFS 會長出一個完美的菱形波紋 —— 那就是「距離相同的格子同時被走訪」。");
+  }
+
+  /* ---------- 搜尋 ---------- */
+  function resetSearch(){
+    stopRun();
+    frontier = [{r:start.r, c:start.c}];
+    seen = {}; seen[key(start.r, start.c)] = 1;
+    parent = {};
+    visitedCount = 0;
+    pathCells = [];
+    done = false;
+    $("btnRun").disabled = false;
+    $("sPath").textContent = "—";
+    $("sOpt").textContent = "—";
+    hilite(1);
+    render();
+  }
+
+  function oneStep(){
+    if(done) return;
+
+    if(frontier.length === 0){
+      done = true; stopRun();
+      say("error", "走不到終點", "容器空了還沒碰到終點 —— 代表終點被牆完全圍住，這張圖沒有解。");
+      return;
+    }
+
+    hilite(3);
+    var cur = useQueue ? frontier.shift() : frontier.pop();
+    visitedCount++;
+
+    if(cur.r === goal.r && cur.c === goal.c){
+      done = true; stopRun();
+      hilite(4);
+      buildPath(cur);
+      return;
+    }
+
+    hilite(7);
+    for(var i=0;i<DIRS.length;i++){
+      var nr = cur.r + DIRS[i][0], nc = cur.c + DIRS[i][1];
+      if(nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      if(grid[nr][nc] === 1) continue;
+      if(seen[key(nr,nc)]) continue;
+      seen[key(nr,nc)] = 1;                       // 放進去的當下就標記
+      parent[key(nr,nc)] = key(cur.r, cur.c);
+      frontier.push({r:nr, c:nc});
+    }
+    render();
+  }
+
+  function buildPath(endCell){
+    pathCells = [];
+    var k = key(endCell.r, endCell.c), sk = key(start.r, start.c);
+    while(k !== sk){
+      pathCells.push({r: Math.floor(k / COLS), c: k % COLS});
+      k = parent[k];
+      if(k === undefined) break;
+    }
+    pathCells.push({r:start.r, c:start.c});
+    render();
+
+    var len = pathCells.length - 1;
+    var best = bfsShortest();
+    $("sPath").textContent = len;
+    $("sOpt").textContent = (len === best) ? "✓ 最短" : "多 " + (len - best) + " 步";
+
+    if(useQueue){
+      say("ok", "佇列找到路徑：" + len + " 步",
+          "走訪了 <b>" + visitedCount + "</b> 格。因為 BFS 是照距離由近到遠走訪的，第一次碰到終點時就是最短 —— 這條<b>保證</b>是最短路徑。");
+    } else {
+      say(len === best ? "ok" : "hot", "堆疊找到路徑：" + len + " 步",
+          "走訪了 <b>" + visitedCount + "</b> 格，最短其實是 <b>" + best + "</b> 步。DFS 一路鑽到底，第一次碰到終點的那條路不保證最短。");
+    }
+  }
+
+  // 教學用的裁判：獨立跑一次純 BFS 算真正的最短距離
+  function bfsShortest(){
+    var q = [{r:start.r, c:start.c, d:0}], vis = {};
+    vis[key(start.r, start.c)] = 1;
+    while(q.length){
+      var cur = q.shift();
+      if(cur.r === goal.r && cur.c === goal.c) return cur.d;
+      for(var i=0;i<DIRS.length;i++){
+        var nr = cur.r + DIRS[i][0], nc = cur.c + DIRS[i][1];
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+        if(grid[nr][nc] === 1 || vis[key(nr,nc)]) continue;
+        vis[key(nr,nc)] = 1;
+        q.push({r:nr, c:nc, d:cur.d+1});
+      }
+    }
+    return -1;
+  }
+
+  /* ---------- 播放 ---------- */
+  function toggleRun(){
+    if(done) resetSearch();
+    if(searching) stopRun(); else startRun();
+  }
+  function startRun(){
+    searching = true;
+    $("btnRun").textContent = "❚❚ 暫停";
+    var delay = Math.max(1, 100 - parseInt($("spd").value, 10));
+    timer = setInterval(function(){ if(done){ stopRun(); return; } oneStep(); }, delay);
+  }
+  function stopRun(){
+    searching = false;
+    if(timer){ clearInterval(timer); timer = null; }
+    $("btnRun").textContent = done ? "↺ 再跑一次" : "▶ 開始搜尋";
+  }
+
+  /* ---------- 演算法切換 ---------- */
+  function setAlgo(q){
+    useQueue = q;
+    $("btnQ").classList.toggle("on", q);
+    $("btnS").classList.toggle("on", !q);
+    $("opHint").textContent = q
+      ? "cur = frontier.front(); pop_front()　← 佇列，先進先出"
+      : "cur = frontier.back();  pop_back() 　← 堆疊，後進先出";
+    $("fLabel").textContent = q ? "Queue 內容" : "Stack 內容";
+    $("fNote").textContent  = q ? "front 在最上" : "top 在最上";
+    resetSearch();
+    say("start", q ? "佇列模式：一圈一圈擴散" : "堆疊模式：一路鑽到底",
+        q ? "先進先出，所以嚴格按距離由近到遠走訪 —— 保證最短。"
+          : "後進先出，所以會一頭鑽進最新的方向 —— 找得到路，但通常不是最短。");
+  }
+
+  /* ---------- 畫面 ---------- */
+  function render(){
+    var inFrontier = {}, inPath = {}, i;
+    for(i=0;i<frontier.length;i++) inFrontier[key(frontier[i].r, frontier[i].c)] = 1;
+    for(i=0;i<pathCells.length;i++) inPath[key(pathCells[i].r, pathCells[i].c)] = 1;
+
+    for(var r=0;r<ROWS;r++){
+      for(var c=0;c<COLS;c++){
+        var cls = "cell";
+        if(grid[r][c] === 1) cls += " wall";
+        else if(inPath[key(r,c)]) cls += " path";
+        else if(inFrontier[key(r,c)]) cls += " frontier";
+        else if(seen && seen[key(r,c)]) cls += " seen";
+        if(r === start.r && c === start.c) cls = "cell start";
+        if(r === goal.r && c === goal.c)   cls = "cell end";
+        cellEl(r,c).className = cls;
+      }
+    }
+
+    // 容器內容：第一個永遠是「下一個會被取出的」
+    var fv = $("fview");
+    fv.innerHTML = "";
+    var ordered = useQueue ? frontier.slice() : frontier.slice().reverse();
+
+    if(ordered.length === 0){
+      var e = document.createElement("div");
+      e.className = "fitem tag";
+      e.textContent = done ? "（搜尋結束）" : "（空）";
+      fv.appendChild(e);
+    }
+    ordered.slice(0, 40).forEach(function(p, i){
+      var d = document.createElement("div");
+      d.className = "fitem" + (i === 0 ? " next" : "");
+      d.textContent = "(" + p.r + ", " + p.c + ")" + (i === 0 ? "　← 下一個取出" : "");
+      fv.appendChild(d);
+    });
+    if(ordered.length > 40){
+      var more = document.createElement("div");
+      more.className = "fitem tag";
+      more.textContent = "⋯ 還有 " + (ordered.length - 40) + " 個";
+      fv.appendChild(more);
+    }
+
+    $("sVisited").textContent = visitedCount;
+    $("sSize").textContent = frontier.length;
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", kind);
+    $("sayBadge").textContent =
+      ({start:"READY", ok:"FOUND", hot:"FOUND", error:"NO PATH"})[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    CODE.forEach(function(t){
+      var li = document.createElement("li");
+      li.textContent = t;
+      ol.appendChild(li);
+    });
+  }
+  function hilite(line){
+    var lis = $("algo").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+  }
+
+  /* ---------- 事件 ---------- */
+  $("btnQ").addEventListener("click", function(){ setAlgo(true); });
+  $("btnS").addEventListener("click", function(){ setAlgo(false); });
+  $("btnGen").addEventListener("click", genMaze);
+  $("btnClear").addEventListener("click", clearWalls);
+  $("btnRun").addEventListener("click", toggleRun);
+  $("btnStep").addEventListener("click", function(){ stopRun(); oneStep(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){
+      mode = b.getAttribute("data-mode");
+      Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(x){
+        x.classList.toggle("is-on", x === b);
+      });
+    });
+  });
+
+  grid = [];
+  for(var r=0;r<ROWS;r++){ grid.push([]); for(var c=0;c<COLS;c++) grid[r].push(0); }
+  buildDOM();
+  renderAlgo();
+  genMaze();
+})();
+</script>
+</body>
+</html>

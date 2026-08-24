@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BFS 迷宮 - Queue vs Stack 互動比較</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:linear-gradient(135deg,#0f172a 0%,#312e81 100%);
+  min-height:100vh; padding:20px; color:#e2e8f0;
+}
+.wrap { max-width:1200px; margin:0 auto; }
+.card { background:#fff; color:#1e293b; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.35); padding:28px; margin-bottom:22px; }
+h1 { font-size:32px; text-align:center; color:#312e81; margin-bottom:6px; }
+.sub { text-align:center; color:#64748b; font-size:14px; margin-bottom:20px; }
+h2 { font-size:20px; color:#312e81; margin:24px 0 12px; border-left:5px solid #6366f1; padding-left:12px; }
+
+.controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom:14px; }
+button { padding:10px 16px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s; }
+button:hover { background:#4f46e5; transform:translateY(-2px); }
+button:disabled { background:#cbd5e1; cursor:not-allowed; transform:none; }
+button.alt { background:#10b981; } button.alt:hover { background:#059669; }
+button.warn { background:#64748b; } button.warn:hover { background:#475569; }
+button.mode { background:#e2e8f0; color:#334155; }
+button.mode.on { background:#6366f1; color:#fff; }
+.ctl { display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:700; color:#334155; }
+input[type=range] { width:110px; }
+
+/* 演算法大開關 */
+.algo-switch { display:flex; justify-content:center; gap:0; margin:18px 0 6px; }
+.algo-btn {
+  padding:14px 30px; border:3px solid #cbd5e1; background:#f8fafc; color:#64748b;
+  font-weight:800; font-size:16px; cursor:pointer; font-family:inherit; transition:.2s;
+}
+.algo-btn:first-child { border-radius:10px 0 0 10px; }
+.algo-btn:last-child { border-radius:0 10px 10px 0; border-left:none; }
+.algo-btn.on.q { background:#3b82f6; border-color:#3b82f6; color:#fff; }
+.algo-btn.on.s { background:#f59e0b; border-color:#f59e0b; color:#fff; }
+.algo-hint { text-align:center; font-size:13px; color:#64748b; margin-bottom:16px; }
+.algo-hint code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; font-size:13px; }
+
+.stage { display:grid; grid-template-columns:1fr 300px; gap:22px; align-items:start; }
+@media(max-width:1000px){ .stage { grid-template-columns:1fr; } }
+
+#grid { display:grid; gap:1px; background:#cbd5e1; padding:1px; border-radius:8px; user-select:none; width:max-content; margin:0 auto; }
+.cell { width:26px; height:26px; background:#fff; transition:background .12s; position:relative; }
+.cell.wall     { background:#1e293b; }
+.cell.seen     { background:#bfdbfe; }
+.cell.frontier { background:#fbbf24; }
+.cell.path     { background:#34d399; }
+.cell.start    { background:#10b981; }
+.cell.end      { background:#ef4444; }
+.cell.start::after, .cell.end::after {
+  content:''; position:absolute; inset:6px; background:#fff; border-radius:50%;
+}
+
+.panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; }
+.plabel { font-size:12px; font-weight:800; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+.frontier-view { display:flex; flex-direction:column; gap:3px; max-height:210px; overflow-y:auto; background:#fff; border:2px solid #e2e8f0; border-radius:8px; padding:8px; font-family:Consolas,monospace; font-size:12px; }
+.fitem { padding:3px 8px; border-radius:4px; background:#fef3c7; color:#92400e; font-weight:700; }
+.fitem.next { background:#f59e0b; color:#fff; }
+.fitem.tag { background:#e0e7ff; color:#3730a3; text-align:center; font-size:11px; }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.stat .k { font-size:11px; color:#64748b; font-weight:700; }
+.stat .v { font-size:22px; font-weight:800; color:#312e81; }
+.stat.hl .v { color:#059669; }
+
+.legend { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:14px 0; font-size:12px; color:#475569; }
+.legend span { display:flex; align-items:center; gap:5px; }
+.sw { width:16px; height:16px; border-radius:3px; border:1px solid #cbd5e1; }
+
+.msg { text-align:center; font-size:16px; font-weight:800; min-height:28px; margin:12px 0; }
+.msg.good { color:#059669; } .msg.bad { color:#dc2626; }
+
+.code { background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-family:Consolas,monospace; font-size:13px; line-height:1.75; overflow-x:auto; white-space:pre; }
+.code .hi { color:#fbbf24; font-weight:700; }
+.code .cm { color:#64748b; }
+.note { background:#eef2ff; border-left:5px solid #6366f1; padding:14px 18px; border-radius:8px; margin:14px 0; color:#3730a3; font-size:14px; line-height:1.8; }
+.note b { color:#312e81; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+@media(max-width:800px){ .two { grid-template-columns:1fr; } }
+.box { border:2px solid #e2e8f0; border-radius:10px; padding:16px; }
+.box.q { border-color:#3b82f6; background:#eff6ff; }
+.box.s { border-color:#f59e0b; background:#fffbeb; }
+.box h4 { margin-bottom:8px; font-size:16px; }
+.box.q h4 { color:#1d4ed8; } .box.s h4 { color:#b45309; }
+.box ul { margin-left:18px; font-size:13px; line-height:1.9; color:#475569; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+th { background:#312e81; color:#fff; padding:10px; text-align:left; }
+td { padding:10px; border-bottom:1px solid #e2e8f0; }
+tr:nth-child(even) td { background:#f8fafc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>🧭 BFS 迷宮：Queue vs Stack</h1>
+    <p class="sub">同一份程式碼，只改一行 —— 看看 Queue 和 Stack 走迷宮差多少</p>
+
+    <div class="algo-switch">
+      <button class="algo-btn q on" id="btnQ" onclick="setAlgo(true)">📦 Queue → BFS</button>
+      <button class="algo-btn s"    id="btnS" onclick="setAlgo(false)">🥞 Stack → DFS</button>
+    </div>
+    <p class="algo-hint">
+      目前取出方式：<code id="opHint">cur = frontier.popleft()  ← Queue，先進先出</code>
+    </p>
+
+    <div class="controls">
+      <button onclick="genMaze()">🌀 隨機迷宮</button>
+      <button onclick="clearWalls()">🧹 清空</button>
+      <button class="alt" id="btnRun" onclick="toggleRun()">▶ 開始搜尋</button>
+      <button class="warn" onclick="oneStep()">⏭ 單步</button>
+      <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="72"></div>
+    </div>
+    <div class="controls">
+      <span style="font-size:13px;font-weight:700;color:#64748b;">滑鼠模式：</span>
+      <button class="mode on" id="mWall"  onclick="setMode('wall')">🧱 畫牆</button>
+      <button class="mode"    id="mErase" onclick="setMode('erase')">🧹 擦除</button>
+      <button class="mode"    id="mStart" onclick="setMode('start')">🟢 移起點</button>
+      <button class="mode"    id="mEnd"   onclick="setMode('end')">🔴 移終點</button>
+    </div>
+
+    <div class="msg" id="msg">按「開始搜尋」，或先用滑鼠拖曳畫牆</div>
+
+    <div class="stage">
+      <div>
+        <div id="grid"></div>
+        <div class="legend">
+          <span><i class="sw" style="background:#10b981"></i>起點</span>
+          <span><i class="sw" style="background:#ef4444"></i>終點</span>
+          <span><i class="sw" style="background:#1e293b"></i>牆</span>
+          <span><i class="sw" style="background:#fbbf24"></i>在 Queue/Stack 裡（待處理）</span>
+          <span><i class="sw" style="background:#bfdbfe"></i>已走訪</span>
+          <span><i class="sw" style="background:#34d399"></i>找到的路徑</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="plabel" id="fLabel">📦 Queue 內容（front 在最上）</div>
+        <div class="frontier-view" id="fView"></div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">走訪格數</div><div class="v" id="sVisited">0</div></div>
+          <div class="stat"><div class="k">容器大小</div><div class="v" id="sSize">0</div></div>
+          <div class="stat hl"><div class="k">路徑長度</div><div class="v" id="sPath">-</div></div>
+          <div class="stat"><div class="k">是否最短</div><div class="v" id="sOpt" style="font-size:16px;">-</div></div>
+        </div>
+
+        <div class="note" style="margin-top:16px;font-size:13px;padding:12px 14px;">
+          <b>試試看：</b>先用 Queue 跑一次記下路徑長度，再按 Stack 跑同一個迷宮，比較兩者的路徑長度和走訪格數。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>一行程式碼的差別</h2>
+    <div class="code">frontier = [start]
+seen = {start}
+parent = {}
+
+while frontier:
+<span class="hi">    cur = frontier.popleft()   # ← Queue：拿最早放進去的 → BFS</span>
+<span class="hi">    cur = frontier.pop()       # ← Stack：拿最晚放進去的 → DFS</span>
+
+    if cur == goal:
+        break
+
+    for nb in neighbors(cur):
+        if nb not in seen and not is_wall(nb):
+            seen.add(nb)
+            parent[nb] = cur
+            frontier.append(nb)</div>
+
+    <div class="note">
+      <b>整份程式碼一模一樣，只有取出元素的那一行不同。</b><br>
+      <code>popleft()</code>（Queue，FIFO）→ 一圈一圈往外擴散 → <b>保證找到最短路徑</b><br>
+      <code>pop()</code>（Stack，LIFO）→ 一路衝到底再回頭 → <b>會找到路，但通常不是最短的</b>
+    </div>
+
+    <div class="two">
+      <div class="box q">
+        <h4>📦 Queue（BFS 廣度優先）</h4>
+        <ul>
+          <li>像水波紋，均勻地一圈一圈擴散</li>
+          <li><b>保證最短路徑</b>（每格權重相同時）</li>
+          <li>記憶體用量大：要存整圈的邊界</li>
+          <li>用途：最短路徑、社群網路「幾度分隔」、西洋棋馬走日最少步數</li>
+        </ul>
+      </div>
+      <div class="box s">
+        <h4>🥞 Stack（DFS 深度優先）</h4>
+        <ul>
+          <li>像一條蛇，一路鑽到底再回頭</li>
+          <li><b>不保證最短</b>，可能繞很大一圈</li>
+          <li>記憶體用量小：只存一條路徑</li>
+          <li>用途：找出「有沒有路」、拓撲排序、解數獨、迷宮生成</li>
+        </ul>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>比較項目</th><th>Queue（BFS）</th><th>Stack（DFS）</th></tr>
+      <tr><td>取出的元素</td><td>最早放進去的（FIFO）</td><td>最晚放進去的（LIFO）</td></tr>
+      <tr><td>擴散形狀</td><td>圓形波紋</td><td>細長蛇形</td></tr>
+      <tr><td>最短路徑</td><td>✅ 保證</td><td>❌ 不保證</td></tr>
+      <tr><td>時間複雜度</td><td>O(V + E)</td><td>O(V + E)</td></tr>
+      <tr><td>空間複雜度</td><td>O(最寬那一層)</td><td>O(最深那條路)</td></tr>
+      <tr><td>Python 實作</td><td><code>deque.popleft()</code></td><td><code>list.pop()</code></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>🎯 給 Claude 的 Prompt</h2>
+    <div class="code">用 Queue 實作 BFS 走迷宮，找出最短路徑。
+
+輸入格式：
+maze = [
+    "S.#.......",
+    ".#.###.##.",
+    ".#.....#..",
+    ".####.##.#",
+    "........#E",
+]
+S = 起點，E = 終點，# = 牆，. = 可走
+
+要求：
+1. 用 collections.deque 實作 BFS
+2. 回傳 (最短步數, 路徑座標列表)
+3. 找不到路時回傳 (-1, [])
+4. 額外做一個把路徑印在迷宮上的函式（用 * 標記）
+
+寫完後告訴我：為什麼 BFS 保證是最短路徑？用「一層一層擴散」解釋。</div>
+
+    <div class="code" style="margin-top:16px;">延伸題：把 BFS 改成 DFS，只改一行
+
+1. 把上面的程式碼複製一份，只把 popleft() 改成 pop()
+2. 用同一個迷宮跑，比較：
+   - 找到的路徑長度
+   - 走訪了幾個格子
+3. 畫出兩者的走訪順序圖
+4. 解釋為什麼 DFS 找到的路比較長
+
+最後回答：什麼情況下我該用 DFS 而不是 BFS？</div>
+
+    <div class="code" style="margin-top:16px;">進階：把 BFS 用在別的地方
+
+1. 「幾度分隔」：給定朋友關係圖，算 A 到 B 最少透過幾個人認識
+2. 「爛橘子」：矩陣裡有新鮮/腐爛的橘子，每分鐘腐爛的會傳染給
+   上下左右的鄰居，問幾分鐘後全部爛掉（多起點 BFS）
+3. 「西洋棋的馬」：8x8 棋盤上，馬從 (0,0) 到 (7,7) 最少走幾步
+
+三題都用同一個 BFS 模板，只換 neighbors() 函式。
+寫給我看，並指出三題的共同結構。</div>
+  </div>
+
+</div>
+
+<script>
+const ROWS = 17, COLS = 25;
+let grid = [];              // 0 空地 1 牆
+let start = {r:1, c:1}, end = {r:ROWS-2, c:COLS-2};
+let useQueue = true;
+let mode = 'wall';
+let drawing = false;
+
+let frontier = [], seen = null, parent = null;
+let searching = false, timer = null, done = false;
+let visitedCount = 0, pathCells = [];
+
+const $ = id => document.getElementById(id);
+const key = (r,c) => r * COLS + c;
+
+/* ---------- 初始化 ---------- */
+function initGrid(){
+  grid = Array.from({length:ROWS}, () => Array(COLS).fill(0));
+  buildDOM();
+  resetSearch();
+}
+
+function buildDOM(){
+  const g = $('grid');
+  g.style.gridTemplateColumns = `repeat(${COLS}, 26px)`;
+  g.innerHTML = '';
+  for (let r = 0; r < ROWS; r++){
+    for (let c = 0; c < COLS; c++){
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.dataset.r = r; d.dataset.c = c;
+      d.addEventListener('mousedown', e => { e.preventDefault(); drawing = true; paint(r,c); });
+      d.addEventListener('mouseenter', () => { if (drawing) paint(r,c); });
+      g.appendChild(d);
+    }
+  }
+  document.addEventListener('mouseup', () => drawing = false);
+}
+
+function cellEl(r,c){ return $('grid').children[r * COLS + c]; }
+
+function paint(r,c){
+  if (mode === 'start'){
+    if (grid[r][c] === 1 || (r===end.r && c===end.c)) return;
+    start = {r,c};
+  } else if (mode === 'end'){
+    if (grid[r][c] === 1 || (r===start.r && c===start.c)) return;
+    end = {r,c};
+  } else {
+    if ((r===start.r && c===start.c) || (r===end.r && c===end.c)) return;
+    grid[r][c] = (mode === 'wall') ? 1 : 0;
+  }
+  resetSearch();
+}
+
+/* ---------- 搜尋狀態 ---------- */
+function resetSearch(){
+  stopRun();
+  frontier = [{r:start.r, c:start.c}];
+  seen = new Set([key(start.r,start.c)]);
+  parent = new Map();
+  visitedCount = 0;
+  pathCells = [];
+  done = false;
+  $('btnRun').disabled = false;
+  $('sPath').textContent = '-';
+  $('sOpt').textContent = '-';
+  render();
+}
+
+function setAlgo(q){
+  useQueue = q;
+  $('btnQ').classList.toggle('on', q);
+  $('btnS').classList.toggle('on', !q);
+  $('opHint').textContent = q
+    ? 'cur = frontier.popleft()  ← Queue，先進先出'
+    : 'cur = frontier.pop()      ← Stack，後進先出';
+  $('fLabel').textContent = q ? '📦 Queue 內容（front 在最上）' : '🥞 Stack 內容（top 在最上）';
+  setMsg(q ? 'Queue 模式：一圈一圈擴散，會找到最短路徑' : 'Stack 模式：一路鑽到底，路徑通常較長', '');
+  resetSearch();
+}
+
+function setMode(m){
+  mode = m;
+  ['wall','erase','start','end'].forEach(x =>
+    $('m' + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle('on', x === m));
+}
+
+function setMsg(t, cls){ const m = $('msg'); m.textContent = t; m.className = 'msg ' + (cls||''); }
+
+/* ---------- 核心：一步 ---------- */
+function oneStep(){
+  if (done) return;
+
+  if (frontier.length === 0){
+    done = true; stopRun();
+    setMsg('❌ 走不到終點 —— 終點被牆完全圍住了', 'bad');
+    return;
+  }
+
+  const cur = useQueue ? frontier.shift() : frontier.pop();
+  visitedCount++;
+
+  if (cur.r === end.r && cur.c === end.c){
+    done = true; stopRun();
+    buildPath(cur);
+    return;
+  }
+
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  for (const [dr,dc] of dirs){
+    const nr = cur.r + dr, nc = cur.c + dc;
+    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+    if (grid[nr][nc] === 1) continue;
+    if (seen.has(key(nr,nc))) continue;
+    seen.add(key(nr,nc));
+    parent.set(key(nr,nc), key(cur.r,cur.c));
+    frontier.push({r:nr, c:nc});
+  }
+  render();
+}
+
+function buildPath(endCell){
+  pathCells = [];
+  let k = key(endCell.r, endCell.c);
+  const sk = key(start.r, start.c);
+  while (k !== sk){
+    pathCells.push({r: Math.floor(k / COLS), c: k % COLS});
+    k = parent.get(k);
+    if (k === undefined) break;
+  }
+  pathCells.push({r:start.r, c:start.c});
+  render();
+
+  const len = pathCells.length - 1;
+  $('sPath').textContent = len;
+  const optimal = bfsShortest();
+  $('sOpt').textContent = (len === optimal) ? '✅ 最短' : `❌ 差 ${len - optimal} 步`;
+  setMsg(useQueue
+    ? `✅ Queue 找到路徑，長度 ${len} 步，走訪 ${visitedCount} 格 —— 這是最短的`
+    : `找到路徑，長度 ${len} 步（最短是 ${optimal} 步），走訪 ${visitedCount} 格`,
+    useQueue ? 'good' : '');
+}
+
+// 用純 BFS 算出真正的最短距離，作為對照
+function bfsShortest(){
+  const q = [{r:start.r, c:start.c, d:0}];
+  const vis = new Set([key(start.r,start.c)]);
+  while (q.length){
+    const cur = q.shift();
+    if (cur.r === end.r && cur.c === end.c) return cur.d;
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const nr = cur.r+dr, nc = cur.c+dc;
+      if (nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+      if (grid[nr][nc] === 1 || vis.has(key(nr,nc))) continue;
+      vis.add(key(nr,nc));
+      q.push({r:nr, c:nc, d:cur.d+1});
+    }
+  }
+  return -1;
+}
+
+/* ---------- 播放控制 ---------- */
+function toggleRun(){
+  if (done) { resetSearch(); }
+  if (searching) stopRun(); else startRun();
+}
+function startRun(){
+  searching = true;
+  $('btnRun').textContent = '⏸ 暫停';
+  const delay = Math.max(1, 100 - parseInt($('spd').value));
+  timer = setInterval(() => { if (done) { stopRun(); return; } oneStep(); }, delay);
+}
+function stopRun(){
+  searching = false;
+  if (timer){ clearInterval(timer); timer = null; }
+  $('btnRun').textContent = done ? '🔄 再跑一次' : '▶ 開始搜尋';
+}
+
+/* ---------- 迷宮生成 ---------- */
+function genMaze(){
+  stopRun();
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) grid[r][c] = 1;
+  const stack = [{r:1,c:1}];
+  grid[1][1] = 0;
+  while (stack.length){
+    const cur = stack[stack.length-1];
+    const opts = [];
+    for (const [dr,dc] of [[-2,0],[2,0],[0,-2],[0,2]]){
+      const nr = cur.r+dr, nc = cur.c+dc;
+      if (nr>0 && nr<ROWS-1 && nc>0 && nc<COLS-1 && grid[nr][nc] === 1) opts.push({nr,nc,dr,dc});
+    }
+    if (opts.length === 0){ stack.pop(); continue; }
+    const p = opts[Math.floor(Math.random()*opts.length)];
+    grid[cur.r + p.dr/2][cur.c + p.dc/2] = 0;
+    grid[p.nr][p.nc] = 0;
+    stack.push({r:p.nr, c:p.nc});
+  }
+  // 打通一些牆，讓迷宮有多條路（這樣 BFS/DFS 的差別才明顯）
+  for (let i = 0; i < 30; i++){
+    const r = 1 + Math.floor(Math.random()*(ROWS-2));
+    const c = 1 + Math.floor(Math.random()*(COLS-2));
+    grid[r][c] = 0;
+  }
+  start = {r:1, c:1};
+  end   = {r:ROWS-2, c:COLS-2};
+  grid[start.r][start.c] = 0;
+  grid[end.r][end.c] = 0;
+  resetSearch();
+  setMsg('迷宮產生完畢，按「開始搜尋」', '');
+}
+
+function clearWalls(){
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) grid[r][c] = 0;
+  resetSearch();
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  const inFrontier = new Set(frontier.map(p => key(p.r,p.c)));
+  const inPath = new Set(pathCells.map(p => key(p.r,p.c)));
+
+  for (let r = 0; r < ROWS; r++){
+    for (let c = 0; c < COLS; c++){
+      const el = cellEl(r,c);
+      let cls = 'cell';
+      if (grid[r][c] === 1) cls += ' wall';
+      else if (inPath.has(key(r,c))) cls += ' path';
+      else if (inFrontier.has(key(r,c))) cls += ' frontier';
+      else if (seen && seen.has(key(r,c))) cls += ' seen';
+      if (r === start.r && c === start.c) cls = 'cell start';
+      if (r === end.r && c === end.c)     cls = 'cell end';
+      el.className = cls;
+    }
+  }
+
+  // 容器內容
+  const fv = $('fView');
+  fv.innerHTML = '';
+
+  // 顯示順序：第一個永遠是「下一個會被取出的」
+  // Queue → 從 front 開始；Stack → 從 top（陣列尾端）開始
+  const ordered = useQueue ? frontier.slice() : frontier.slice().reverse();
+
+  if (ordered.length === 0){
+    const d = document.createElement('div');
+    d.className = 'fitem tag';
+    d.textContent = done ? '（搜尋結束）' : '（空）';
+    fv.appendChild(d);
+  }
+  ordered.slice(0, 40).forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'fitem' + (i === 0 ? ' next' : '');
+    d.textContent = `(${p.r}, ${p.c})` + (i === 0 ? '  ← 下一個取出' : '');
+    fv.appendChild(d);
+  });
+  if (ordered.length > 40){
+    const d = document.createElement('div');
+    d.className = 'fitem tag';
+    d.textContent = `⋯ 還有 ${ordered.length - 40} 個`;
+    fv.appendChild(d);
+  }
+
+  $('sVisited').textContent = visitedCount;
+  $('sSize').textContent = frontier.length;
+}
+
+initGrid();
+genMaze();
+</script>
+</body>
+</html>

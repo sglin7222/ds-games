@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>單調堆疊 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：柱狀圖 ============ */
+.chartwrap{overflow-x:auto;padding:24px 2px 2px}
+.chart{position:relative;display:flex;gap:4px;align-items:flex-end;height:250px;
+  width:max-content;min-width:100%}
+.bar{width:40px;flex:0 0 40px;border-radius:4px 4px 0 0;position:relative;
+  background:var(--surface-2);border:1.5px solid var(--line);border-bottom:0;
+  transition:background var(--dur),border-color var(--dur)}
+.bar .lab{position:absolute;top:-20px;left:0;right:0;text-align:center;
+  font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink-soft)}
+.bar.settled{opacity:.45}
+.bar.instack{background:var(--accent-soft);border-color:var(--accent)}
+.bar.instack .lab{color:var(--accent)}
+.bar.now{background:var(--ink);border-color:var(--ink)}
+.bar.now .lab{color:var(--ink);font-weight:800}
+.bar.popping{background:var(--jade-soft);border-color:var(--jade)}
+.bar.popping .lab{color:var(--jade)}
+.bar.sentinel{background:repeating-linear-gradient(45deg,var(--sunken),var(--sunken) 4px,transparent 4px,transparent 8px);
+  border-style:dashed}
+
+.rect{position:absolute;bottom:0;border:2px dashed var(--jade);border-radius:3px;
+  background:color-mix(in srgb,var(--jade) 14%,transparent);pointer-events:none}
+.rect.best{border-style:solid;border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.rect .tag{position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+  padding:1px 6px;border-radius:4px;background:var(--jade);color:var(--surface)}
+.rect.best .tag{background:var(--accent);top:auto;bottom:-9px}
+
+.idxrow,.ansrow{display:flex;gap:4px;width:max-content;min-width:100%;margin-top:5px}
+.idxrow div,.ansrow div{width:40px;flex:0 0 40px;text-align:center;
+  font-family:var(--font-mono);font-size:11px;color:var(--ink-faint)}
+.idxrow div.now{color:var(--ink);font-weight:800}
+.ansrow div{font-size:14px;font-weight:800;padding:3px 0;border-radius:5px;
+  background:var(--sunken);color:var(--ink-faint)}
+.ansrow div.filled{background:var(--surface-2);color:var(--ink)}
+.ansrow div.fresh{background:var(--jade);color:var(--surface)}
+.rowlab{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-faint);margin-top:10px}
+
+/* 堆疊塔 */
+.topmark{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;
+  color:var(--ink-faint);text-align:center;padding:5px;background:var(--sunken);
+  border:1px solid var(--line-soft);border-bottom:0;border-radius:8px 8px 0 0}
+.stackbox{display:flex;flex-direction:column-reverse;justify-content:flex-start;gap:4px;
+  min-height:210px;background:var(--sunken);border:1px solid var(--line-soft);border-top:0;
+  border-radius:0 0 8px 8px;padding:10px}
+.sitem{padding:8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);
+  border:1.5px solid var(--accent);font-family:var(--font-mono);font-size:13px;
+  font-weight:700;text-align:center}
+.sitem.top{background:var(--accent);color:var(--surface);box-shadow:var(--shadow)}
+.empty{text-align:center;color:var(--ink-faint);font-size:12.5px;padding:20px 0;
+  margin:auto;font-family:var(--font-sans)}
+
+/* 題目大開關 */
+.algo-switch{display:flex;justify-content:center}
+.algo-btn{padding:12px 24px;border:2px solid var(--line);background:var(--surface-2);
+  color:var(--ink-soft);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;
+  transition:background var(--dur),color var(--dur),border-color var(--dur)}
+.algo-btn:first-child{border-radius:9px 0 0 9px}
+.algo-btn:last-child{border-radius:0 9px 9px 0;border-left:0}
+.algo-btn.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.algo-hint{text-align:center;font-size:13px;color:var(--ink-soft)}
+.algo-hint code{background:var(--sunken);padding:3px 9px;border-radius:5px;
+  font-size:12.5px;color:var(--ink);font-weight:700}
+
+.data-input{font-family:var(--font-mono);font-size:17px;font-weight:700;
+  padding:11px 15px;border:2px solid var(--line);border-radius:10px;width:100%;
+  color:var(--ink);background:var(--sunken);text-align:center}
+.data-input:focus{outline:none;border-color:var(--accent)}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){ .two{grid-template-columns:1fr} }
+.box{border:1.5px solid var(--line);border-radius:var(--r);padding:15px 17px;
+  display:flex;flex-direction:column;gap:8px}
+.box.a{border-color:var(--alarm);background:var(--alarm-soft)}
+.box.b{border-color:var(--jade);background:var(--jade-soft)}
+.box h4{font-size:15px;font-weight:800;margin:0}
+.box.a h4{color:var(--alarm)}
+.box.b h4{color:var(--jade)}
+.hand td,.hand th{font-family:var(--font-mono);font-size:12.5px}
+.hand td.zh,.hand th.zh{font-family:var(--font-sans);font-size:13px}
+.hand tr.last td{background:var(--jade-soft);font-weight:800}
+.hand td.win{background:var(--accent-soft);color:var(--accent);font-weight:800}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">03 · 堆疊</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 03 · Monotonic Stack</p>
+    <h1>單調堆疊</h1>
+    <p class="lede">面試出現率最高的堆疊技巧，把 O(n²) 的暴力解壓成 O(n)。整題只有一句話要想通：<b>「當我發現一個更矮的，前面那些還在等待的就可以結算了。」</b></p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>堆疊 Stack</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>暴力解</span><b>O(n²)</b></div>
+      <div class="fact"><span>單調堆疊</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>堆疊、攤還分析</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">兩道經典題，其實是同一題。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <ol class="steps">
+            <li>上方切換兩道題目：<b>柱狀圖最大矩形</b>（LC 84）或 <b>每日溫度</b>（LC 739）。</li>
+            <li>選一組範例數字，或自己輸入（逗號分隔，最多 24 個）。</li>
+            <li>按 <b>下一步</b> 一格一格走，看堆疊什麼時候 push、什麼時候一口氣彈出好幾個。</li>
+            <li>柱狀圖模式會即時畫出<b>正在結算的矩形</b>（綠色虛線）和<b>目前最大的矩形</b>（橘色實線）。</li>
+            <li>看不懂就按 <b>上一步</b> 倒回去，或按 <b>隨機</b> 換一組數字再看一次。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">盯著這個數字</span>
+            <span class="txt">右邊的 <b>總 push+pop</b> 欄位。不管你輸入什麼，它<b>永遠不會超過 2n</b> —— 這就是「為什麼有巢狀 while 迴圈卻仍然是 O(n)」的親眼證據。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>換個角度枚舉</b> —— 不枚舉「所有區間」（n² 個），改枚舉「誰當高度」（n 個）。這是整題的轉折點。</li>
+            <li><b>「等待 ↔ 結算」的模式</b> —— 堆疊裡放的是「還沒定案、正在等右邊界」的元素。</li>
+            <li><b>單調性是副產品，不是刻意維護的</b> —— 因為「來了更矮的就馬上結算」，留下來的自然遞增。</li>
+            <li><b>左邊界是免費的</b> —— 彈出時堆疊裡它下面那個，剛好就是左邊第一個比它矮的。</li>
+            <li><b>哨兵（sentinel）技巧</b> —— 尾巴補一根高度 0，就不用另外寫收尾程式碼。</li>
+            <li><b>攤還分析</b> —— 每個元素一生最多 push 一次、pop 一次，所以總操作 ≤ 2n。</li>
+            <li><b>一招通吃一族題目</b> —— 接雨水、股票跨度、下一個更大元素，全是同一個模板。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩<b>每日溫度</b>（比較單純，只要記天數），看懂「等待 ↔ 結算」之後，再回頭玩<b>柱狀圖</b>（多了左右邊界的計算）。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">橘色 = 還在堆疊裡等；綠色 = 這一步正在結算。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="algo-switch">
+        <button class="algo-btn on" id="btnH" type="button">柱狀圖最大矩形</button>
+        <button class="algo-btn" id="btnT" type="button">每日溫度</button>
+      </div>
+      <p class="algo-hint" id="modeHint"></p>
+
+      <div style="max-width:620px;margin:0 auto;width:100%">
+        <input type="text" class="data-input" id="data" value="2,1,5,6,2,3" aria-label="資料">
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">範例</span>
+        <div class="chips" id="chips"></div>
+        <button class="btn" id="btnRandom" type="button">🎲 隨機</button>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title" id="chartLabel">柱狀圖</h3>
+            <span class="panel-note" id="chartNote"></span>
+          </div>
+
+          <div class="chartwrap">
+            <div class="chart" id="chart"></div>
+            <div class="idxrow" id="idxrow"></div>
+            <div id="ansArea" style="display:none">
+              <div class="rowlab">答案：還要等幾天才會更暖</div>
+              <div class="ansrow" id="ansrow"></div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnRun" type="button">▶ 開始</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="66"></div>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">按「下一步」開始</div>
+              <div class="say-text" id="sayText">或直接改上面的數字。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">堆疊 Stack</h3>
+              <span class="panel-note" id="monoNote">遞增</span>
+            </div>
+            <div class="topmark">↑ TOP　下一個結算的</div>
+            <div class="stackbox" id="stackbox"></div>
+            <div class="stats">
+              <div class="stat" data-k="hot"><div class="k">堆疊深度</div><div class="v" id="sDepth">0</div></div>
+              <div class="stat" data-k="ok"><div class="k" id="kBest">最大面積</div><div class="v" id="sBest">0</div></div>
+              <div class="stat"><div class="k">總 push+pop</div><div class="v" id="sOps">0</div></div>
+              <div class="stat"><div class="k">上限 2n</div><div class="v" id="sCap">0</div></div>
+            </div>
+            <div class="callout" style="padding:11px 13px">
+              <span class="tag">驗證</span>
+              <span class="txt" style="font-size:12.5px">每個元素<b>最多 push 一次、pop 一次</b>，所以總操作永遠 ≤ 2n。這就是 O(n) 的證明。</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+                <pre class="code"><i>// ① 柱狀圖最大矩形（LC 84）—— 堆疊遞增</i>
+#include &lt;stack&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+int largestRectangle(vector&lt;int&gt; h) {
+    <b>h.push_back(0);</b>                          <i>// 哨兵！逼堆疊在結束前清空</i>
+    stack&lt;int&gt; st;                           <i>// 存索引，不是高度</i>
+    int best = 0;
+    for (int i = 0; i &lt; (int)h.size(); i++) {
+        <b>while (!st.empty() &amp;&amp; h[st.top()] &gt;= h[i]) {</b>   <i>// 來了更矮的 → 結算</i>
+            int top = st.top(); st.pop();
+            int height = h[top];
+            <b>int left = st.empty() ? 0 : st.top() + 1;</b>  <i>// 左界＝下面那根的右邊一格</i>
+            int width = i - left;                      <i>// 右界＝現在這根</i>
+            best = max(best, height * width);
+        }
+        st.push(i);
+    }
+    return best;
+}</pre>
+                <pre class="code" style="margin-top:12px"><i>// ② 每日溫度（LC 739）—— 堆疊遞減，只有比較符號反過來</i>
+vector&lt;int&gt; dailyTemperatures(const vector&lt;int&gt;&amp; t) {
+    vector&lt;int&gt; ans(t.size(), 0);
+    stack&lt;int&gt; st;
+    for (int i = 0; i &lt; (int)t.size(); i++) {
+        <b>while (!st.empty() &amp;&amp; t[st.top()] &lt; t[i]) {</b>    <i>// 來了更暖的 → 結算</i>
+            int j = st.top(); st.pop();
+            <b>ans[j] = i - j;</b>                            <i>// 等了幾天</i>
+        }
+        st.push(i);
+    }
+    return ans;                  <i>// 留在堆疊裡的，答案就是預設的 0</i>
+}</pre>
+        <p>兩段程式碼<b>只差一個比較符號和結算那一行</b>。把它們並排看，就看得出「單調堆疊」是一個模板而不是兩個演算法。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從暴力解開始，因為要先知道浪費在哪。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>題目一：柱狀圖中最大的矩形（LeetCode 84）</h3>
+        <p>給一個非負整數陣列 <code>heights</code>，代表一排柱子的高度，<b>每根寬度都是 1</b>。找出能在這張柱狀圖裡畫出的<b>最大矩形面積</b>（矩形必須完整落在柱子內，可以橫跨連續多根）。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">輸入</th><th class="mono">輸出</th></tr></thead>
+            <tbody><tr><td class="mono">[2,1,5,6,2,3]</td><td class="mono">10</td></tr></tbody>
+          </table>
+        </div>
+        <pre class="code">6 │          ██
+5 │       ██ ██        ← 最大矩形：以高度 5 橫跨第 2、3 根
+4 │       ██ ██           面積 = 5 × 2 = <b>10</b>
+3 │       ██ ██       ██
+2 │ ██    ██ ██ ██    ██
+1 │ ██ ██ ██ ██ ██ ██ ██
+  └────────────────────────
+索引  0  1  2  3  4  5
+高度  2  1  5  6  2  3</pre>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵限制</span>
+          <span class="txt">矩形的高度會被區間裡<b>最矮的那根</b>壓死。橫跨第 2、3 根時高度只能是 min(5,6)=5；貪心地想用高度 6，就只能佔 1 格，面積剩 6。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>題目二：每日溫度（LeetCode 739）</h3>
+        <p>給一個陣列，第 i 個元素是第 i 天的氣溫。對每一天回答：<b>還要等幾天才會遇到比今天更暖的日子？</b>如果之後都不會更暖，答 0。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">輸入</th><th class="mono">輸出</th></tr></thead>
+            <tbody><tr><td class="mono">[73,74,75,71,69,72,76,73]</td><td class="mono">[1,1,4,2,1,1,0,0]</td></tr></tbody>
+          </table>
+        </div>
+        <p>第 0 天 73°，隔天就 74° → 等 1 天。第 2 天 75°，要一路等到第 6 天的 76° → 等 4 天。第 6 天 76° 是最高溫，之後再也沒更暖的 → 0。</p>
+      </div>
+
+      <div class="block">
+        <h3>這兩題其實是同一題</h3>
+        <div class="callout" data-k="key">
+          <span class="tag">翻譯</span>
+          <span class="txt">兩題都在問同一句話：<b>「對每個元素，找出它右邊第一個比它小（或比它大）的元素在哪裡。」</b></span>
+        </div>
+        <ul class="bullets">
+          <li><b>每日溫度</b> → 直接就是在問「右邊第一個更大的元素」。</li>
+          <li><b>柱狀圖</b> → 以第 i 根為高的矩形，左界是「左邊第一個比它矮的」，右界是「右邊第一個比它矮的」。<br>
+              面積 = <code>h[i] × (右界 − 左界 − 1)</code></li>
+        </ul>
+        <p>這類問題有個共同名字：<b>Next Greater / Next Smaller Element</b>，而它們的共同解法就是單調堆疊。</p>
+      </div>
+
+      <div class="block">
+        <h3>第 0 步：先寫暴力解，才知道浪費在哪</h3>
+                <pre class="code">int brute(const vector&lt;int&gt;&amp; h) {        <i>// O(n²)</i>
+    int best = 0;
+    for (int i = 0; i &lt; (int)h.size(); i++) {
+        int lo = h[i];
+        for (int j = i; j &lt; (int)h.size(); j++) {
+            lo = min(lo, h[j]);              <i>// 區間最小值 = 矩形高度</i>
+            best = max(best, lo * (j - i + 1));
+        }
+    }
+    return best;
+}</pre>
+        <p>正確，但每個區間都重算一次最小值。n = 10 萬時要跑 50 億次 —— 面試直接掛。</p>
+        <div class="callout" data-k="no">
+          <span class="tag">浪費點</span>
+          <span class="txt">「第 3 根左邊第一個比它矮的是誰」這件事，被重複問了無數次。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>第 1 步：換個角度枚舉</h3>
+        <p>不要枚舉「所有區間」（有 n² 個），改成枚舉「<b>誰當這個矩形的高度</b>」（只有 n 個）。</p>
+        <p>對第 i 根柱子，答案就是：<b>它能往左右延伸多遠而不被更矮的柱子擋住。</b>問題瞬間變成：找左邊第一個比它矮的、右邊第一個比它矮的。</p>
+      </div>
+
+      <div class="block">
+        <h3>第 2 步：關鍵洞察（整題只有這一個要想通）</h3>
+        <p>我們從左往右掃。掃到第 i 根時，前面那些柱子的<b>右邊界還不知道</b>，所以它們只能先掛在那裡等。問題是：這些「等待中」的柱子要用什麼結構存？</p>
+        <div class="callout" data-k="key">
+          <span class="tag">洞察</span>
+          <span class="txt"><b>如果 j &lt; i 而且 h[j] ≥ h[i]，那第 j 根可以馬上結算，永遠不必再等。</b><br><br>
+          為什麼？因為任何想跨過第 i 根的矩形，高度都會被 h[i] 壓下去，不可能再用到 h[j] 這麼高。所以<b>第 i 根就是第 j 根的右邊界 —— 現在就能算出它的答案</b>。</span>
+        </div>
+        <p>而「馬上結算並丟掉」的直接後果是：<b>能留在容器裡的柱子，必定由下往上遞增</b>。</p>
+        <div class="callout" data-k="ok">
+          <span class="tag">名字的由來</span>
+          <span class="txt">這就是「單調」堆疊的由來 —— <b>單調不是我們刻意維護的，是規則的副產品</b>。很多人把因果搞反了，以為要先想辦法維持單調，其實反過來。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>第 3 步：左邊界是免費送的</h3>
+        <p>彈出第 j 根時，堆疊裡<b>緊接在它下面</b>的那根，正好就是「左邊第一個比它矮的柱子」—— 因為中間所有比它高的都已經被彈掉了，比它矮的又不可能還留在下面。</p>
+                <pre class="code">left  = st.empty() ? 0 : st.top() + 1;  <i>// 左界：下面那根的右邊一格；堆疊空代表能一路延伸到最左</i>
+right = i - 1;                          <i>// 右界：現在這根的左邊一格</i>
+width = right - left + 1 = i - left
+area  = h[j] * width</pre>
+        <p>兩個邊界都是 <b>O(1)</b> 拿到的 —— 這正是暴力解要花 O(n) 去掃的東西。</p>
+      </div>
+
+      <div class="block">
+        <h3>第 4 步：哨兵，處理「永遠等不到」的柱子</h3>
+        <p>如果柱子一路遞增（例如 <code>[1,2,3,4,5]</code>），掃到最後堆疊裡還塞著一整排沒結算的柱子。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">賴皮但漂亮</span>
+          <span class="txt">在陣列尾巴補一根<b>高度 0 的假柱子</b>。它比誰都矮，會逼著堆疊全部彈空 —— 於是不用再寫一段重複的收尾程式碼。</span>
+        </div>
+        <p>這招叫<b>哨兵（sentinel）</b>，在鏈結串列（dummy head）、字串處理（補結束符）都會再看到。在上面的遊戲裡，柱狀圖模式最右邊那根斜線柱子就是它。</p>
+      </div>
+
+      <div class="block">
+        <h3>第 5 步：手算一次 <code>[2,1,5,6,2,3]</code></h3>
+        <div class="tablewrap">
+          <table class="hand">
+            <thead><tr><th>i</th><th>h[i]</th><th class="zh">動作</th><th class="zh">結算</th><th>堆疊（底→頂，存索引）</th><th>目前最大</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>2</td><td class="zh">堆疊空 → push 0</td><td>—</td><td>[0]</td><td>0</td></tr>
+              <tr><td>1</td><td>1</td><td class="zh">1 &lt; h[0]=2 → 彈出 0</td><td class="zh">高2 左界0 右界0 → 2×1 = <b>2</b></td><td>[1]</td><td>2</td></tr>
+              <tr><td>2</td><td>5</td><td class="zh">5 &gt; h[1]=1 → push 2</td><td>—</td><td>[1,2]</td><td>2</td></tr>
+              <tr><td>3</td><td>6</td><td class="zh">6 &gt; h[2]=5 → push 3</td><td>—</td><td>[1,2,3]</td><td>2</td></tr>
+              <tr><td>4</td><td>2</td><td class="zh">2 &lt; h[3]=6 → 彈出 3</td><td class="zh">高6 左界3 右界3 → 6×1 = <b>6</b></td><td>[1,2]</td><td>6</td></tr>
+              <tr><td>4</td><td>2</td><td class="zh">2 &lt; h[2]=5 → 彈出 2</td><td class="win">高5 左界2 右界3 → 5×2 = 10</td><td>[1]</td><td class="win">10</td></tr>
+              <tr><td>4</td><td>2</td><td class="zh">2 &gt; h[1]=1 → push 4</td><td>—</td><td>[1,4]</td><td>10</td></tr>
+              <tr><td>5</td><td>3</td><td class="zh">3 &gt; h[4]=2 → push 5</td><td>—</td><td>[1,4,5]</td><td>10</td></tr>
+              <tr><td>6</td><td class="zh">0 哨兵</td><td class="zh">彈出 5</td><td class="zh">高3 左界5 右界5 → 3×1 = 3</td><td>[1,4]</td><td>10</td></tr>
+              <tr><td>6</td><td class="zh">0 哨兵</td><td class="zh">彈出 4</td><td class="zh">高2 左界2 右界5 → 2×4 = 8</td><td>[1]</td><td>10</td></tr>
+              <tr class="last"><td>6</td><td class="zh">0 哨兵</td><td class="zh">彈出 1，堆疊清空</td><td class="zh">高1 左界0 右界5 → 1×6 = 6</td><td>[]</td><td>10 ✓</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>第 6 列就是答案的來源：彈出第 2 根（高 5）時，左界來自堆疊裡它下面的第 1 根，右界是當下的第 4 根 → 寬 2、面積 10。</p>
+      </div>
+
+      <div class="block">
+        <h3>第 6 步：手算一次每日溫度</h3>
+        <div class="tablewrap">
+          <table class="hand">
+            <thead><tr><th>i</th><th>溫度</th><th class="zh">動作</th><th class="zh">填答案</th><th>堆疊（存索引）</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>73</td><td class="zh">堆疊空 → push</td><td>—</td><td>[0]</td></tr>
+              <tr><td>1</td><td>74</td><td class="zh">74 &gt; 73 → 彈出 0</td><td class="zh">ans[0] = 1−0 = <b>1</b></td><td>[1]</td></tr>
+              <tr><td>2</td><td>75</td><td class="zh">75 &gt; 74 → 彈出 1</td><td class="zh">ans[1] = 2−1 = <b>1</b></td><td>[2]</td></tr>
+              <tr><td>3</td><td>71</td><td class="zh">71 &lt; 75 → push</td><td>—</td><td>[2,3]</td></tr>
+              <tr><td>4</td><td>69</td><td class="zh">69 &lt; 71 → push</td><td>—</td><td>[2,3,4]</td></tr>
+              <tr><td>5</td><td>72</td><td class="zh">彈出 4、再彈出 3，然後 push</td><td class="zh">ans[4]=1、ans[3]=2</td><td>[2,5]</td></tr>
+              <tr><td>6</td><td>76</td><td class="zh">彈出 5、再彈出 2，然後 push</td><td class="zh">ans[5]=1、ans[2]=<b>4</b></td><td>[6]</td></tr>
+              <tr><td>7</td><td>73</td><td class="zh">73 &lt; 76 → push</td><td>—</td><td>[6,7]</td></tr>
+              <tr class="last"><td colspan="3" class="zh">掃描結束，堆疊裡還剩 [6,7]，它們之後都沒有更暖的日子</td><td class="zh">ans[6]=0、ans[7]=0</td><td>[1,1,4,2,1,1,0,0]</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">看 i=5 那列</span>
+          <span class="txt">一次 while 迴圈<b>連續彈出兩個</b>。這正是為什麼它「看起來像 O(n²)」—— 但那兩個被彈出的元素，這輩子都不會再進堆疊了。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>第 7 步：為什麼是 O(n)（攤還分析）</h3>
+        <div class="two">
+          <div class="box a">
+            <h4>暴力解 O(n²)</h4>
+            <ul class="bullets">
+              <li>對每根柱子，往左掃到比它矮的、往右掃到比它矮的</li>
+              <li>10 萬根柱子 → 100 億次比較，跑不完</li>
+              <li><b>浪費在哪：</b>同一段區間被重複掃了無數次</li>
+            </ul>
+          </div>
+          <div class="box b">
+            <h4>單調堆疊 O(n)</h4>
+            <ul class="bullets">
+              <li>堆疊裡放「還在等右邊界的柱子」，高度保持遞增</li>
+              <li>來了一根更矮的 → 它就是右邊界，把比它高的通通結算</li>
+              <li><b>省在哪：</b>「誰比我矮」被堆疊順手記住了，不用重掃</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>暴力解</th><th>單調堆疊</th></tr></thead>
+            <tbody>
+              <tr><td>時間</td><td class="mono">O(n²)</td><td class="mono"><b>O(n)</b></td></tr>
+              <tr><td>空間</td><td class="mono">O(1)</td><td class="mono">O(n)（最壞：全遞增）</td></tr>
+              <tr><td>論證</td><td>雙層迴圈</td><td>每個索引<b>最多 push 一次、pop 一次</b> → 總操作 ≤ 2n</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>巢狀的 <code>while</code> <b>不代表 O(n²)</b>：要看的是整趟下來的<b>總操作次數</b>，不是單次迴圈的最壞情況。這個技巧叫<b>攤還分析</b>，你可以在遊戲右邊的「總 push+pop」欄位親眼驗證它永遠 ≤ 2n。</p>
+      </div>
+
+      <div class="block">
+        <h3>兩題並排比較</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>柱狀圖最大矩形</th><th>每日溫度</th></tr></thead>
+            <tbody>
+              <tr><td>堆疊裡存什麼</td><td>索引（還沒定案的柱子）</td><td>索引（還在等更暖那天）</td></tr>
+              <tr><td>單調方向</td><td><b>遞增</b>（由下往上變高）</td><td><b>遞減</b>（由下往上變冷）</td></tr>
+              <tr><td>什麼時候彈出</td><td>來了<b>更矮</b>的 <code>h[top] &gt;= h[i]</code></td><td>來了<b>更暖</b>的 <code>t[top] &lt; t[i]</code></td></tr>
+              <tr><td>彈出時算什麼</td><td>面積 = 高 × (右界 − 左界)</td><td>天數 = <code>i − top</code></td></tr>
+              <tr><td>沒被彈到的怎麼辦</td><td>用哨兵 0 逼它們全部出場</td><td>答案就是 0（之後都沒更暖的）</td></tr>
+              <tr><td>時間複雜度</td><td class="mono">O(n)</td><td class="mono">O(n)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>五個最常見的錯誤</h3>
+        <ul class="bullets no">
+          <li><b>堆疊存高度而不存索引</b> —— 算寬度時沒有位置資訊，整題卡死。<b>永遠存索引</b>，高度用 <code>h[idx]</code> 查。</li>
+          <li><b>左界寫成 <code>st.top()</code></b> —— 少算一格。正確是 <code>st.top() + 1</code>，堆疊空時是 0。</li>
+          <li><b>忘記哨兵</b> —— 遞增陣列 <code>[1,2,3]</code> 直接回傳 0，因為沒有任何元素被結算。</li>
+          <li><b>先 push 再檢查</b> —— 順序反了。必須「先把該結算的彈完，才輪到自己進場」。</li>
+          <li><b>每日溫度把 <code>&lt;</code> 寫成 <code>&lt;=</code></b> —— 同溫度的日子被誤判成「更暖」，答案全錯。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>同一招還能解這些</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>題目</th><th>單調方向</th><th>一句話</th></tr></thead>
+            <tbody>
+              <tr><td>下一個更大元素（LC 496）</td><td>遞減</td><td>每日溫度的雙胞胎，答案存值不是天數</td></tr>
+              <tr><td>接雨水（LC 42）</td><td>遞減</td><td>彈出時，左右兩牆夾住的凹槽就是積水</td></tr>
+              <tr><td>最大矩形（LC 85，二維）</td><td>遞增</td><td>每一列都當成一張柱狀圖，跑 n 次 LC 84</td></tr>
+              <tr><td>移掉 K 位數字讓數最小（LC 402）</td><td>遞增</td><td>看到更小的就把前面大的丟掉</td></tr>
+              <tr><td>股票跨度（LC 901）</td><td>遞減</td><td>今天的價格連續超過前面幾天</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟 <a href="01-bracket-matching.html">01</a>、<a href="02-expression-calculator.html">02</a> 同一套架構。差別在這一頁有<b>兩個獨立的資料層函式</b>，因為兩道題目結算的東西不同。</p>
+        <div class="arch">
+          <div class="node" data-k="in">數字字串 <small>"2,1,5,6,2,3"</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">parseData() <small>切開、驗證、擋掉壞輸入</small></div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node" data-k="data">buildHist()<small>柱狀圖：算面積</small></div>
+            <div class="node" data-k="data">buildTemp()<small>每日溫度：算天數</small></div>
+          </div>
+          <div class="arrow"></div>
+          <div class="node">同一個 render() 把 steps[目前步數] 畫出來</div>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">為什麼分兩個</span>
+          <span class="txt">兩題的<b>迴圈骨架一模一樣</b>，只有「彈出條件」和「彈出時做什麼」不同。硬要合併成一個函式，會塞滿 <code>if mode ===</code>，反而看不出兩題的共通結構。<b>分開寫，然後把兩份程式碼並排看</b>，才學得到東西。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>i</b>:        <i>// 目前掃到第幾根 → 柱狀圖的深色柱</i>
+  <b>stack</b>:    <i>// 堆疊快照，存的是索引 → 右邊塔 + 柱子染橘色</i>
+  <b>rect</b>:     <i>// 這一步正在結算的矩形 {l, r, h, area} → 綠色虛線框</i>
+  <b>best</b>:     <i>// 目前最大面積</i>
+  <b>bestRect</b>: <i>// 目前最大的那個矩形 → 橘色實線框</i>
+  <b>ops</b>:      <i>// 累計 push + pop 次數 → 用來驗證 ≤ 2n</i>
+  <b>ans</b>:      <i>// 每日溫度模式的答案陣列快照（null = 還沒填）</i>
+  <b>msg, cls</b>: <i>// 說明面板的文字與顏色</i>
+}</pre>
+        <p>兩個模式共用同一個 step 結構，各自只填自己用得到的欄位 —— 所以 <code>render()</code> 只有一份。</p>
+      </div>
+
+      <div class="block">
+        <h3>畫面怎麼決定每根柱子的顏色</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>顏色</th><th>條件</th><th>意思</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--jade);font-weight:700">綠色</td><td class="mono">rect 範圍內</td><td>這一步正在結算的矩形涵蓋到它</td></tr>
+              <tr><td style="color:var(--accent);font-weight:700">橘色</td><td class="mono">在 stack 裡</td><td>還在等右邊界，還沒定案</td></tr>
+              <tr><td style="font-weight:700">深色</td><td class="mono">i === 目前索引</td><td>剛掃到的那一根</td></tr>
+              <tr><td style="color:var(--ink-faint)">淡化</td><td class="mono">i &lt; 目前索引</td><td>已經結算完，不會再變</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>判斷有<b>先後順序</b>（綠 → 橘 → 深 → 淡），因為一根柱子可能同時符合多個條件。順序寫錯，畫面就會顯示錯誤的狀態。</p>
+      </div>
+
+      <div class="block">
+        <h3>兩個矩形框怎麼疊</h3>
+        <p>柱狀圖模式會同時畫兩個絕對定位的框：</p>
+        <ul class="bullets">
+          <li><b>橘色實線</b>＝目前為止的最大矩形（先畫，在下層）</li>
+          <li><b>綠色虛線</b>＝這一步正在結算的矩形（後畫，在上層）</li>
+        </ul>
+        <p>兩者座標都由 <code>索引 × (柱寬 + 間距)</code> 算出來 —— 因為柱子是固定寬度的 flex 項目，位置可以直接用算的，不必去量 DOM。<b>固定寬度換來座標可預測</b>，這是刻意的取捨。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th></tr></thead>
+            <tbody>
+              <tr><td>加範例資料</td><td><code>PRESETS</code> 物件裡對應模式的陣列</td></tr>
+              <tr><td>放寬數字上限（目前 24）</td><td><code>parseData()</code> 的檢查</td></tr>
+              <tr><td>加第三題（例如接雨水）</td><td>寫一個 <code>buildRain()</code>，照 step 結構產生快照，再加一顆切換按鈕</td></tr>
+              <tr><td>改柱子寬度</td><td>最上面的 <code>BW</code> 和 <code>GAP</code>（CSS 也要一起改）</td></tr>
+              <tr><td>拿掉哨兵看會怎樣</td><td><code>buildHist()</code> 第一行的 <code>concat([0])</code> —— 拿掉之後試 <code>1,2,3</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 先寫暴力解，再用單調堆疊優化「柱狀圖中最大的矩形」。
+
+步驟：
+1. 寫 O(n²) 暴力解 brute(h)：對每根柱子往左右擴張
+2. 寫 O(n) 單調堆疊解 fast(h)：用哨兵 0 收尾
+3. 寫一個隨機測試，跑 1000 組隨機陣列驗證兩者答案完全相同
+4. 用 n = 10000 的陣列實測兩者耗時，印出加速倍數
+
+測資至少包含：[2,1,5,6,2,3]（答案 10）、全部一樣高、遞增、遞減、只有一根
+
+寫完後回答：
+- 為什麼「彈出時才結算」是對的？我怎麼知道右邊不會有更好的答案？
+- stack 裡存索引而不是高度，為什麼？（提示：算寬度時需要什麼）</pre>
+
+        <h4>延伸題：用同一個模板解四題</h4>
+        <pre class="code">用「單調堆疊」寫出這四題，並在每題註解裡標出模板的四個空格：
+  (a) Stack 存什麼  (b) 單調方向  (c) 彈出條件  (d) 彈出時做什麼
+
+1. 每日溫度（LC 739）
+2. 下一個更大元素 II（LC 503，環形陣列 —— 提示：跑兩圈，index 取 % n）
+3. 接雨水（LC 42）
+4. 股票價格跨度（LC 901）
+
+最後做一張表格，把四題的 (a)(b)(c)(d) 並排比較，
+並用一句話說明：這四題為什麼是同一題。</pre>
+
+        <h4>進階：接雨水的三種解法對決</h4>
+        <pre class="code">同一題「接雨水」用三種方法各寫一次：
+1. 動態規劃：預先算 left_max[] 和 right_max[]      → O(n) 時間 O(n) 空間
+2. 單調堆疊：一層一層橫著積水                        → O(n) 時間 O(n) 空間
+3. 雙指標：左右夾擊                                  → O(n) 時間 O(1) 空間
+
+要求：
+- 三個函式輸出必須一致（寫隨機測試驗證）
+- 畫出高度 [0,1,0,2,1,0,1,3,2,1,2,1] 的 ASCII 示意圖，標出積水位置
+- 說明單調堆疊法是「橫著算」、DP 法是「直著算」的差別
+
+最後回答：如果面試官要求 O(1) 空間，這三個解法只剩哪一個能用？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 03 單調堆疊</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var BW = 40, GAP = 4;
+
+  var PRESETS = {
+    hist: [
+      ["2,1,5,6,2,3",  "經典 LC84（答案 10）"],
+      ["6,7,5,2,4,5,9,3", "起伏大"],
+      ["1,2,3,4,5",    "遞增（堆疊會塞滿）"],
+      ["5,4,3,2,1",    "遞減（每步都彈出）"],
+      ["4,4,4,4",      "全部一樣高"]
+    ],
+    temp: [
+      ["73,74,75,71,69,72,76,73", "經典 LC739"],
+      ["30,40,50,60",   "一路變暖"],
+      ["90,80,70,60",   "一路變冷（答案全 0）"],
+      ["65,70,65,70,65,70", "忽冷忽熱"]
+    ]
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var mode = "hist", data = [];
+  var steps = [], cur = 0, timer = null, playing = false;
+
+  /* ---------- 資料層：柱狀圖 ---------- */
+  function buildHist(a){
+    var h = a.concat([0]);              // 哨兵
+    var stack = [], st = [];
+    var best = 0, bestRect = null, ops = 0;
+    var snap = function(i, title, msg, cls, rect){
+      st.push({i:i, stack:stack.slice(), title:title, msg:msg, cls:cls||"", rect:rect||null,
+               best:best, bestRect: bestRect ? {l:bestRect.l,r:bestRect.r,h:bestRect.h,area:bestRect.area} : null,
+               ops:ops, ans:null});
+    };
+
+    snap(-1, "準備一個空堆疊",
+      "裡面放「<b>還沒決定寬度</b>的柱子索引」。規則：由下往上高度必須遞增。", "");
+
+    for(var i=0;i<h.length;i++){
+      var sentinel = (i === a.length);
+      while(stack.length && h[stack[stack.length-1]] >= h[i]){
+        var top = stack.pop(); ops++;
+        var height = h[top];
+        var left = stack.length ? stack[stack.length-1] + 1 : 0;
+        var width = i - left;
+        var area = height * width;
+        var rect = {l:left, r:i-1, h:height, area:area};
+        var isNew = area > best;
+        if(isNew){ best = area; bestRect = rect; }
+        snap(i,
+          "結算柱子 " + top + "：" + height + " × " + width + " = " + area + (isNew ? "　新紀錄" : ""),
+          (sentinel ? "<b>哨兵 0</b>" : "柱子 " + i + "（高 " + h[i] + "）") +
+          " 比頂端矮 —— 它就是柱子 " + top + " 的右邊界。左界 " + left + "、右界 " + (i-1) +
+          "，寬 " + width + "。<b>左界是從堆疊裡它下面那根免費拿到的。</b>",
+          isNew ? "good" : "pop", rect);
+      }
+      if(!sentinel){
+        stack.push(i); ops++;
+        snap(i, "柱子 " + i + "（高 " + h[i] + "）→ push",
+          "它比頂端高，右邊界還不知道 —— 壓入堆疊，等右邊出現更矮的才結算。", "");
+      } else {
+        var s = st[st.length-1];
+        s.title = "掃描結束，最大面積 = " + best;
+        s.msg = "哨兵把堆疊清空了。全程共 <b>" + ops + "</b> 次 push/pop，而 2n = " +
+                (2*a.length) + " —— 每根柱子剛好各進出一次，這就是 O(n) 的證明。";
+        s.cls = "good";
+        s.done = true;
+      }
+    }
+    return st;
+  }
+
+  /* ---------- 資料層：每日溫度 ---------- */
+  function buildTemp(a){
+    var stack = [], st = [];
+    var ans = [], ops = 0, fresh = -1, i;
+    for(i=0;i<a.length;i++) ans.push(null);
+
+    var snap = function(i, title, msg, cls){
+      st.push({i:i, stack:stack.slice(), title:title, msg:msg, cls:cls||"", rect:null,
+               best:0, bestRect:null, ops:ops, ans:ans.slice(), fresh:fresh});
+    };
+
+    snap(-1, "準備一個空堆疊",
+      "裡面放「<b>還在等更暖那天</b>」的日子索引。規則：由下往上溫度必須遞減。", "");
+
+    for(i=0;i<a.length;i++){
+      fresh = -1;
+      while(stack.length && a[stack[stack.length-1]] < a[i]){
+        var j = stack.pop(); ops++;
+        ans[j] = i - j;
+        fresh = j;
+        snap(i, "第 " + j + " 天等到了！答案 = " + (i-j) + " 天",
+          "第 " + i + " 天 <b>" + a[i] + "°</b> 比第 " + j + " 天 <b>" + a[j] +
+          "°</b> 暖 —— 它就是第 " + j + " 天在等的那一天。天數 = " + i + " − " + j + "。", "good");
+      }
+      fresh = -1;
+      stack.push(i); ops++;
+      snap(i, "第 " + i + " 天 " + a[i] + "° → push",
+        "沒有比頂端暖，代表堆疊裡的日子都還沒等到 —— 自己也壓進去一起等。", "");
+    }
+    for(var k=0;k<ans.length;k++) if(ans[k] === null) ans[k] = 0;
+    fresh = -1;
+    snap(a.length, "掃完了",
+      "還留在堆疊裡的 <b>" + stack.length + "</b> 天，之後再也沒有更暖的日子 → 答案填 0。全程共 <b>" +
+      ops + "</b> 次 push/pop，而 2n = " + (2*a.length) + "。", "good");
+    var last = st[st.length-1];
+    last.ans = ans.slice();
+    last.done = true;
+    return st;
+  }
+
+  /* ---------- 畫面 ---------- */
+  function render(){
+    var s = steps[cur];
+    if(!s) return;
+
+    var isHist = (mode === "hist");
+    var arr = isHist ? data.concat([0]) : data;
+    var maxV = Math.max.apply(null, arr.concat([1]));
+    var minV = Math.min.apply(null, arr);
+    var scale = function(v){
+      return isHist ? Math.round(v / maxV * 210)
+                    : Math.round(((v - minV + 4) / (maxV - minV + 4)) * 210);
+    };
+
+    var inStack = {};
+    s.stack.forEach(function(x){ inStack[x] = 1; });
+
+    var chart = $("chart");
+    chart.innerHTML = "";
+    chart.style.width = (arr.length * (BW + GAP)) + "px";
+
+    arr.forEach(function(v, i){
+      var d = document.createElement("div");
+      var cls = "bar";
+      if(isHist && i === data.length) cls += " sentinel";
+      if(s.rect && i >= s.rect.l && i <= s.rect.r) cls += " popping";
+      else if(inStack[i]) cls += " instack";
+      else if(i === s.i) cls += " now";
+      else if(i < s.i) cls += " settled";
+      d.className = cls;
+      d.style.height = Math.max(5, scale(v)) + "px";
+      var lab = document.createElement("span");
+      lab.className = "lab";
+      lab.textContent = (isHist && i === data.length) ? "0" : v;
+      d.appendChild(lab);
+      chart.appendChild(d);
+    });
+
+    if(isHist){
+      if(s.bestRect) chart.appendChild(mkRect(s.bestRect, scale, true));
+      if(s.rect)     chart.appendChild(mkRect(s.rect, scale, false));
+    }
+
+    var ir = $("idxrow");
+    ir.innerHTML = "";
+    ir.style.width = (arr.length * (BW + GAP)) + "px";
+    arr.forEach(function(v, i){
+      var d = document.createElement("div");
+      d.textContent = (isHist && i === data.length) ? "哨兵" : i;
+      if(i === s.i) d.className = "now";
+      ir.appendChild(d);
+    });
+
+    $("ansArea").style.display = isHist ? "none" : "";
+    if(!isHist && s.ans){
+      var ar = $("ansrow");
+      ar.innerHTML = "";
+      ar.style.width = (arr.length * (BW + GAP)) + "px";
+      s.ans.forEach(function(v, i){
+        var d = document.createElement("div");
+        d.textContent = (v === null) ? "?" : v;
+        if(v !== null) d.className = (i === s.fresh) ? "fresh" : "filled";
+        ar.appendChild(d);
+      });
+    }
+
+    var box = $("stackbox");
+    box.innerHTML = "";
+    if(s.stack.length === 0){
+      box.innerHTML = '<div class="empty">（堆疊是空的）</div>';
+    } else {
+      s.stack.forEach(function(idx, i){
+        var d = document.createElement("div");
+        d.className = "sitem" + (i === s.stack.length-1 ? " top" : "");
+        d.textContent = isHist ? ("[" + idx + "] 高 " + data[idx])
+                               : ("第 " + idx + " 天 " + data[idx] + "°");
+        box.appendChild(d);
+      });
+    }
+
+    $("say").setAttribute("data-k", s.cls === "good" ? "ok" : (s.cls === "pop" ? "pop" : "push"));
+    $("sayBadge").textContent = s.cls === "good" ? "結算" : (s.cls === "pop" ? "POP" : "PUSH");
+    $("sayTitle").textContent = s.title || "";
+    $("sayText").innerHTML = s.msg;
+
+    $("sDepth").textContent = s.stack.length;
+    $("sOps").textContent = s.ops;
+    $("sCap").textContent = 2 * data.length;
+    $("kBest").textContent = isHist ? "最大面積" : "已解決天數";
+    $("sBest").textContent = isHist ? s.best
+      : (s.ans ? s.ans.filter(function(v){ return v !== null; }).length : 0);
+    $("chartNote").textContent = isHist ? ("n = " + data.length + " + 哨兵") : ("n = " + data.length);
+
+    var total = steps.length - 1;
+    $("progBar").style.width = (total > 0 ? cur/total*100 : 0) + "%";
+    $("stepCount").textContent = cur + " / " + total;
+    $("btnPrev").disabled = (cur === 0);
+    $("btnNext").disabled = (cur >= total);
+  }
+
+  function mkRect(r, scale, isBest){
+    var box = document.createElement("div");
+    box.className = "rect" + (isBest ? " best" : "");
+    box.style.left = (r.l * (BW + GAP)) + "px";
+    box.style.width = ((r.r - r.l + 1) * (BW + GAP) - GAP) + "px";
+    box.style.height = scale(r.h) + "px";
+    var tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = isBest ? ("最大 " + r.area)
+                             : (r.h + " × " + (r.r - r.l + 1) + " = " + r.area);
+    box.appendChild(tag);
+    return box;
+  }
+
+  /* ---------- 控制 ---------- */
+  function parseData(){
+    var raw = $("data").value.split(/[,，\s]+/).filter(function(x){ return x !== ""; });
+    var a = raw.map(Number);
+    if(a.length === 0) throw new Error("請至少輸入一個數字");
+    if(a.length > 24) throw new Error("最多 24 個數字，畫面才看得清楚");
+    if(a.some(function(v){ return !isFinite(v) || v < 0; }))
+      throw new Error("只接受 0 以上的數字，用逗號分隔");
+    if(mode === "hist" && a.every(function(v){ return v === 0; }))
+      throw new Error("至少要有一根柱子高度大於 0");
+    return a;
+  }
+
+  function rebuild(){
+    stopRun();
+    try{
+      data = parseData();
+      steps = (mode === "hist") ? buildHist(data) : buildTemp(data);
+      cur = 0;
+      $("btnRun").disabled = false;
+      $("btnNext").disabled = false;
+      render();
+    } catch(e){
+      steps = [];
+      $("chart").innerHTML = "";
+      $("idxrow").innerHTML = "";
+      $("stackbox").innerHTML = '<div class="empty">—</div>';
+      $("say").setAttribute("data-k", "error");
+      $("sayBadge").textContent = "錯誤";
+      $("sayTitle").textContent = "輸入有問題";
+      $("sayText").textContent = e.message;
+      $("btnRun").disabled = true;
+      $("btnNext").disabled = true;
+      $("btnPrev").disabled = true;
+    }
+    paintChips();
+  }
+
+  function setMode(m){
+    mode = m;
+    $("btnH").classList.toggle("on", m === "hist");
+    $("btnT").classList.toggle("on", m === "temp");
+    $("modeHint").innerHTML = (m === "hist")
+      ? '堆疊保持<b>由下往上遞增</b>：<code>while h[top] >= h[i]: 結算 top</code>　→ 求最大矩形面積'
+      : '堆疊保持<b>由下往上遞減</b>：<code>while t[top] &lt; t[i]: 結算 top</code>　→ 求還要等幾天';
+    $("chartLabel").textContent = (m === "hist") ? "柱狀圖" : "每日溫度";
+    $("monoNote").textContent = (m === "hist") ? "遞增" : "遞減";
+    $("data").value = PRESETS[m][0][0];
+    rebuild();
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    PRESETS[mode].forEach(function(p){
+      var b = document.createElement("button");
+      b.className = "chip" + ($("data").value === p[0] ? " is-on" : "");
+      b.type = "button";
+      var sp = document.createElement("span"); sp.textContent = p[1];
+      b.appendChild(sp);
+      b.title = p[0];
+      b.addEventListener("click", function(){ $("data").value = p[0]; rebuild(); });
+      host.appendChild(b);
+    });
+  }
+
+  function randomize(){
+    var n = 6 + Math.floor(Math.random() * 5), a = [];
+    for(var i=0;i<n;i++){
+      a.push(mode === "hist" ? 1 + Math.floor(Math.random()*9)
+                             : 60 + Math.floor(Math.random()*35));
+    }
+    $("data").value = a.join(",");
+    rebuild();
+  }
+
+  function stepFwd(){ stopRun(); if(cur < steps.length - 1){ cur++; render(); } }
+  function stepBack(){ stopRun(); if(cur > 0){ cur--; render(); } }
+
+  function toggleRun(){
+    if(playing){ stopRun(); return; }
+    if(!steps.length) return;
+    if(cur >= steps.length - 1){ cur = 0; render(); }
+    playing = true;
+    $("btnRun").textContent = "❚❚ 暫停";
+    var delay = Math.max(90, 1200 - parseInt($("spd").value, 10) * 12);
+    timer = setInterval(function(){
+      if(cur >= steps.length - 1){ stopRun(); return; }
+      cur++; render();
+    }, delay);
+  }
+  function stopRun(){
+    playing = false;
+    if(timer){ clearInterval(timer); timer = null; }
+    $("btnRun").textContent = (steps.length && cur >= steps.length - 1) ? "↺ 再跑一次" : "▶ 開始";
+  }
+
+  /* ---------- 事件 ---------- */
+  $("btnH").addEventListener("click", function(){ setMode("hist"); });
+  $("btnT").addEventListener("click", function(){ setMode("temp"); });
+  $("btnNext").addEventListener("click", stepFwd);
+  $("btnPrev").addEventListener("click", stepBack);
+  $("btnRun").addEventListener("click", toggleRun);
+  $("btnReset").addEventListener("click", rebuild);
+  $("btnRandom").addEventListener("click", randomize);
+  $("data").addEventListener("input", rebuild);
+  document.addEventListener("keydown", function(e){
+    if(e.target && e.target.tagName === "INPUT") return;
+    if(e.key === "ArrowRight"){ e.preventDefault(); stepFwd(); }
+    if(e.key === "ArrowLeft"){ e.preventDefault(); stepBack(); }
+  });
+
+  setMode("hist");
+})();
+</script>
+</body>
+</html>

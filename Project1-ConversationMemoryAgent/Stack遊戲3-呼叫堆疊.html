@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>呼叫堆疊 - 遞迴的真面目</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:linear-gradient(135deg,#0f172a 0%,#312e81 100%);
+  min-height:100vh; padding:20px; color:#e2e8f0;
+}
+.wrap { max-width:1200px; margin:0 auto; }
+.card { background:#fff; color:#1e293b; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.35); padding:28px; margin-bottom:22px; }
+h1 { font-size:32px; text-align:center; color:#312e81; margin-bottom:6px; }
+.sub { text-align:center; color:#64748b; font-size:14px; margin-bottom:20px; line-height:1.7; }
+h2 { font-size:20px; color:#312e81; margin:24px 0 12px; border-left:5px solid #6366f1; padding-left:12px; }
+
+.controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom:14px; }
+button { padding:10px 16px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s; }
+button:hover { background:#4f46e5; transform:translateY(-2px); }
+button:disabled { background:#cbd5e1; cursor:not-allowed; transform:none; }
+button.alt { background:#10b981; } button.alt:hover { background:#059669; }
+button.warn { background:#64748b; } button.warn:hover { background:#475569; }
+.ctl { display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:700; color:#334155; }
+input[type=range] { width:110px; }
+
+.mode-switch { display:flex; justify-content:center; gap:0; margin:6px 0 4px; flex-wrap:wrap; }
+.mode-btn { padding:13px 22px; border:3px solid #cbd5e1; background:#f8fafc; color:#64748b; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:.2s; }
+.mode-btn:first-child { border-radius:10px 0 0 10px; }
+.mode-btn:last-child { border-radius:0 10px 10px 0; border-left:none; }
+.mode-btn.on { background:#6366f1; border-color:#6366f1; color:#fff; }
+.mode-hint { text-align:center; font-size:13px; color:#64748b; margin:10px 0 14px; }
+.mode-hint code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; }
+
+.stage { display:grid; grid-template-columns:1fr 300px; gap:22px; align-items:start; }
+@media(max-width:900px){ .stage { grid-template-columns:1fr; } }
+
+/* 呼叫堆疊 */
+.stackwrap { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; }
+.topmark { font-size:11px; font-weight:800; color:#f59e0b; text-align:center; padding:6px; background:#fffbeb; border-radius:8px 8px 0 0; }
+.frames { display:flex; flex-direction:column-reverse; justify-content:flex-start; gap:5px; min-height:330px; max-height:430px; overflow-y:auto; background:#fff; border:2px solid #e2e8f0; border-radius:0 0 10px 10px; padding:10px; }
+.frame {
+  border-radius:8px; padding:9px 12px; border-left:6px solid #6366f1; background:#eef2ff;
+  font-family:Consolas,monospace; transition:.15s;
+}
+.frame .fn { font-size:15px; font-weight:800; color:#3730a3; }
+.frame .st { font-size:12px; color:#64748b; margin-top:3px; font-family:"Microsoft JhengHei",sans-serif; }
+.frame.top { background:#6366f1; border-left-color:#312e81; box-shadow:0 4px 12px rgba(99,102,241,.35); }
+.frame.top .fn { color:#fff; } .frame.top .st { color:#e0e7ff; }
+.frame.newborn { background:#fef3c7; border-left-color:#f59e0b; }
+.frame.newborn .fn { color:#92400e; } .frame.newborn .st { color:#b45309; }
+.frame.dying { background:#d1fae5; border-left-color:#10b981; }
+.frame.dying .fn { color:#065f46; } .frame.dying .st { color:#047857; }
+.empty { text-align:center; color:#cbd5e1; font-size:13px; padding:30px 0; font-weight:700; }
+
+.panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; }
+.plabel { font-size:12px; font-weight:800; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+.outlist { background:#fff; border:2px solid #e2e8f0; border-radius:8px; padding:10px; max-height:200px; overflow-y:auto; font-family:Consolas,monospace; font-size:13px; display:flex; flex-direction:column; gap:3px; }
+.outlist div { padding:3px 8px; border-radius:4px; background:#f1f5f9; color:#334155; }
+.outlist div.fresh { background:#10b981; color:#fff; font-weight:700; }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.stat .k { font-size:11px; color:#64748b; font-weight:700; }
+.stat .v { font-size:22px; font-weight:800; color:#312e81; }
+.stat.hl .v { color:#dc2626; }
+
+.msg { text-align:center; font-size:15px; font-weight:800; min-height:44px; margin:12px 0; color:#334155; line-height:1.6; }
+.msg.call { color:#b45309; } .msg.ret { color:#059669; } .msg.good { color:#059669; } .msg.bad { color:#dc2626; }
+.answer { text-align:center; font-family:Consolas,monospace; font-size:26px; font-weight:800; color:#059669; min-height:36px; }
+
+.code { background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-family:Consolas,monospace; font-size:13px; line-height:1.75; overflow-x:auto; white-space:pre; }
+.code .hi { color:#fbbf24; font-weight:700; }
+.code .cm { color:#64748b; }
+.note { background:#eef2ff; border-left:5px solid #6366f1; padding:14px 18px; border-radius:8px; margin:14px 0; color:#3730a3; font-size:14px; line-height:1.8; }
+.note.warn { background:#fef2f2; border-left-color:#ef4444; color:#991b1b; }
+.note b { color:inherit; }
+.note code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; font-size:13px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+@media(max-width:800px){ .two { grid-template-columns:1fr; } }
+.box { border:2px solid #e2e8f0; border-radius:10px; padding:16px; }
+.box.a { border-color:#6366f1; background:#eef2ff; }
+.box.b { border-color:#10b981; background:#ecfdf5; }
+.box h4 { margin-bottom:8px; font-size:16px; }
+.box.a h4 { color:#4338ca; } .box.b h4 { color:#047857; }
+.box ul { margin-left:18px; font-size:13px; line-height:1.9; color:#475569; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+th { background:#312e81; color:#fff; padding:10px; text-align:left; }
+td { padding:10px; border-bottom:1px solid #e2e8f0; }
+tr:nth-child(even) td { background:#f8fafc; }
+td code { font-family:Consolas,monospace; }
+.big { font-size:17px; font-weight:800; color:#dc2626; }
+
+/* 題目解說 / 解法解說 */
+.qbox { background:#fffbeb; border:2px solid #fde68a; border-radius:12px; padding:18px 22px; margin:14px 0; }
+.qbox h4 { color:#b45309; font-size:17px; margin-bottom:10px; }
+.qbox p, .qbox li { font-size:14px; line-height:1.9; color:#78350f; }
+.qbox ul, .qbox ol { margin:8px 0 8px 22px; }
+.io { display:grid; grid-template-columns:96px 1fr; gap:8px 12px; margin:12px 0; font-size:14px; align-items:center; }
+.io b { color:#92400e; }
+.io span { font-family:Consolas,monospace; color:#334155; background:#fff; border:1px solid #fde68a; border-radius:6px; padding:6px 10px; }
+ol.steps { margin:12px 0 12px 24px; font-size:14px; line-height:2; color:#334155; }
+ol.steps b { color:#312e81; }
+ol.steps li { margin-bottom:6px; }
+p.para { font-size:14px; color:#475569; line-height:1.9; margin:10px 0; }
+h2.sub2 { font-size:17px; border-left-color:#f59e0b; }
+table.hand th, table.hand td { font-family:Consolas,monospace; font-size:13px; padding:7px 9px; }
+table.hand th { background:#4338ca; }
+table.hand td.zh { font-family:"Microsoft JhengHei","微軟正黑體",sans-serif; }
+table.hand tr.last td { background:#d1fae5 !important; font-weight:800; }
+.wrong { background:#fef2f2; border-left:5px solid #ef4444; padding:14px 18px; border-radius:8px; margin:14px 0; color:#991b1b; font-size:14px; line-height:1.9; }
+.wrong b { color:#7f1d1d; }
+.wrong code { background:#0f172a; color:#fca5a5; padding:2px 8px; border-radius:4px; font-size:13px; }
+.wrong ol { margin-left:22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>🥞 呼叫堆疊 Call Stack：遞迴的真面目</h1>
+    <p class="sub">遞迴不是魔法。每呼叫一次函式，電腦就幫你 <b>push 一個框架（frame）</b>；每 return 一次就 <b>pop 掉</b>。<br>
+    你其實一直在用 Stack —— 只是這個 Stack 由作業系統替你管理。</p>
+
+    <div class="mode-switch">
+      <button class="mode-btn on" id="mFact"  onclick="setMode('fact')">🔢 階乘 n!</button>
+      <button class="mode-btn"    id="mFib"   onclick="setMode('fib')">🐇 費氏數列</button>
+      <button class="mode-btn"    id="mHanoi" onclick="setMode('hanoi')">🗼 河內塔</button>
+    </div>
+    <p class="mode-hint" id="modeHint"></p>
+
+    <div class="controls">
+      <div class="ctl"><label id="nLabel">n =</label>
+        <input type="range" id="nVal" min="1" max="8" value="5" style="width:150px;">
+        <b id="nShow" style="font-size:18px;color:#312e81;min-width:24px;">5</b>
+      </div>
+      <button class="alt" id="btnRun" onclick="toggleRun()">▶ 開始</button>
+      <button class="warn" onclick="stepFwd()">⏭ 下一步</button>
+      <button class="warn" onclick="stepBack()">⏮ 上一步</button>
+      <button onclick="rebuild()">🔄 重來</button>
+      <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="70"></div>
+    </div>
+
+    <div class="msg" id="msg">按「開始」看電腦怎麼一層一層把函式堆起來，再一層一層拆掉</div>
+
+    <div class="stage">
+      <div class="stackwrap">
+        <div class="topmark">↑ top（CPU 現在正在執行的那一層）</div>
+        <div class="frames" id="frames"></div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="plabel" id="outLabel">📜 執行紀錄</div>
+          <div class="outlist" id="outlist"></div>
+          <div class="answer" id="answer" style="margin-top:10px;"></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">目前深度</div><div class="v" id="sDepth">0</div></div>
+          <div class="stat"><div class="k">最大深度</div><div class="v" id="sMax">0</div></div>
+          <div class="stat hl"><div class="k">總呼叫次數</div><div class="v" id="sCalls">0</div></div>
+          <div class="stat"><div class="k">步驟</div><div class="v" id="sStep" style="font-size:16px;">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📋 題目解說</h2>
+
+    <div class="qbox">
+      <h4>核心問題：遞迴到底是怎麼被執行的？</h4>
+      <p>大部分人會寫遞迴，但講不出這三件事：</p>
+      <ul>
+        <li><code>fact(5)</code> 呼叫 <code>fact(4)</code> 時，<b>原本的 n=5 跑去哪裡了？</b>為什麼沒有被蓋掉？</li>
+        <li><code>fact(1)</code> 回傳之後，電腦<b>怎麼知道要跳回哪一行</b>繼續執行？</li>
+        <li>為什麼遞迴太深會 <b>Stack Overflow</b>，但迴圈跑一億次卻不會？</li>
+      </ul>
+      <p>答案全都是同一個東西：<b>呼叫堆疊（Call Stack）</b>。這份教材就是要把它畫出來給你看。</p>
+    </div>
+
+    <div class="qbox">
+      <h4>子題目一：階乘 factorial(n)</h4>
+      <p>定義：<code>n! = n × (n−1) × … × 2 × 1</code>，且 <code>0! = 1! = 1</code>。<br>
+      遞迴式：<code>fact(n) = n × fact(n−1)</code>，基底 <code>fact(1) = 1</code>。</p>
+      <div class="io">
+        <b>輸入</b><span>n = 5</span>
+        <b>輸出</b><span>120　（= 5×4×3×2×1）</span>
+      </div>
+      <p><b>為什麼拿它當第一個例子：</b>每層只呼叫一次自己，Stack 是一條乾淨的直線，最適合觀察 push/pop 的節奏。</p>
+    </div>
+
+    <div class="qbox">
+      <h4>子題目二：費氏數列 fib(n)</h4>
+      <p>定義：<code>F(0)=0，F(1)=1，F(n)=F(n−1)+F(n−2)</code>。</p>
+      <div class="io">
+        <b>輸入</b><span>n = 6</span>
+        <b>輸出</b><span>8　（0,1,1,2,3,5,8 的第 6 項）</span>
+      </div>
+      <p><b>為什麼拿它當第二個例子：</b>每層呼叫<b>兩次</b>自己 → 呼叫次數指數爆炸，
+      但 Stack 深度只有 n。這個對比是本教材最重要的觀念。</p>
+    </div>
+
+    <div class="qbox">
+      <h4>子題目三：河內塔 hanoi(n)</h4>
+      <p>三根柱子 A、B、C，n 個大小不同的盤子一開始由大到小疊在 A 上。把它們全部搬到 C，規則：</p>
+      <ol>
+        <li>一次只能搬<b>一個</b>盤子</li>
+        <li>只能搬每根柱子<b>最上面</b>的盤子（← 這句話就是在說「柱子是 Stack」）</li>
+        <li>任何時候都<b>不能把大盤子壓在小盤子上面</b></li>
+      </ol>
+      <div class="io">
+        <b>輸入</b><span>n = 3</span>
+        <b>輸出</b><span>7 個步驟（最少步數 2³ − 1 = 7）</span>
+      </div>
+      <p><b>為什麼拿它當第三個例子：</b>它同時出現兩種 Stack ——
+      <b>三根柱子本身是 Stack</b>（只能動最上面），<b>解法的遞迴又靠呼叫堆疊</b>。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🧠 解法解說</h2>
+
+    <h2 class="sub2">第 1 步：遞迴的三個要素（缺一個就會爆）</h2>
+    <ol class="steps">
+      <li><b>基底條件（Base case）</b>：什麼時候可以不用再遞迴，直接給答案。<br>
+          <span style="color:#64748b;">缺了它 → 無限 push → Stack Overflow。</span></li>
+      <li><b>遞迴關係（Recursive case）</b>：把大問題拆成<b>同樣形狀但更小</b>的問題。<br>
+          <span style="color:#64748b;">fact(n) 交給 fact(n−1)、hanoi(n) 交給兩個 hanoi(n−1)。</span></li>
+      <li><b>收斂性</b>：每呼叫一次都必須<b>更靠近基底</b>。<br>
+          <span style="color:#64748b;">寫成 <code>fact(n)</code> 呼叫 <code>fact(n)</code> 就永遠到不了基底。</span></li>
+    </ol>
+
+    <h2 class="sub2">第 2 步：手算一次 fact(3) 的呼叫堆疊</h2>
+    <table class="hand">
+      <tr><th>步驟</th><th>發生什麼事</th><th>Stack（底 → 頂）</th><th>深度</th></tr>
+      <tr><td>1</td><td class="zh">呼叫 fact(3) → PUSH</td><td>fact(3)</td><td>1</td></tr>
+      <tr><td>2</td><td class="zh">fact(3) 卡住：要等 fact(2)，於是呼叫 fact(2) → PUSH</td><td>fact(3), fact(2)</td><td>2</td></tr>
+      <tr><td>3</td><td class="zh">fact(2) 卡住：要等 fact(1)，於是呼叫 fact(1) → PUSH</td><td>fact(3), fact(2), fact(1)</td><td>3 ← 最深</td></tr>
+      <tr><td>4</td><td class="zh">fact(1) 碰到基底條件，回傳 1 → POP</td><td>fact(3), fact(2)</td><td>2</td></tr>
+      <tr><td>5</td><td class="zh">fact(2) 拿到 1，算 2×1=2，回傳 → POP</td><td>fact(3)</td><td>1</td></tr>
+      <tr class="last"><td>6</td><td class="zh">fact(3) 拿到 2，算 3×2=6，回傳 → POP，Stack 清空</td><td>（空）→ 答案 6</td><td>0</td></tr>
+    </table>
+    <p class="para">
+      <b>看懂這張表，你就看懂遞迴了：</b>前半段一路 push（問題不斷變小但沒有答案），
+      直到碰到基底條件才出現第一個答案，然後後半段一路 pop，答案<b>由下而上</b>逐層被算出來。<br>
+      每一層的 <code>n</code> 都住在自己的 frame 裡，所以 fact(3) 的 n 不會被 fact(2) 蓋掉。
+    </p>
+
+    <h2 class="sub2">第 3 步：費氏數列 —— 呼叫次數為什麼爆炸</h2>
+    <div class="code">                  fib(4)
+              ┌─────┴─────┐
+           fib(3)        fib(2) <span class="hi">★</span>
+         ┌───┴───┐      ┌──┴──┐
+      fib(2)<span class="hi">★</span>  fib(1)  fib(1) fib(0)
+     ┌───┴───┐
+  fib(1)   fib(0)
+
+<span class="cm">★ = 一模一樣的子問題被重算了一次</span></div>
+    <table>
+      <tr><th>子問題</th><th>fib(4)</th><th>fib(3)</th><th>fib(2)</th><th>fib(1)</th><th>fib(0)</th><th>總呼叫</th></tr>
+      <tr><td>被呼叫幾次</td><td>1</td><td>1</td><td><b>2</b></td><td><b>3</b></td><td><b>2</b></td><td><b>9</b></td></tr>
+    </table>
+    <p class="para">
+      呼叫次數公式是 <code>2·F(n+1) − 1</code>：n=4 時 9 次、n=10 時 177 次、
+      <b>n=30 時 270 萬次</b>、n=50 時要跑好幾年。<br>
+      慢的原因不是遞迴本身，而是<b>重複計算</b> —— 同一個 fib(2) 被算了很多次。
+      加上 memo（<code>@lru_cache</code>）記住算過的結果，呼叫次數立刻降到 <b>2n−1</b>，時間從 O(2ⁿ) 變 O(n)。
+    </p>
+
+    <div class="note">
+      <b>本教材最重要的一句話：呼叫次數 ≠ Stack 深度。</b><br>
+      fib(30) 呼叫 270 萬次，但 Stack <b>最深只有 30 層</b> ——
+      因為左子樹整棵跑完就被 pop 光了，右子樹才開始，兩邊<b>不會同時存在</b>於 Stack 上。<br>
+      所以 fib 的問題是<b>時間爆炸</b>（O(2ⁿ)），不是記憶體爆炸（空間只有 O(n)）。
+      你可以在上面的互動區把模式切到費氏，盯著「總呼叫次數」和「最大深度」兩個數字看它們的差距。
+    </div>
+
+    <h2 class="sub2">第 4 步：河內塔 —— 三步法與最少步數證明</h2>
+    <p class="para">
+      不要試著去想「第一步該搬哪個盤子」，那會直接卡死。
+      <b>假設 hanoi(n−1) 已經有人幫你做好了</b>，那 n 個盤子的解法必然是這三步：
+    </p>
+    <ol class="steps">
+      <li>把<b>上面 n−1 個</b>從 A 搬到中繼柱 B（借用 C 當中繼）　→ <code>hanoi(n−1, A, B, C)</code></li>
+      <li>把<b>最大的第 n 個</b>從 A 直接搬到 C　→ 一步，就是印出來的那一行</li>
+      <li>把 B 上的 <b>n−1 個</b>搬到 C（借用 A 當中繼）　→ <code>hanoi(n−1, B, C, A)</code></li>
+    </ol>
+    <div class="note">
+      <b>為什麼這樣一定合法？</b>因為第 2 步搬的是最大的盤子，此時 C 是空的，
+      而 A 上除了它以外也沒別的 —— 不可能違反「大不能壓小」。<br>
+      <b>為什麼可以假設 n−1 個已經會搬？</b>這就是數學歸納法，也是遞迴的本質：
+      <b>你只需要負責定義「這一層怎麼拆」，剩下的交給更小的自己。</b>
+    </div>
+    <div class="code"><span class="cm"># 最少步數 T(n)：三步法裡只有第 2 步真的搬盤子</span>
+T(n) = 2·T(n-1) + 1       <span class="cm"># 兩次 n-1 的搬移，加上中間那一步</span>
+T(0) = 0
+
+<span class="cm"># 展開：</span>
+T(n) = 2·T(n-1) + 1
+     = 4·T(n-2) + 2 + 1
+     = 8·T(n-3) + 4 + 2 + 1
+     = 2^k·T(n-k) + (2^k - 1)
+<span class="hi">     = 2^n·T(0) + 2^n - 1  =  2^n - 1</span>   <span class="cm"># 令 k = n</span></div>
+    <p class="para">
+      所以 n=3 是 7 步、n=10 是 1023 步。傳說中的 64 個金盤需要 <b>2⁶⁴−1 ≈ 1.8×10¹⁹ 步</b>，
+      就算一秒搬一個，也要 <b>5850 億年</b> —— 這就是指數成長的威力。<br>
+      注意<b>呼叫次數（2ⁿ⁺¹−1）比搬移次數（2ⁿ−1）多</b>，因為 <code>hanoi(0)</code> 那些「什麼都不做就 return」的空呼叫也佔一個 frame。
+    </p>
+
+    <h2 class="sub2">第 5 步：三個範例的比較</h2>
+    <table>
+      <tr><th></th><th>階乘</th><th>費氏</th><th>河內塔</th></tr>
+      <tr><td>每層呼叫幾次自己</td><td>1</td><td>2</td><td>2</td></tr>
+      <tr><td>Stack 形狀</td><td>直線</td><td>樹（但只走一邊）</td><td>樹</td></tr>
+      <tr><td>時間複雜度</td><td>O(n)</td><td>O(2ⁿ)　→ 加 memo 後 O(n)</td><td>O(2ⁿ)（答案本身就有 2ⁿ 步，無法更快）</td></tr>
+      <tr><td>空間（Stack 深度）</td><td>O(n)</td><td>O(n)</td><td>O(n)</td></tr>
+      <tr><td>能不能改成簡單迴圈</td><td>可以，一行就好</td><td>可以，兩個變數滾動</td><td>不好改，得自己拿 list 當 Stack</td></tr>
+    </table>
+
+    <h2 class="sub2">第 6 步：遞迴 → 迭代，其實是「自己接管那個 Stack」</h2>
+    <div class="code"><span class="cm"># 遞迴版：電腦幫你管理 Stack</span>
+def hanoi(n, a, c, b):
+    if n == 0: return
+    hanoi(n-1, a, b, c); move(n, a, c); hanoi(n-1, b, c, a)
+
+<span class="cm"># 迭代版：你自己拿一個 list 當 Stack，把「還沒做的任務」推進去</span>
+def hanoi_iter(n, a, c, b):
+<span class="hi">    stack = [(n, a, c, b, False)]        # False = 這個任務還沒展開</span>
+    while stack:
+        n, a, c, b, expanded = stack.pop()
+        if n == 0: continue
+        if expanded:
+            move(n, a, c)                <span class="cm"># 已展開過 → 執行中間那一步</span>
+        else:
+<span class="hi">            stack.append((n-1, b, c, a, False))   # 注意：順序要反過來 push</span>
+            stack.append((n,   a, c, b, True))     <span class="cm"># 因為 Stack 是後進先出</span>
+            stack.append((n-1, a, b, c, False))</div>
+    <p class="para">
+      兩版做的事完全一樣，差別只在「Stack 由誰管理」。<br>
+      <b>自己管理的好處：</b>不受遞迴深度上限限制、可以隨時暫停/存檔/繼續、除錯時能直接印出整個 Stack。<br>
+      <b>代價：</b>程式碼變醜，而且 push 的順序必須反過來寫（因為 LIFO）—— 這一點最容易寫錯。
+    </p>
+
+    <div class="wrong">
+      <b>❌ 五個最常見的錯誤</b>
+      <ol>
+        <li><b>忘記基底條件</b> → <code>RecursionError: maximum recursion depth exceeded</code>（Python 預設 1000 層）</li>
+        <li><b>參數沒有變小</b>：寫成 <code>fact(n)</code> 呼叫 <code>fact(n)</code>，或 <code>fib(n-1)</code> 打成 <code>fib(n)</code></li>
+        <li><b>以為每層共用同一個 n</b> → 其實每個 frame 各有一份，改了不會互相影響</li>
+        <li><b>把呼叫次數當成 Stack 深度</b> → 誤以為 fib(30) 會 Stack Overflow（實際上只有 30 層，是「慢」不是「爆」）</li>
+        <li><b>迭代版 push 順序沒反過來</b> → 河內塔步驟順序整個顛倒</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>一個 Frame 裡到底裝了什麼？</h2>
+    <div class="code">┌──────────────────────────────┐
+│  fact(3)  ← 一個 Stack Frame │
+├──────────────────────────────┤
+│  <span class="hi">參數</span>：n = 3                  │  ← 每一層都有自己的 n，互不干擾
+│  <span class="hi">區域變數</span>：（這題沒有）        │
+│  <span class="hi">回傳位址</span>：回到 fact(4) 的第 5 行 │  ← 最關鍵！算完要知道回哪裡
+└──────────────────────────────┘</div>
+
+    <div class="note">
+      <b>為什麼每層的 n 不會互相蓋掉？</b>因為 n 存在<b>各自的 frame</b> 裡，不是同一個變數。<br>
+      <b>為什麼算完知道要回哪？</b>因為 frame 裡存了「回傳位址」。這就是 Stack 存在的理由 ——
+      <b>後呼叫的函式一定先結束</b>，完美的 LIFO。
+    </div>
+
+    <div class="two">
+      <div class="box a">
+        <h4>📥 呼叫時（push）</h4>
+        <ul>
+          <li>配置一塊新 frame</li>
+          <li>把參數複製進去</li>
+          <li>記下「回來時要跳到哪一行」</li>
+          <li>Stack 指標往上移</li>
+        </ul>
+      </div>
+      <div class="box b">
+        <h4>📤 return 時（pop）</h4>
+        <ul>
+          <li>把回傳值交給下面那層</li>
+          <li>整塊 frame 直接丟棄（區域變數瞬間消失）</li>
+          <li>跳回記下的那一行繼續執行</li>
+          <li>Stack 指標往下移</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <b>💥 Stack Overflow 是怎麼發生的：</b>
+      Stack 的大小是<b>固定的</b>（CPython 預設遞迴上限 1000 層，C 的執行緒堆疊常見是 1 MB）。<br>
+      忘了寫基底條件 → 一直 push 卻永遠不 pop → <span class="big">RecursionError / Segmentation fault</span><br>
+      所以寫遞迴的第一件事永遠是：<b>先寫終止條件，再寫遞迴呼叫。</b>
+    </div>
+
+    <h2>三個範例的呼叫堆疊長相完全不同</h2>
+    <table>
+      <tr><th>範例</th><th>Stack 形狀</th><th>呼叫次數</th><th>最大深度</th></tr>
+      <tr><td>階乘 fact(n)</td><td>一條直線（每層只呼叫 1 次）</td><td>n</td><td>n</td></tr>
+      <tr><td>費氏 fib(n)</td><td>樹狀爆炸（每層呼叫 2 次）</td><td>≈ 2ⁿ</td><td>n</td></tr>
+      <tr><td>河內塔 hanoi(n)</td><td>樹狀，但每個節點都做事</td><td>2ⁿ⁺¹−1</td><td>n+1（最底下那層 n=0 也算一個 frame）</td></tr>
+    </table>
+
+    <div class="note">
+      <b>重點：呼叫次數 ≠ 最大深度。</b><br>
+      fib(30) 要呼叫 <b>270 萬次</b>，但 Stack 最深只有 <b>30 層</b> —— 因為左邊那棵子樹算完就被 pop 掉了，
+      不會同時存在。<br>
+      這也解釋了為什麼 fib 慢的原因是<b>重複計算</b>（時間），不是記憶體爆掉（空間）。
+    </div>
+
+    <h2>程式碼</h2>
+    <div class="code"><span class="cm"># 階乘：一條直線的遞迴</span>
+def fact(n):
+<span class="hi">    if n <= 1: return 1          # 基底條件 —— 沒有它就 stack overflow</span>
+    return n * fact(n - 1)       <span class="cm"># 等下面算完，我才能乘</span>
+
+<span class="cm"># 費氏：一次呼叫兩次 → 呼叫次數爆炸</span>
+def fib(n):
+    if n < 2: return n
+<span class="hi">    return fib(n-1) + fib(n-2)   # fib(n-1) 完全跑完並 pop 掉，才輪到 fib(n-2)</span>
+
+<span class="cm"># 河內塔：兩次遞迴中間夾一個動作</span>
+def hanoi(n, a, c, b):           <span class="cm"># 把 n 個盤子從 a 移到 c，b 當中繼</span>
+    if n == 0: return
+    hanoi(n-1, a, b, c)          <span class="cm"># 上面 n-1 個先搬去中繼柱</span>
+<span class="hi">    print(f"移動盤子 {n}: {a} → {c}")   # 最大的盤子搬過去</span>
+    hanoi(n-1, b, c, a)          <span class="cm"># 中繼柱那疊再搬回來蓋上</span></div>
+
+    <div class="note">
+      <b>把遞迴改成迴圈，其實就是「自己拿一個 list 當 Stack」。</b>
+      電腦本來替你做的事，你自己做一遍：<br>
+      <code>stack = [(n, a, c, b)]</code> → <code>while stack: 取出一個任務，展開成更小的任務再 push 回去</code><br>
+      這正是你在 <b>河內塔教材</b>「非遞迴解法」那一節做的事，也是 DFS 迷宮把遞迴換成 <code>list.pop()</code> 的原因。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 給 Claude 的 Prompt</h2>
+    <div class="code">幫我把「呼叫堆疊」變成看得見的東西。
+
+寫一個裝飾器 @trace，套在任何遞迴函式上都能印出呼叫過程：
+
+@trace
+def fact(n):
+    if n <= 1: return 1
+    return n * fact(n - 1)
+
+輸出要長這樣（用縮排表示 stack 深度）：
+→ fact(5)
+  → fact(4)
+    → fact(3)
+      → fact(2)
+        → fact(1)
+        ← fact(1) 回傳 1
+      ← fact(2) 回傳 2
+    ← fact(3) 回傳 6
+  ← fact(4) 回傳 24
+← fact(5) 回傳 120
+
+要求：
+1. 用一個全域變數（或 threading.local）記錄目前深度
+2. 同時統計「總呼叫次數」和「最大深度」，結束後印出來
+3. 套到 fib(10) 上，數數看呼叫了幾次
+4. 用 sys.setrecursionlimit 和 sys.getrecursionlimit 說明遞迴上限
+
+寫完後回答：為什麼 fib(10) 的「呼叫次數」遠大於「最大深度」？</div>
+
+    <div class="code" style="margin-top:16px;">延伸題：遞迴 → 迭代（自己管理 Stack）
+
+把下面三個遞迴改寫成「用 list 當 Stack」的迭代版，不准用 recursion：
+
+1. fact(n)        —— 最簡單，其實用迴圈就好，但請用 Stack 寫一次
+2. hanoi(n,a,c,b) —— 提示：Stack 裡放「還沒展開的任務」tuple
+3. 二元樹的中序走訪 inorder(root)
+
+三題都要：
+- 印出你的 Stack 在每一步的內容
+- 驗證輸出和遞迴版完全相同
+- 比較兩版的執行時間
+
+最後回答：
+- 什麼情況下「自己管理 Stack」比遞迴好？（提示：深度、除錯、暫停續跑）
+- 什麼是尾遞迴（tail recursion）？為什麼 Python 不做尾遞迴優化？</div>
+
+    <div class="code" style="margin-top:16px;">進階：把 fib 的重複計算揪出來
+
+1. 幫 fib 加計數器，統計每個 fib(k) 各被呼叫幾次，畫成表格
+   （你會看到 fib(2) 被算了非常多次）
+2. 加上 memo（用 dict 或 @lru_cache），重跑一次計數
+3. 做表格比較 n = 10, 20, 30 時：
+   - 沒 memo 的呼叫次數
+   - 有 memo 的呼叫次數
+   - 兩者耗時
+4. 畫出 fib(5) 的遞迴樹（ASCII 就好），把重複的節點標星號
+
+最後回答：
+- memo 是用「空間」換「時間」，換掉多少？（大 O 各是多少）
+- 為什麼加了 memo 之後，呼叫堆疊的最大深度沒有變？</div>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let mode = 'fact';
+let steps = [], cur = 0, timer = null, playing = false;
+
+const CFG = {
+  fact:  {max:9,  def:5, label:'n =', hint:'<code>fact(n) = n × fact(n-1)</code>　每層只呼叫一次 → Stack 像一條直線'},
+  fib:   {max:8,  def:6, label:'n =', hint:'<code>fib(n) = fib(n-1) + fib(n-2)</code>　每層呼叫兩次 → 注意「總呼叫次數」怎麼爆炸的'},
+  hanoi: {max:4,  def:3, label:'盤子數 =', hint:'<code>hanoi(n) = hanoi(n-1) + 搬一片 + hanoi(n-1)</code>　兩次遞迴中間夾一個動作'}
+};
+
+/* ---------- 產生 trace ---------- */
+function buildSteps(m, n){
+  const ev = [];
+  const emit = (t, o) => ev.push(Object.assign({t}, o));
+
+  if (m === 'fact'){
+    (function fact(k){
+      emit('call', {fn:`fact(${k})`, st:`要算 ${k}!`});
+      if (k <= 1){
+        emit('ret', {v:1, why:`基底條件 n ≤ 1 → 直接回傳 1，不再往下呼叫`});
+        return 1;
+      }
+      emit('status', {st:`卡住了：要等 fact(${k-1}) 的答案才能乘 ${k}`});
+      const r = k * fact(k-1);
+      emit('ret', {v:r, why:`拿到 fact(${k-1}) = ${r/k} → ${k} × ${r/k} = ${r}`});
+      return r;
+    })(n);
+  } else if (m === 'fib'){
+    (function fib(k){
+      emit('call', {fn:`fib(${k})`, st:`要算 fib(${k})`});
+      if (k < 2){
+        emit('ret', {v:k, why:`基底條件 n < 2 → 回傳 ${k}`});
+        return k;
+      }
+      emit('status', {st:`先去算左邊的 fib(${k-1})`});
+      const a = fib(k-1);
+      emit('status', {st:`左邊 fib(${k-1}) = ${a}，換算右邊 fib(${k-2})`});
+      const b = fib(k-2);
+      emit('ret', {v:a+b, why:`${a} + ${b} = ${a+b}`});
+      return a + b;
+    })(n);
+  } else {
+    (function hanoi(k, a, c, b){
+      emit('call', {fn:`hanoi(${k}, ${a}→${c})`, st:`把 ${k} 個盤子從 ${a} 搬到 ${c}`});
+      if (k === 0){
+        emit('ret', {v:'—', why:'沒有盤子要搬，直接 return'});
+        return;
+      }
+      emit('status', {st:`第一步：上面 ${k-1} 個先搬到中繼柱 ${b}`});
+      hanoi(k-1, a, b, c);
+      emit('move', {text:`盤子 ${k}：${a} → ${c}`, st:`第二步：把最大的盤子 ${k} 搬到 ${c}`});
+      emit('status', {st:`第三步：中繼柱 ${b} 那疊 ${k-1} 個再搬到 ${c}`});
+      hanoi(k-1, b, c, a);
+      emit('ret', {v:'完成', why:`${k} 個盤子已全部搬到 ${c}`});
+    })(n, 'A', 'C', 'B');
+  }
+
+  /* ----- 事件 → 快照 ----- */
+  const st = [], frames = [], out = [];
+  let calls = 0, maxDepth = 0, result = null;
+  const snap = (msg, cls, flag) => st.push({
+    frames: frames.map(f => Object.assign({}, f)),
+    out: [...out], msg, cls, calls, maxDepth,
+    depth: frames.length, flag: flag || null,
+    fresh: (flag === 'move') ? out.length - 1 : -1
+  });
+
+  snap('Stack 是空的。準備呼叫最外層的函式。', '', null);
+
+  for (const e of ev){
+    if (e.t === 'call'){
+      frames.push({fn:e.fn, st:e.st, mark:'newborn'});
+      calls++;
+      maxDepth = Math.max(maxDepth, frames.length);
+      snap(`📥 PUSH：呼叫 ${e.fn} → 配置新的 frame，深度變成 ${frames.length}`, 'call', 'push');
+      frames[frames.length-1].mark = '';
+    } else if (e.t === 'status'){
+      frames[frames.length-1].st = e.st;
+      snap(`⏸ ${frames[frames.length-1].fn}：${e.st}`, '', null);
+    } else if (e.t === 'move'){
+      out.push(e.text);
+      frames[frames.length-1].st = e.st;
+      snap(`🗼 ${e.text}`, 'good', 'move');
+    } else {
+      const f = frames[frames.length-1];
+      f.mark = 'dying';
+      f.st = `回傳 ${e.v}`;
+      snap(`📤 POP：${f.fn} 回傳 ${e.v} —— ${e.why}`, 'ret', 'pop');
+      frames.pop();
+      if (frames.length === 0) result = e.v;
+      else frames[frames.length-1].st = `收到 ${e.v}，繼續往下執行`;
+    }
+  }
+
+  const last = st[st.length-1];
+  last.done = true;
+  last.result = result;
+  last.msg = (m === 'hanoi')
+    ? `🎉 Stack 清空了！總共搬了 ${out.length} 步（2^${n} − 1 = ${Math.pow(2,n)-1}），呼叫 ${calls} 次，最深 ${maxDepth} 層`
+    : `🎉 Stack 清空了！答案 = ${result}　（呼叫 ${calls} 次，最深只有 ${maxDepth} 層 —— 呼叫次數 ≠ 深度）`;
+  last.cls = 'good';
+  return st;
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  const s = steps[cur];
+  if (!s) return;
+
+  const box = $('frames');
+  box.innerHTML = '';
+  if (s.frames.length === 0){
+    box.innerHTML = '<div class="empty">（呼叫堆疊是空的 —— 程式還沒開始，或已經全部結束）</div>';
+  } else {
+    s.frames.forEach((f, i) => {
+      const d = document.createElement('div');
+      const isTop = (i === s.frames.length - 1);
+      d.className = 'frame' + (f.mark ? ' ' + f.mark : (isTop ? ' top' : ''));
+      d.innerHTML = `<div class="fn">${f.fn}</div><div class="st">${f.st}</div>`;
+      d.style.marginLeft = Math.min(i * 6, 60) + 'px';
+      box.appendChild(d);
+    });
+  }
+
+  $('outLabel').textContent = (mode === 'hanoi') ? '🗼 搬盤子的步驟' : '📜 已完成的 return';
+  const ol = $('outlist');
+  ol.innerHTML = '';
+  const list = (mode === 'hanoi') ? s.out : [];
+  if (mode !== 'hanoi'){
+    // 非河內塔：用完成的 return 當紀錄
+    for (let k = 0; k <= cur; k++){
+      if (steps[k].flag === 'pop'){
+        const f = steps[k].frames[steps[k].frames.length-1];
+        list.push(`${f.fn} = ${f.st.replace('回傳 ','')}`);
+      }
+    }
+  }
+  if (list.length === 0){
+    ol.innerHTML = '<div style="background:none;color:#cbd5e1;font-weight:700;">（還沒有紀錄）</div>';
+  }
+  const freshFlag = (mode === 'hanoi') ? 'move' : 'pop';
+  list.slice(-40).forEach((t, i, a) => {
+    const d = document.createElement('div');
+    if (i === a.length - 1 && s.flag === freshFlag) d.className = 'fresh';
+    d.textContent = t;
+    ol.appendChild(d);
+  });
+  ol.scrollTop = ol.scrollHeight;
+
+  const m = $('msg');
+  m.textContent = s.msg;
+  m.className = 'msg ' + (s.cls || '');
+  $('answer').textContent = s.done && mode !== 'hanoi' ? '答案 = ' + s.result : '';
+  $('sDepth').textContent = s.depth;
+  $('sMax').textContent = s.maxDepth;
+  $('sCalls').textContent = s.calls;
+  $('sStep').textContent = cur + ' / ' + (steps.length - 1);
+}
+
+/* ---------- 控制 ---------- */
+function rebuild(){
+  stopRun();
+  const n = parseInt($('nVal').value);
+  steps = buildSteps(mode, n);
+  cur = 0;
+  render();
+}
+
+function setMode(m){
+  mode = m;
+  ['fact','fib','hanoi'].forEach(x =>
+    $('m' + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle('on', x === m));
+  const c = CFG[m];
+  $('nVal').max = c.max;
+  $('nVal').value = c.def;
+  $('nShow').textContent = c.def;
+  $('nLabel').textContent = c.label;
+  $('modeHint').innerHTML = c.hint;
+  rebuild();
+}
+
+function stepFwd(){ stopRun(); if (cur < steps.length - 1){ cur++; render(); } }
+function stepBack(){ stopRun(); if (cur > 0){ cur--; render(); } }
+
+function toggleRun(){
+  if (playing){ stopRun(); return; }
+  if (cur >= steps.length - 1){ cur = 0; render(); }
+  playing = true;
+  $('btnRun').textContent = '⏸ 暫停';
+  const delay = Math.max(70, 1100 - parseInt($('spd').value) * 11);
+  timer = setInterval(() => {
+    if (cur >= steps.length - 1){ stopRun(); return; }
+    cur++; render();
+  }, delay);
+}
+function stopRun(){
+  playing = false;
+  if (timer){ clearInterval(timer); timer = null; }
+  $('btnRun').textContent = (steps.length && cur >= steps.length - 1) ? '🔄 再跑一次' : '▶ 開始';
+}
+
+$('nVal').addEventListener('input', () => { $('nShow').textContent = $('nVal').value; rebuild(); });
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') stepFwd();
+  if (e.key === 'ArrowLeft')  stepBack();
+});
+
+setMode('fact');
+</script>
+</body>
+</html>

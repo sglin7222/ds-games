@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>單調堆疊 - 柱狀圖最大矩形 / 每日溫度</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:linear-gradient(135deg,#0f172a 0%,#312e81 100%);
+  min-height:100vh; padding:20px; color:#e2e8f0;
+}
+.wrap { max-width:1200px; margin:0 auto; }
+.card { background:#fff; color:#1e293b; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.35); padding:28px; margin-bottom:22px; }
+h1 { font-size:32px; text-align:center; color:#312e81; margin-bottom:6px; }
+.sub { text-align:center; color:#64748b; font-size:14px; margin-bottom:20px; line-height:1.7; }
+h2 { font-size:20px; color:#312e81; margin:24px 0 12px; border-left:5px solid #6366f1; padding-left:12px; }
+
+.controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom:14px; }
+button { padding:10px 16px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s; }
+button:hover { background:#4f46e5; transform:translateY(-2px); }
+button:disabled { background:#cbd5e1; cursor:not-allowed; transform:none; }
+button.alt { background:#10b981; } button.alt:hover { background:#059669; }
+button.warn { background:#64748b; } button.warn:hover { background:#475569; }
+button.tiny { padding:6px 12px; font-size:13px; background:#e2e8f0; color:#334155; font-weight:700; }
+button.tiny:hover { background:#cbd5e1; }
+.ctl { display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:700; color:#334155; }
+input[type=range] { width:110px; }
+input[type=text] { font-family:Consolas,monospace; font-size:16px; font-weight:700; padding:10px 14px; border:3px solid #c7d2fe; border-radius:10px; width:100%; color:#312e81; text-align:center; }
+input[type=text]:focus { outline:none; border-color:#6366f1; }
+
+/* 模式大開關 */
+.mode-switch { display:flex; justify-content:center; gap:0; margin:6px 0 4px; }
+.mode-btn { padding:14px 26px; border:3px solid #cbd5e1; background:#f8fafc; color:#64748b; font-weight:800; font-size:16px; cursor:pointer; font-family:inherit; transition:.2s; }
+.mode-btn:first-child { border-radius:10px 0 0 10px; }
+.mode-btn:last-child { border-radius:0 10px 10px 0; border-left:none; }
+.mode-btn.on.h { background:#6366f1; border-color:#6366f1; color:#fff; }
+.mode-btn.on.t { background:#f59e0b; border-color:#f59e0b; color:#fff; }
+.mode-hint { text-align:center; font-size:13px; color:#64748b; margin:10px 0 16px; }
+.mode-hint code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; }
+
+.stage { display:grid; grid-template-columns:1fr 230px; gap:22px; align-items:start; }
+@media(max-width:900px){ .stage { grid-template-columns:1fr; } }
+
+/* 柱狀圖 */
+.chartwrap { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px 18px 12px; overflow-x:auto; }
+.chart { position:relative; display:flex; align-items:flex-end; gap:4px; height:250px; width:max-content; margin:0 auto; }
+.bar { width:40px; border-radius:4px 4px 0 0; background:#c7d2fe; position:relative; transition:background .15s, height .2s; }
+.bar .lab { position:absolute; top:-22px; left:0; right:0; text-align:center; font-size:13px; font-weight:800; color:#475569; }
+.bar.instack { background:#6366f1; }
+.bar.now     { background:#f59e0b; }
+.bar.popping { background:#ef4444; }
+.bar.settled { background:#e2e8f0; }
+.bar.sentinel { background:#94a3b8; width:40px; }
+.rect { position:absolute; bottom:0; border:3px dashed #ef4444; background:rgba(239,68,68,.16); border-radius:4px; pointer-events:none; display:flex; align-items:flex-start; justify-content:center; }
+.rect .tag { background:#ef4444; color:#fff; font-size:12px; font-weight:800; padding:2px 8px; border-radius:0 0 6px 6px; white-space:nowrap; }
+.rect.best { border-color:#059669; background:rgba(16,185,129,.16); }
+.rect.best .tag { background:#059669; }
+.idxrow { display:flex; gap:4px; width:max-content; margin:6px auto 0; }
+.idxrow div { width:40px; text-align:center; font-size:12px; font-weight:700; color:#94a3b8; }
+.ansrow { display:flex; gap:4px; width:max-content; margin:10px auto 0; }
+.ansrow div { width:40px; text-align:center; font-size:15px; font-weight:800; color:#94a3b8; background:#fff; border:2px solid #e2e8f0; border-radius:6px; padding:4px 0; }
+.ansrow div.filled { color:#065f46; background:#d1fae5; border-color:#a7f3d0; }
+.ansrow div.fresh  { color:#fff; background:#10b981; border-color:#059669; transform:translateY(-3px); }
+.rowlab { text-align:center; font-size:12px; font-weight:800; color:#64748b; margin-top:10px; letter-spacing:.5px; }
+
+/* Stack */
+.panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; }
+.topmark { font-size:11px; font-weight:800; color:#f59e0b; text-align:center; padding:4px; background:#fffbeb; border:2px solid #e2e8f0; border-bottom:none; border-radius:10px 10px 0 0; }
+.stackbox { display:flex; flex-direction:column-reverse; justify-content:flex-start; gap:4px; min-height:230px; background:#fff; border:2px solid #e2e8f0; border-top:none; border-radius:0 0 10px 10px; padding:10px; }
+.sitem { padding:9px; border-radius:6px; background:#e0e7ff; color:#3730a3; font-weight:800; font-family:Consolas,monospace; font-size:14px; text-align:center; border:2px solid #c7d2fe; }
+.sitem.top { background:#6366f1; color:#fff; border-color:#4338ca; box-shadow:0 4px 10px rgba(99,102,241,.35); }
+.empty { text-align:center; color:#cbd5e1; font-size:13px; padding:20px 0; font-weight:700; }
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.stat .k { font-size:11px; color:#64748b; font-weight:700; }
+.stat .v { font-size:22px; font-weight:800; color:#312e81; }
+.stat.hl .v { color:#059669; }
+
+.msg { text-align:center; font-size:15px; font-weight:800; min-height:46px; margin:12px 0; color:#334155; line-height:1.6; }
+.msg.good { color:#059669; } .msg.bad { color:#dc2626; } .msg.pop { color:#dc2626; }
+
+.code { background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-family:Consolas,monospace; font-size:13px; line-height:1.75; overflow-x:auto; white-space:pre; }
+.code .hi { color:#fbbf24; font-weight:700; }
+.code .cm { color:#64748b; }
+.note { background:#eef2ff; border-left:5px solid #6366f1; padding:14px 18px; border-radius:8px; margin:14px 0; color:#3730a3; font-size:14px; line-height:1.8; }
+.note b { color:#312e81; }
+.note code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; font-size:13px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+@media(max-width:800px){ .two { grid-template-columns:1fr; } }
+.box { border:2px solid #e2e8f0; border-radius:10px; padding:16px; }
+.box.a { border-color:#ef4444; background:#fef2f2; }
+.box.b { border-color:#10b981; background:#ecfdf5; }
+.box h4 { margin-bottom:8px; font-size:16px; }
+.box.a h4 { color:#b91c1c; } .box.b h4 { color:#047857; }
+.box ul { margin-left:18px; font-size:13px; line-height:1.9; color:#475569; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+th { background:#312e81; color:#fff; padding:10px; text-align:left; }
+td { padding:10px; border-bottom:1px solid #e2e8f0; }
+tr:nth-child(even) td { background:#f8fafc; }
+td code { font-family:Consolas,monospace; }
+
+/* 題目解說 / 解法解說 */
+.qbox { background:#fffbeb; border:2px solid #fde68a; border-radius:12px; padding:18px 22px; margin:14px 0; }
+.qbox h4 { color:#b45309; font-size:17px; margin-bottom:10px; }
+.qbox p, .qbox li { font-size:14px; line-height:1.9; color:#78350f; }
+.qbox ul, .qbox ol { margin:8px 0 8px 22px; }
+.io { display:grid; grid-template-columns:96px 1fr; gap:8px 12px; margin:12px 0; font-size:14px; align-items:center; }
+.io b { color:#92400e; }
+.io span { font-family:Consolas,monospace; color:#334155; background:#fff; border:1px solid #fde68a; border-radius:6px; padding:6px 10px; }
+ol.steps { margin:12px 0 12px 24px; font-size:14px; line-height:2; color:#334155; }
+ol.steps b { color:#312e81; }
+ol.steps li { margin-bottom:6px; }
+p.para { font-size:14px; color:#475569; line-height:1.9; margin:10px 0; }
+h2.sub2 { font-size:17px; border-left-color:#f59e0b; }
+table.hand th, table.hand td { font-family:Consolas,monospace; font-size:13px; padding:7px 9px; }
+table.hand th { background:#4338ca; }
+table.hand td.zh { font-family:"Microsoft JhengHei","微軟正黑體",sans-serif; }
+table.hand tr.last td { background:#d1fae5 !important; font-weight:800; }
+table.hand td.win { background:#d1fae5; font-weight:800; color:#065f46; }
+.wrong { background:#fef2f2; border-left:5px solid #ef4444; padding:14px 18px; border-radius:8px; margin:14px 0; color:#991b1b; font-size:14px; line-height:1.9; }
+.wrong b { color:#7f1d1d; }
+.wrong code { background:#0f172a; color:#fca5a5; padding:2px 8px; border-radius:4px; font-size:13px; }
+.wrong ol { margin-left:22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>📊 單調堆疊 Monotonic Stack</h1>
+    <p class="sub">面試出現率最高的 Stack 技巧：<b>O(n²) 的暴力解 → O(n)</b><br>
+    關鍵一句話：<b>「當我發現一個更矮／更高的，前面那些等待中的就可以結算了」</b></p>
+
+    <div class="mode-switch">
+      <button class="mode-btn h on" id="btnH" onclick="setMode('hist')">📊 柱狀圖最大矩形</button>
+      <button class="mode-btn t"    id="btnT" onclick="setMode('temp')">🌡️ 每日溫度</button>
+    </div>
+    <p class="mode-hint" id="modeHint">
+      Stack 保持<b>由下往上遞增</b>：<code>while h[top] >= h[i]: 結算 top</code>
+    </p>
+
+    <div style="max-width:620px;margin:0 auto 12px;">
+      <input type="text" id="data" value="2,1,5,6,2,3">
+    </div>
+    <div class="controls" id="presets"></div>
+
+    <div class="controls">
+      <button class="alt" id="btnRun" onclick="toggleRun()">▶ 開始</button>
+      <button class="warn" onclick="stepFwd()">⏭ 下一步</button>
+      <button class="warn" onclick="stepBack()">⏮ 上一步</button>
+      <button onclick="randomize()">🎲 隨機</button>
+      <button onclick="rebuild()">🔄 重來</button>
+      <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="66"></div>
+    </div>
+
+    <div class="msg" id="msg">按「開始」，或直接改上面的數字（用逗號分隔）</div>
+
+    <div class="stage">
+      <div>
+        <div class="chartwrap">
+          <div class="chart" id="chart"></div>
+          <div class="idxrow" id="idxrow"></div>
+          <div id="ansArea" style="display:none;">
+            <div class="rowlab">答案：還要等幾天才會更暖</div>
+            <div class="ansrow" id="ansrow"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="topmark">↑ top（下一個結算的）</div>
+        <div class="stackbox" id="stackbox"></div>
+        <div class="stats">
+          <div class="stat"><div class="k">步驟</div><div class="v" id="sStep">0</div></div>
+          <div class="stat"><div class="k">Stack 深度</div><div class="v" id="sDepth">0</div></div>
+          <div class="stat hl"><div class="k" id="kBest">最大面積</div><div class="v" id="sBest">0</div></div>
+          <div class="stat"><div class="k">總 push+pop</div><div class="v" id="sOps">0</div></div>
+        </div>
+        <div class="note" style="margin-top:14px;font-size:12.5px;padding:12px 14px;line-height:1.7;">
+          <b>盯著看：</b>每根柱子<b>最多只被 push 一次、pop 一次</b>。
+          所以雖然有巢狀迴圈，總操作次數還是 O(n)。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📋 題目解說</h2>
+
+    <div class="qbox">
+      <h4>題目一：柱狀圖中最大的矩形（LeetCode 84）</h4>
+      <p>給一個非負整數陣列 <code>heights</code>，代表一排柱子的高度，<b>每根柱子寬度都是 1</b>。
+      請找出能在這張柱狀圖裡畫出的<b>最大矩形面積</b>（矩形必須完整落在柱子內，可以橫跨連續多根）。</p>
+      <div class="io">
+        <b>輸入</b><span>heights = [2,1,5,6,2,3]</span>
+        <b>輸出</b><span>10</span>
+      </div>
+      <div class="code" style="margin:10px 0;">6 │          ██
+5 │       ██ ██        ← 最大矩形：以高度 5 橫跨第 2、3 根
+4 │       ██ ██           面積 = 5 × 2 = <span class="hi">10</span>
+3 │       ██ ██       ██
+2 │ ██    ██ ██ ██    ██
+1 │ ██ ██ ██ ██ ██ ██ ██
+  └────────────────────────
+索引  0  1  2  3  4  5
+高度  2  1  5  6  2  3</div>
+      <p><b>注意：</b>矩形的高度會被區間裡<b>最矮的那根</b>限制住。
+      橫跨第 2、3 根時高度只能是 min(5,6)=5；如果貪心地想用高度 6，就只能佔 1 格，面積剩 6。</p>
+    </div>
+
+    <div class="qbox">
+      <h4>題目二：每日溫度（LeetCode 739）</h4>
+      <p>給一個陣列 <code>temperatures</code>，第 i 個元素是第 i 天的氣溫。
+      請對每一天回答：<b>還要等幾天，才會遇到比今天更暖的日子？</b>如果之後都不會更暖，答 0。</p>
+      <div class="io">
+        <b>輸入</b><span>[73, 74, 75, 71, 69, 72, 76, 73]</span>
+        <b>輸出</b><span>[ 1,  1,  4,  2,  1,  1,  0,  0]</span>
+      </div>
+      <p>第 0 天 73°，隔天就 74° → 等 1 天。<br>
+      第 2 天 75°，要一路等到第 6 天的 76° → 等 4 天。<br>
+      第 6 天 76° 是最高溫，之後再也沒更暖的 → 0。</p>
+    </div>
+
+    <h2>這兩題其實是同一個問題</h2>
+    <div class="note">
+      把兩題翻譯成同一句話：<b>「對每個元素，找出它右邊第一個比它小（或比它大）的元素在哪裡。」</b><br><br>
+      ・每日溫度 → 直接就是在問「右邊第一個更大的元素」<br>
+      ・柱狀圖 → 以第 i 根為高的矩形，<b>左界是「左邊第一個比它矮的」，右界是「右邊第一個比它矮的」</b><br>
+      　　面積 = <code>h[i] × (右界 − 左界 − 1)</code><br><br>
+      這類問題有個共同名字：<b>Next Greater / Next Smaller Element</b>，而它們的共同解法就是單調堆疊。
+    </div>
+
+    <p class="para"><b>為什麼這題重要：</b>它是「暴力 O(n²) → 巧妙 O(n)」最漂亮的示範，
+    也是各大公司面試的高頻題。更重要的是，一旦看懂這個「等待 ↔ 結算」的模式，
+    接雨水、股票跨度、最大子矩形等一整族題目都會一起解開。</p>
+  </div>
+
+  <div class="card">
+    <h2>🧠 解法解說</h2>
+
+    <h2 class="sub2">第 0 步：先寫出暴力解，才知道浪費在哪</h2>
+    <div class="code">def brute(h):                 <span class="cm"># O(n²)</span>
+    best = 0
+    for i in range(len(h)):
+        lo = h[i]
+        for j in range(i, len(h)):
+            lo = min(lo, h[j])    <span class="cm"># 區間最小值 = 矩形高度</span>
+            best = max(best, lo * (j - i + 1))
+    return best</div>
+    <p class="para">
+      正確，但每個區間都重算一次最小值。n = 10 萬時要跑 50 億次 —— 面試直接掛。<br>
+      <b>浪費點：</b>「第 3 根左邊第一個比它矮的是誰」這件事，被重複問了無數次。
+    </p>
+
+    <h2 class="sub2">第 1 步：換個角度枚舉</h2>
+    <div class="note">
+      不要枚舉「所有區間」（有 n² 個），改成枚舉「<b>誰當這個矩形的高度</b>」（只有 n 個）。<br>
+      對第 i 根柱子，答案就是：<b>它能往左右延伸多遠而不被更矮的柱子擋住。</b><br>
+      問題瞬間變成：<b>找左邊第一個比它矮的、右邊第一個比它矮的。</b>
+    </div>
+
+    <h2 class="sub2">第 2 步：關鍵洞察（整題只有這一個要想通）</h2>
+    <p class="para">
+      我們從左往右掃。掃到第 i 根時，前面那些柱子的<b>右邊界還不知道</b>，所以它們只能<b>先掛在那裡等</b>。
+      問題是：這些「等待中」的柱子，要用什麼結構存？
+    </p>
+    <div class="note">
+      <b>洞察：如果 j &lt; i 而且 h[j] ≥ h[i]，那 j 可以馬上結算，永遠不必再等。</b><br><br>
+      為什麼？因為任何想要跨過第 i 根的矩形，高度都會被 h[i] 壓下去，不可能再用到 h[j] 這個高度。
+      <b>第 i 根就是第 j 根的右邊界 —— 現在就能算出它的答案。</b><br><br>
+      而「馬上結算並丟掉」的直接後果是：<b>能留在容器裡的柱子，必定由下往上遞增。</b>
+      這就是「單調」堆疊的由來 —— 單調不是我們刻意維護的，是規則的副產品。
+    </div>
+
+    <h2 class="sub2">第 3 步：左邊界是免費送的</h2>
+    <p class="para">
+      彈出第 j 根時，Stack 裡<b>緊接在它下面</b>的那根，正好就是「左邊第一個比它矮的柱子」——
+      因為中間所有比它高的都已經被彈掉了，比它矮的又不可能還留在下面。
+    </p>
+    <div class="code">left  = stack[-1] + 1 if stack else 0   <span class="cm"># 左界：下面那根的右邊一格；Stack 空代表能一路延伸到最左</span>
+right = i - 1                           <span class="cm"># 右界：現在這根的左邊一格</span>
+width = right - left + 1 = i - left
+area  = h[j] * width</div>
+    <p class="para">兩個邊界都是 O(1) 拿到的，這正是暴力解花 O(n) 去掃的東西。</p>
+
+    <h2 class="sub2">第 4 步：哨兵 —— 處理「永遠等不到」的柱子</h2>
+    <p class="para">
+      如果柱子一路遞增（例如 <code>[1,2,3,4,5]</code>），掃到最後 Stack 裡還塞著一整排沒結算的柱子。<br>
+      解法很賴皮：<b>在陣列尾巴補一根高度 0 的假柱子</b>。它比誰都矮，會逼著 Stack 全部彈空，
+      於是不用再寫一段重複的收尾程式碼。
+    </p>
+
+    <h2 class="sub2">第 5 步：手算一次 [2,1,5,6,2,3]</h2>
+    <table class="hand">
+      <tr><th>i</th><th>h[i]</th><th>動作</th><th>結算</th><th>Stack（底→頂，存索引）</th><th>目前最大</th></tr>
+      <tr><td>0</td><td>2</td><td class="zh">Stack 空 → push 0</td><td>—</td><td>[0]</td><td>0</td></tr>
+      <tr><td>1</td><td>1</td><td class="zh">1 &lt; h[0]=2 → 彈出 0</td><td class="zh">高2 左界0 右界0 → 2×1 = <b>2</b></td><td>[1]</td><td>2</td></tr>
+      <tr><td>2</td><td>5</td><td class="zh">5 &gt; h[1]=1 → push 2</td><td>—</td><td>[1,2]</td><td>2</td></tr>
+      <tr><td>3</td><td>6</td><td class="zh">6 &gt; h[2]=5 → push 3</td><td>—</td><td>[1,2,3]</td><td>2</td></tr>
+      <tr><td>4</td><td>2</td><td class="zh">2 &lt; h[3]=6 → 彈出 3</td><td class="zh">高6 左界3 右界3 → 6×1 = <b>6</b></td><td>[1,2]</td><td>6</td></tr>
+      <tr><td>4</td><td>2</td><td class="zh">2 &lt; h[2]=5 → 彈出 2</td><td class="win">高5 左界2 右界3 → 5×2 = 10 🏆</td><td>[1]</td><td class="win">10</td></tr>
+      <tr><td>4</td><td>2</td><td class="zh">2 &gt; h[1]=1 → push 4</td><td>—</td><td>[1,4]</td><td>10</td></tr>
+      <tr><td>5</td><td>3</td><td class="zh">3 &gt; h[4]=2 → push 5</td><td>—</td><td>[1,4,5]</td><td>10</td></tr>
+      <tr><td>6</td><td>0 哨兵</td><td class="zh">彈出 5</td><td class="zh">高3 左界5 右界5 → 3×1 = 3</td><td>[1,4]</td><td>10</td></tr>
+      <tr><td>6</td><td>0 哨兵</td><td class="zh">彈出 4</td><td class="zh">高2 左界2 右界5 → 2×4 = 8</td><td>[1]</td><td>10</td></tr>
+      <tr class="last"><td>6</td><td>0 哨兵</td><td class="zh">彈出 1，Stack 清空</td><td class="zh">高1 左界0 右界5 → 1×6 = 6</td><td>[]</td><td>10 ✅</td></tr>
+    </table>
+    <p class="para">
+      第 6 列就是答案的來源：彈出第 2 根（高 5）時，左界來自 Stack 裡它下面的第 1 根，右界是當下的第 4 根 → 寬 2、面積 10。
+    </p>
+
+    <h2 class="sub2">第 6 步：手算一次每日溫度 [73,74,75,71,69,72,76,73]</h2>
+    <table class="hand">
+      <tr><th>i</th><th>溫度</th><th>動作</th><th>填答案</th><th>Stack（存索引）</th></tr>
+      <tr><td>0</td><td>73</td><td class="zh">Stack 空 → push</td><td>—</td><td>[0]</td></tr>
+      <tr><td>1</td><td>74</td><td class="zh">74 &gt; 73 → 彈出 0</td><td>ans[0] = 1−0 = <b>1</b></td><td>[1]</td></tr>
+      <tr><td>2</td><td>75</td><td class="zh">75 &gt; 74 → 彈出 1</td><td>ans[1] = 2−1 = <b>1</b></td><td>[2]</td></tr>
+      <tr><td>3</td><td>71</td><td class="zh">71 &lt; 75 → push</td><td>—</td><td>[2,3]</td></tr>
+      <tr><td>4</td><td>69</td><td class="zh">69 &lt; 71 → push</td><td>—</td><td>[2,3,4]</td></tr>
+      <tr><td>5</td><td>72</td><td class="zh">72 &gt; 69 → 彈出 4；72 &gt; 71 → 彈出 3；72 &lt; 75 → push</td><td>ans[4]=1、ans[3]=2</td><td>[2,5]</td></tr>
+      <tr><td>6</td><td>76</td><td class="zh">76 &gt; 72 → 彈出 5；76 &gt; 75 → 彈出 2；push</td><td>ans[5]=1、ans[2]=<b>4</b></td><td>[6]</td></tr>
+      <tr><td>7</td><td>73</td><td class="zh">73 &lt; 76 → push</td><td>—</td><td>[6,7]</td></tr>
+      <tr class="last"><td colspan="3" class="zh">掃描結束，Stack 裡還剩 [6,7]，它們之後都沒有更暖的日子</td><td>ans[6]=0、ans[7]=0</td><td>答案 [1,1,4,2,1,1,0,0]</td></tr>
+    </table>
+    <p class="para">
+      注意第 i=5 那列：<b>一次 while 迴圈連續彈出兩個</b>。這正是為什麼「看起來像 O(n²)」——
+      但那兩個被彈出的元素，這輩子都不會再進 Stack 了。
+    </p>
+
+    <h2 class="sub2">第 7 步：複雜度為什麼是 O(n)（攤還分析）</h2>
+    <table>
+      <tr><th></th><th>暴力解</th><th>單調堆疊</th></tr>
+      <tr><td>時間</td><td>O(n²)</td><td><b>O(n)</b></td></tr>
+      <tr><td>空間</td><td>O(1)</td><td>O(n)（最壞：全遞增，全塞進 Stack）</td></tr>
+      <tr><td>論證</td><td>雙層迴圈</td><td>每個索引<b>最多 push 一次、pop 一次</b> → 總操作 ≤ 2n</td></tr>
+    </table>
+    <p class="para">
+      巢狀的 <code>while</code> 不代表 O(n²)：要看的是<b>整趟下來的總操作次數</b>，不是單次迴圈的最壞情況。
+      這個技巧叫<b>攤還分析</b>，你可以在互動區右下角的「總 push+pop」欄位親眼驗證它永遠 ≤ 2n。
+    </p>
+
+    <div class="wrong">
+      <b>❌ 五個最常見的錯誤</b>
+      <ol>
+        <li><b>Stack 存高度而不存索引</b> → 算寬度時沒有位置資訊，整題卡死。<b>永遠存索引</b>，高度用 <code>h[idx]</code> 查</li>
+        <li><b>左界寫成 <code>stack[-1]</code></b> → 少算一格。正確是 <code>stack[-1] + 1</code>，Stack 空時是 0</li>
+        <li><b>忘記哨兵</b> → 遞增陣列 <code>[1,2,3]</code> 直接回傳 0，因為沒有任何元素被結算</li>
+        <li><b>先 push 再檢查</b> → 順序反了，必須「先把該結算的彈完，才輪到自己進場」</li>
+        <li><b>每日溫度把 <code>&lt;</code> 寫成 <code>&lt;=</code></b> → 同溫度的日子被誤判成「更暖」，答案全錯</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>為什麼暴力解會慢，Stack 快在哪？</h2>
+    <div class="two">
+      <div class="box a">
+        <h4>🐌 暴力解 O(n²)</h4>
+        <ul>
+          <li>對每根柱子，往左掃到比它矮的、往右掃到比它矮的</li>
+          <li>10 萬根柱子 → 100 億次比較，跑不完</li>
+          <li><b>浪費在哪：</b>同一段區間被重複掃了無數次</li>
+        </ul>
+      </div>
+      <div class="box b">
+        <h4>🚀 單調堆疊 O(n)</h4>
+        <ul>
+          <li>Stack 裡放「還在等右邊界的柱子」，且高度保持遞增</li>
+          <li>來了一根更矮的 → 它就是右邊界，把比它高的通通結算</li>
+          <li><b>省在哪：</b>「誰比我矮」這個資訊被 Stack 順手記住了，不用重掃</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>為什麼 Stack 裡一定是遞增的？</b><br>
+      因為只要來了一根比 top 矮的，我們就<b>馬上把 top 結算掉並彈出</b>，
+      所以能留在 Stack 裡的，必定一根比一根高。<br>
+      <b>這個「遞增」不是我們刻意維護的，是規則的副產品 —— 但它保證了：</b>
+      彈出 top 時，它左邊的邊界就是「Stack 裡它下面那個」，右邊界就是「現在這根」，
+      <b>兩個邊界都免費拿到，O(1)。</b>
+    </div>
+
+    <h2>兩題其實是同一題</h2>
+    <table>
+      <tr><th></th><th>柱狀圖最大矩形</th><th>每日溫度</th></tr>
+      <tr><td>Stack 裡存什麼</td><td>索引（還沒定案的柱子）</td><td>索引（還在等更暖那天）</td></tr>
+      <tr><td>Stack 單調方向</td><td><b>遞增</b>（由下往上變高）</td><td><b>遞減</b>（由下往上變冷）</td></tr>
+      <tr><td>什麼時候彈出</td><td>來了<b>更矮</b>的 <code>h[top] &gt;= h[i]</code></td><td>來了<b>更暖</b>的 <code>t[top] &lt; t[i]</code></td></tr>
+      <tr><td>彈出時算什麼</td><td>面積 = 高 × (右界 − 左界)</td><td>天數 = <code>i − top</code></td></tr>
+      <tr><td>沒被彈到的怎麼辦</td><td>用哨兵 0 逼它們全部出場</td><td>答案就是 0（之後都沒更暖的）</td></tr>
+      <tr><td>時間複雜度</td><td>O(n)</td><td>O(n)</td></tr>
+    </table>
+
+    <h2>程式碼：兩題只差一個比較符號</h2>
+    <div class="code"><span class="cm"># ① 柱狀圖最大矩形（LeetCode 84）—— Stack 遞增</span>
+def largest_rectangle(h):
+<span class="hi">    h = h + [0]                      # 哨兵！逼 Stack 在結束前清空</span>
+    stack, best = [], 0
+    for i, cur in enumerate(h):
+<span class="hi">        while stack and h[stack[-1]] >= cur:     # 來了更矮的 → 結算</span>
+            top = stack.pop()
+            height = h[top]
+<span class="hi">            left  = stack[-1] + 1 if stack else 0   # 左界＝下面那根的右邊一格</span>
+            width = i - left                        <span class="cm"># 右界＝現在這根</span>
+            best  = max(best, height * width)
+        stack.append(i)
+    return best</div>
+
+    <div class="code" style="margin-top:16px;"><span class="cm"># ② 每日溫度（LeetCode 739）—— Stack 遞減，比較符號反過來而已</span>
+def daily_temperatures(t):
+    ans = [0] * len(t)
+    stack = []
+    for i, cur in enumerate(t):
+<span class="hi">        while stack and t[stack[-1]] < cur:      # 來了更暖的 → 結算</span>
+            j = stack.pop()
+<span class="hi">            ans[j] = i - j                       # 等了幾天</span>
+        stack.append(i)
+    return ans                       <span class="cm"># 留在 stack 裡的，答案就是預設的 0</span></div>
+
+    <div class="note">
+      <b>哨兵（sentinel）的技巧要記起來：</b>在陣列尾巴補一個 <code>0</code>，
+      就不用在迴圈結束後再寫一段「把 Stack 剩下的清乾淨」的重複程式碼。<br>
+      這招在 linked list（dummy head）、字串處理（補結束符）都會再看到。
+    </div>
+
+    <h2>同一招還能解這些</h2>
+    <table>
+      <tr><th>題目</th><th>單調方向</th><th>一句話</th></tr>
+      <tr><td>下一個更大元素（LC 496）</td><td>遞減</td><td>每日溫度的雙胞胎，答案存值不是天數</td></tr>
+      <tr><td>接雨水（LC 42）</td><td>遞減</td><td>彈出時，左右兩牆夾住的凹槽就是積水</td></tr>
+      <tr><td>最大矩形（LC 85，二維）</td><td>遞增</td><td>每一列都當成一張柱狀圖，跑 n 次 LC 84</td></tr>
+      <tr><td>移掉 K 位數字讓數最小（LC 402）</td><td>遞增</td><td>看到更小的就把前面大的丟掉</td></tr>
+      <tr><td>股票跨度（LC 901）</td><td>遞減</td><td>今天的價格連續超過前面幾天</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>🎯 給 Claude 的 Prompt</h2>
+    <div class="code">先用暴力解，再用單調堆疊優化「柱狀圖中最大的矩形」。
+
+步驟：
+1. 寫 O(n²) 暴力解 brute(h)：對每根柱子往左右擴張
+2. 寫 O(n) 單調堆疊解 fast(h)：用哨兵 0 收尾
+3. 寫一個隨機測試，跑 1000 組隨機陣列驗證兩者答案完全相同
+4. 用 n = 10000 的陣列實測兩者耗時，印出加速倍數
+
+測資至少包含：[2,1,5,6,2,3]（答案 10）、全部一樣高、遞增、遞減、只有一根
+
+寫完後回答：
+- 為什麼「彈出時才結算」是對的？我怎麼知道右邊不會有更好的答案？
+- Stack 裡存索引而不是高度，為什麼？（提示：算寬度時需要什麼）</div>
+
+    <div class="code" style="margin-top:16px;">延伸題：用同一個模板解四題
+
+用「單調堆疊」寫出這四題，並在每題註解裡標出模板的四個空格：
+  (a) Stack 存什麼  (b) 單調方向  (c) 彈出條件  (d) 彈出時做什麼
+
+1. 每日溫度（LC 739）
+2. 下一個更大元素 II（LC 503，環形陣列 —— 提示：跑兩圈，index 取 % n）
+3. 接雨水（LC 42）
+4. 股票價格跨度（LC 901）
+
+最後做一張表格，把四題的 (a)(b)(c)(d) 並排比較，
+並用一句話說明：這四題為什麼是同一題。</div>
+
+    <div class="code" style="margin-top:16px;">進階：接雨水的三種解法對決
+
+同一題「接雨水」用三種方法各寫一次：
+1. 動態規劃：預先算 left_max[] 和 right_max[]      → O(n) 時間 O(n) 空間
+2. 單調堆疊：一層一層橫著積水                        → O(n) 時間 O(n) 空間
+3. 雙指標：左右夾擊                                  → O(n) 時間 O(1) 空間
+
+要求：
+- 三個函式輸出必須一致（寫隨機測試驗證）
+- 畫出高度 [0,1,0,2,1,0,1,3,2,1,2,1] 的 ASCII 示意圖，標出積水位置
+- 說明單調堆疊法是「橫著算」、DP 法是「直著算」的差別
+
+最後回答：如果面試官要求 O(1) 空間，這三個解法只剩哪一個能用？</div>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const BW = 40, GAP = 4;
+
+const PRESETS = {
+  hist: [
+    ['2,1,5,6,2,3', '經典 LC84（答案 10）'],
+    ['6,7,5,2,4,5,9,3', '起伏大'],
+    ['1,2,3,4,5', '遞增（Stack 會塞滿）'],
+    ['5,4,3,2,1', '遞減（每步都彈出）'],
+    ['4,4,4,4', '全部一樣高'],
+  ],
+  temp: [
+    ['73,74,75,71,69,72,76,73', '經典 LC739'],
+    ['30,40,50,60', '一路變暖'],
+    ['90,80,70,60', '一路變冷（答案全 0）'],
+    ['65,70,65,70,65,70', '忽冷忽熱'],
+  ]
+};
+
+let mode = 'hist';
+let data = [];
+let steps = [], cur = 0, timer = null, playing = false;
+
+/* ---------- 產生步驟 ---------- */
+function buildHist(a){
+  const h = a.concat([0]);          // 哨兵
+  const stack = [], st = [];
+  let best = 0, bestRect = null, ops = 0;
+  const snap = (i, msg, cls, rect) => st.push({
+    i, stack:[...stack], msg, cls:cls||'', rect:rect||null,
+    best, bestRect: bestRect ? Object.assign({}, bestRect) : null, ops, ans:null
+  });
+
+  snap(-1, '準備一個空 Stack，裡面放「還沒決定寬度的柱子索引」。規則：由下往上高度必須遞增。', '');
+
+  for (let i = 0; i < h.length; i++){
+    const sentinel = (i === a.length);
+    while (stack.length && h[stack[stack.length-1]] >= h[i]){
+      const top = stack.pop(); ops++;
+      const height = h[top];
+      const left = stack.length ? stack[stack.length-1] + 1 : 0;
+      const width = i - left;
+      const area = height * width;
+      const rect = {l:left, r:i-1, h:height, area};
+      const isNew = area > best;
+      if (isNew){ best = area; bestRect = rect; }
+      snap(i,
+        (sentinel ? '哨兵 0' : `柱子 ${i}（高 ${h[i]}）`) +
+        ` 比 top 矮 → 結算柱子 ${top}：高 ${height}，左界 ${left}、右界 ${i-1}，` +
+        `寬 ${width} → 面積 ${height}×${width} = ${area}` + (isNew ? '　🏆 新紀錄！' : ''),
+        isNew ? 'good' : 'pop', rect);
+    }
+    if (!sentinel){
+      stack.push(i); ops++;
+      snap(i, `柱子 ${i}（高 ${h[i]}）比 top 高 → 壓入 Stack，等右邊出現更矮的才結算`, '');
+    } else {
+      const s = st[st.length-1];
+      s.msg = `🎉 哨兵把 Stack 清空了，掃描結束 —— 最大矩形面積 = ${best}（共 ${ops} 次 push/pop，每根柱子剛好各一次）`;
+      s.cls = 'good';
+      s.done = true;
+    }
+  }
+  return st;
+}
+
+function buildTemp(a){
+  const stack = [], st = [];
+  const ans = new Array(a.length).fill(null);
+  let ops = 0, fresh = -1;
+  const snap = (i, msg, cls) => st.push({
+    i, stack:[...stack], msg, cls:cls||'', rect:null, best:0, bestRect:null,
+    ops, ans:[...ans], fresh
+  });
+
+  snap(-1, '準備一個空 Stack，裡面放「還在等更暖那天」的日子索引。規則：由下往上溫度必須遞減。', '');
+
+  for (let i = 0; i < a.length; i++){
+    fresh = -1;
+    while (stack.length && a[stack[stack.length-1]] < a[i]){
+      const j = stack.pop(); ops++;
+      ans[j] = i - j;
+      fresh = j;
+      snap(i, `第 ${i} 天 ${a[i]}° 比第 ${j} 天 ${a[j]}° 暖 → 第 ${j} 天等到了！答案 = ${i} − ${j} = ${i-j} 天`, 'good');
+    }
+    fresh = -1;
+    stack.push(i); ops++;
+    snap(i, `第 ${i} 天 ${a[i]}° 沒有比 top 暖 → 壓入 Stack 繼續等`, '');
+  }
+  for (let k = 0; k < ans.length; k++) if (ans[k] === null) ans[k] = 0;
+  fresh = -1;
+  snap(a.length, `🎉 掃完了。還留在 Stack 裡的 ${stack.length} 天，之後再也沒有更暖的日子 → 答案填 0（共 ${ops} 次 push/pop）`, 'good');
+  const last = st[st.length-1];
+  last.ans = [...ans];
+  last.done = true;
+  return st;
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  const s = steps[cur];
+  if (!s) return;
+
+  const isHist = (mode === 'hist');
+  const arr = isHist ? data.concat([0]) : data;
+  const maxV = Math.max.apply(null, arr.concat([1]));
+  const minV = Math.min.apply(null, arr);
+  const scale = v => isHist
+    ? Math.round(v / maxV * 230)
+    : Math.round(((v - minV + 4) / (maxV - minV + 4)) * 230);
+
+  const inStack = new Set(s.stack);
+  const chart = $('chart');
+  chart.innerHTML = '';
+  chart.style.width = (arr.length * (BW + GAP)) + 'px';
+
+  arr.forEach((v, i) => {
+    const d = document.createElement('div');
+    let cls = 'bar';
+    if (isHist && i === data.length) cls += ' sentinel';
+    if (s.rect && i >= s.rect.l && i <= s.rect.r) cls += ' popping';
+    else if (inStack.has(i)) cls += ' instack';
+    else if (i === s.i) cls += ' now';
+    else if (i < s.i) cls += ' settled';
+    d.className = cls;
+    d.style.height = Math.max(4, scale(v)) + 'px';
+    d.innerHTML = '<span class="lab">' + (isHist && i === data.length ? '0' : v) + '</span>';
+    chart.appendChild(d);
+  });
+
+  // 結算中的矩形 + 目前最佳矩形
+  if (isHist){
+    if (s.bestRect){
+      const r = s.bestRect;
+      const box = document.createElement('div');
+      box.className = 'rect best';
+      box.style.left = (r.l * (BW + GAP)) + 'px';
+      box.style.width = ((r.r - r.l + 1) * (BW + GAP) - GAP) + 'px';
+      box.style.height = scale(r.h) + 'px';
+      box.innerHTML = '<span class="tag">目前最大 ' + r.area + '</span>';
+      chart.appendChild(box);
+    }
+    if (s.rect){
+      const r = s.rect;
+      const box = document.createElement('div');
+      box.className = 'rect';
+      box.style.left = (r.l * (BW + GAP)) + 'px';
+      box.style.width = ((r.r - r.l + 1) * (BW + GAP) - GAP) + 'px';
+      box.style.height = scale(r.h) + 'px';
+      box.innerHTML = '<span class="tag">' + r.h + ' × ' + (r.r - r.l + 1) + ' = ' + r.area + '</span>';
+      chart.appendChild(box);
+    }
+  }
+
+  // 索引列
+  const ir = $('idxrow');
+  ir.innerHTML = '';
+  arr.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.textContent = (isHist && i === data.length) ? '哨兵' : i;
+    if (i === s.i) d.style.color = '#f59e0b';
+    ir.appendChild(d);
+  });
+
+  // 答案列（每日溫度）
+  $('ansArea').style.display = isHist ? 'none' : '';
+  if (!isHist){
+    const ar = $('ansrow');
+    ar.innerHTML = '';
+    s.ans.forEach((v, i) => {
+      const d = document.createElement('div');
+      d.textContent = (v === null) ? '?' : v;
+      if (v !== null) d.className = (i === s.fresh) ? 'fresh' : 'filled';
+      ar.appendChild(d);
+    });
+  }
+
+  // Stack
+  const box = $('stackbox');
+  box.innerHTML = '';
+  if (s.stack.length === 0){
+    box.innerHTML = '<div class="empty">（Stack 是空的）</div>';
+  } else {
+    s.stack.forEach((idx, i) => {
+      const d = document.createElement('div');
+      d.className = 'sitem' + (i === s.stack.length-1 ? ' top' : '');
+      d.textContent = isHist
+        ? `索引 ${idx}（高 ${data[idx]}）`
+        : `第 ${idx} 天（${data[idx]}°）`;
+      box.appendChild(d);
+    });
+  }
+
+  const m = $('msg');
+  m.textContent = s.msg;
+  m.className = 'msg ' + (s.cls || '');
+  $('sStep').textContent = cur + ' / ' + (steps.length - 1);
+  $('sDepth').textContent = s.stack.length;
+  $('sOps').textContent = s.ops;
+  $('kBest').textContent = isHist ? '最大面積' : '已解決天數';
+  $('sBest').textContent = isHist ? s.best : (s.ans ? s.ans.filter(v => v !== null).length : 0);
+}
+
+/* ---------- 控制 ---------- */
+function parseData(){
+  const raw = $('data').value.split(/[,，\s]+/).filter(x => x !== '');
+  const a = raw.map(Number);
+  if (a.length === 0) throw new Error('請至少輸入一個數字');
+  if (a.length > 24) throw new Error('最多 24 個數字，畫面才看得清楚');
+  if (a.some(v => !isFinite(v) || v < 0)) throw new Error('只接受 0 以上的數字，用逗號分隔');
+  if (mode === 'hist' && a.every(v => v === 0)) throw new Error('至少要有一根柱子高度大於 0');
+  return a;
+}
+
+function rebuild(){
+  stopRun();
+  try {
+    data = parseData();
+    steps = (mode === 'hist') ? buildHist(data) : buildTemp(data);
+    cur = 0;
+    $('btnRun').disabled = false;
+    render();
+  } catch (e) {
+    steps = [];
+    $('chart').innerHTML = ''; $('idxrow').innerHTML = ''; $('stackbox').innerHTML = '<div class="empty">—</div>';
+    const m = $('msg'); m.textContent = '❌ ' + e.message; m.className = 'msg bad';
+    $('btnRun').disabled = true;
+  }
+}
+
+function setMode(m){
+  mode = m;
+  $('btnH').classList.toggle('on', m === 'hist');
+  $('btnT').classList.toggle('on', m === 'temp');
+  $('modeHint').innerHTML = (m === 'hist')
+    ? 'Stack 保持<b>由下往上遞增</b>：<code>while h[top] >= h[i]: 結算 top</code>　→ 求最大矩形面積'
+    : 'Stack 保持<b>由下往上遞減</b>：<code>while t[top] &lt; t[i]: 結算 top</code>　→ 求還要等幾天';
+  $('data').value = PRESETS[m][0][0];
+  buildPresets();
+  rebuild();
+}
+
+function buildPresets(){
+  const p = $('presets');
+  p.innerHTML = '<span style="font-size:13px;font-weight:700;color:#64748b;">範例：</span>';
+  PRESETS[mode].forEach(([v, label]) => {
+    const b = document.createElement('button');
+    b.className = 'tiny';
+    b.textContent = label;
+    b.title = v;
+    b.onclick = () => { $('data').value = v; rebuild(); };
+    p.appendChild(b);
+  });
+}
+
+function randomize(){
+  const n = 6 + Math.floor(Math.random() * 5);
+  const a = [];
+  for (let i = 0; i < n; i++){
+    a.push(mode === 'hist' ? 1 + Math.floor(Math.random()*9) : 60 + Math.floor(Math.random()*35));
+  }
+  $('data').value = a.join(',');
+  rebuild();
+}
+
+function stepFwd(){ stopRun(); if (cur < steps.length - 1){ cur++; render(); } }
+function stepBack(){ stopRun(); if (cur > 0){ cur--; render(); } }
+
+function toggleRun(){
+  if (playing){ stopRun(); return; }
+  if (cur >= steps.length - 1){ cur = 0; render(); }
+  playing = true;
+  $('btnRun').textContent = '⏸ 暫停';
+  const delay = Math.max(90, 1200 - parseInt($('spd').value) * 12);
+  timer = setInterval(() => {
+    if (cur >= steps.length - 1){ stopRun(); return; }
+    cur++; render();
+  }, delay);
+}
+function stopRun(){
+  playing = false;
+  if (timer){ clearInterval(timer); timer = null; }
+  $('btnRun').textContent = (steps.length && cur >= steps.length - 1) ? '🔄 再跑一次' : '▶ 開始';
+}
+
+$('data').addEventListener('input', rebuild);
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') stepFwd();
+  if (e.key === 'ArrowLeft')  stepBack();
+});
+
+buildPresets();
+rebuild();
+</script>
+</body>
+</html>

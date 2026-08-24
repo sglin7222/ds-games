@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>河內塔遊戲 - 互動版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 36px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        select, button {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            background: white;
+            color: #333;
+            font-family: inherit;
+        }
+
+        select:hover, button:hover {
+            background: #f0f4ff;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .info-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            text-align: center;
+        }
+
+        .info-box-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .info-box-value {
+            font-size: 28px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .info-box.optimal {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .info-box.optimal .info-box-value {
+            color: #10b981;
+        }
+
+        .game-area {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 400px;
+            margin-bottom: 30px;
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 30px 20px;
+            position: relative;
+        }
+
+        .tower {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            height: 100%;
+            gap: 5px;
+        }
+
+        .tower-base {
+            width: 120px;
+            height: 20px;
+            background: #333;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .tower-label {
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .disk {
+            cursor: grab;
+            user-select: none;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+
+        .disk:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+
+        .disk.dragging {
+            opacity: 0.7;
+            cursor: grabbing;
+        }
+
+        .disk-1 {
+            width: 80px;
+            height: 30px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .disk-2 {
+            width: 110px;
+            height: 35px;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+        }
+
+        .disk-3 {
+            width: 140px;
+            height: 40px;
+            background: linear-gradient(135deg, #eab308, #ca8a04);
+        }
+
+        .disk-4 {
+            width: 170px;
+            height: 45px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        .disk-5 {
+            width: 200px;
+            height: 50px;
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .tower-slot {
+            min-height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        .message {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 20px;
+            min-height: 30px;
+            color: #333;
+        }
+
+        .message.error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .message.success {
+            color: #10b981;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .rules {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        .rules h3 {
+            color: #10b981;
+            margin-bottom: 15px;
+        }
+
+        .rules ol {
+            margin-left: 20px;
+            color: #059669;
+        }
+
+        .rules li {
+            margin-bottom: 8px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-value.perfect {
+            color: #10b981;
+        }
+
+        .stat-value.warning {
+            color: #f59e0b;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .info-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .game-area {
+                height: 300px;
+            }
+
+            .disk-1 { width: 60px; }
+            .disk-2 { width: 80px; }
+            .disk-3 { width: 100px; }
+            .disk-4 { width: 120px; }
+            .disk-5 { width: 140px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗼 河內塔遊戲</h1>
+        <p class="subtitle">用滑鼠拖動盤子，把所有盤子從左塔移到右塔</p>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="diskCount">選擇盤子數：</label>
+                <select id="diskCount" onchange="resetGame()">
+                    <option value="3" selected>3 個</option>
+                    <option value="4">4 個</option>
+                    <option value="5">5 個</option>
+                </select>
+            </div>
+            <button onclick="resetGame()">重新開始</button>
+            <button onclick="showHint()">提示</button>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-box">
+                <div class="info-box-label">目前步數</div>
+                <div class="info-box-value" id="moveCount">0</div>
+            </div>
+            <div class="info-box optimal">
+                <div class="info-box-label">最少需要步數</div>
+                <div class="info-box-value" id="optimalMoves">7</div>
+            </div>
+            <div class="info-box">
+                <div class="info-box-label">剩餘步數</div>
+                <div class="info-box-value" id="remainingMoves">7</div>
+            </div>
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <div class="game-area">
+            <div class="tower">
+                <div id="tower0" style="height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px;"></div>
+                <div class="tower-base"></div>
+                <div class="tower-label">左塔</div>
+            </div>
+            <div class="tower">
+                <div id="tower1" style="height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px;"></div>
+                <div class="tower-base"></div>
+                <div class="tower-label">中塔</div>
+            </div>
+            <div class="tower">
+                <div id="tower2" style="height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px;"></div>
+                <div class="tower-base"></div>
+                <div class="tower-label">右塔（目標）</div>
+            </div>
+        </div>
+
+        <div class="rules">
+            <h3>規則</h3>
+            <ol>
+                <li><strong>只能移動一個盤子</strong> - 一次只能拿一個盤子</li>
+                <li><strong>大盤不能在小盤上</strong> - 盤子必須從大到小堆疊</li>
+                <li><strong>目標</strong> - 把所有盤子從左塔移到右塔</li>
+                <li><strong>用最少步數</strong> - 嘗試用 2^n - 1 步完成</li>
+            </ol>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-label">效率</div>
+                    <div class="stat-value" id="efficiency">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">狀態</div>
+                    <div class="stat-value" id="status">遊戲中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let towers = [[], [], []];
+        let diskCount = 3;
+        let moveCount = 0;
+        let selectedDisk = null;
+        let selectedTower = null;
+
+        const diskColors = [
+            'disk-1', 'disk-2', 'disk-3', 'disk-4', 'disk-5'
+        ];
+
+        function resetGame() {
+            diskCount = parseInt(document.getElementById('diskCount').value);
+            towers = [[], [], []];
+            moveCount = 0;
+            selectedDisk = null;
+            selectedTower = null;
+
+            // 初始化左塔
+            for (let i = diskCount; i >= 1; i--) {
+                towers[0].push(i);
+            }
+
+            updateOptimalMoves();
+            render();
+            clearMessage();
+        }
+
+        function updateOptimalMoves() {
+            const optimal = Math.pow(2, diskCount) - 1;
+            document.getElementById('optimalMoves').textContent = optimal;
+            document.getElementById('remainingMoves').textContent = optimal;
+        }
+
+        function render() {
+            for (let towerIdx = 0; towerIdx < 3; towerIdx++) {
+                const towerEl = document.getElementById(`tower${towerIdx}`);
+                towerEl.innerHTML = '';
+
+                // 從下往上堆疊（最大的在下面，最小的在上面）
+                for (let i = 0; i < towers[towerIdx].length; i++) {
+                    const disk = towers[towerIdx][i];
+                    const diskEl = document.createElement('div');
+                    diskEl.className = `disk ${diskColors[disk - 1]}`;
+                    diskEl.textContent = disk;
+                    diskEl.draggable = true;
+                    diskEl.addEventListener('dragstart', (e) => startDrag(e, towerIdx, disk));
+                    towerEl.insertBefore(diskEl, towerEl.firstChild);  // 從上往下插入，這樣最後的盤子會在下面
+                }
+            }
+
+            updateStats();
+        }
+
+        function startDrag(e, towerIdx, disk) {
+            // 只能拖動塔頂的盤子
+            if (towers[towerIdx][towers[towerIdx].length - 1] !== disk) {
+                e.preventDefault();
+                return;
+            }
+
+            selectedDisk = disk;
+            selectedTower = towerIdx;
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function setupDropZones() {
+            for (let i = 0; i < 3; i++) {
+                const towerEl = document.getElementById(`tower${i}`);
+                towerEl.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+                towerEl.addEventListener('dragenter', (e) => {
+                    e.preventDefault();
+                });
+                towerEl.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    moveDisk(i);
+                });
+
+                // 也在 tower 本身添加
+                const towerContainer = document.querySelector(`.game-area > .tower:nth-child(${i + 1})`);
+                if (towerContainer) {
+                    towerContainer.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                    });
+                    towerContainer.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        moveDisk(i);
+                    });
+                }
+            }
+        }
+
+        function moveDisk(targetTower) {
+            if (selectedDisk === null || selectedTower === null) {
+                return;
+            }
+
+            if (selectedTower === targetTower) {
+                return;
+            }
+
+            const sourceTower = selectedTower;
+
+            // 檢查目標塔是否為空或頂部盤子更大
+            if (towers[targetTower].length === 0 ||
+                towers[targetTower][towers[targetTower].length - 1] > selectedDisk) {
+
+                // 執行移動
+                towers[sourceTower].pop();
+                towers[targetTower].push(selectedDisk);
+                moveCount++;
+
+                updateStats();
+                render();
+
+                // 檢查是否完成
+                if (towers[2].length === diskCount) {
+                    showSuccess();
+                }
+            } else {
+                // 非法移動
+                showError('❌ 大盤不能在小盤上！');
+            }
+
+            selectedDisk = null;
+            selectedTower = null;
+        }
+
+        function showError(message) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = message;
+            messageEl.className = 'message error';
+            setTimeout(() => {
+                clearMessage();
+            }, 2000);
+        }
+
+        function showSuccess() {
+            const optimal = Math.pow(2, diskCount) - 1;
+            const messageEl = document.getElementById('message');
+            messageEl.className = 'message success';
+
+            if (moveCount === optimal) {
+                messageEl.textContent = `🎉 完美！用最少的 ${optimal} 步完成！`;
+            } else if (moveCount < optimal * 1.2) {
+                messageEl.textContent = `🎊 很好！只用了 ${moveCount} 步（最少需要 ${optimal} 步）`;
+            } else {
+                messageEl.textContent = `✅ 完成！用了 ${moveCount} 步（最少需要 ${optimal} 步）`;
+            }
+
+            document.getElementById('status').textContent = '完成！';
+            document.getElementById('status').classList.add('perfect');
+        }
+
+        function clearMessage() {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+        }
+
+        function updateStats() {
+            document.getElementById('moveCount').textContent = moveCount;
+            const optimal = Math.pow(2, diskCount) - 1;
+            const remaining = optimal - moveCount;
+            document.getElementById('remainingMoves').textContent = Math.max(0, remaining);
+
+            if (towers[2].length < diskCount) {
+                const efficiency = moveCount > 0 ? ((optimal / moveCount) * 100).toFixed(1) : '0';
+                const efficiencyEl = document.getElementById('efficiency');
+                efficiencyEl.textContent = efficiency + '%';
+
+                if (efficiency >= 95) {
+                    efficiencyEl.className = 'stat-value perfect';
+                } else if (efficiency >= 70) {
+                    efficiencyEl.className = 'stat-value warning';
+                } else {
+                    efficiencyEl.className = 'stat-value';
+                }
+            }
+        }
+
+        function showHint() {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = '💡 提示：先把上面的小盤子移到中塔，再移最大的盤子到右塔，最後把小盤子從中塔移到右塔';
+            messageEl.className = 'message';
+        }
+
+        // 初始化
+        setupDropZones();
+        resetGame();
+    </script>
+</body>
+</html>

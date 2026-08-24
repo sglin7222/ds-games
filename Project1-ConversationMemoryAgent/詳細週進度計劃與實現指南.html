@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>詳細週進度計劃與實現指南</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4f46e5;
+            --secondary: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+            line-height: 1.8;
+            color: var(--text);
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page {
+            background: white;
+            margin-bottom: 40px;
+            padding: 60px 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            page-break-after: always;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 30px;
+            text-align: center;
+            border-bottom: 4px solid var(--primary);
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 32px;
+            color: var(--primary);
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-left: 6px solid var(--primary);
+            padding-left: 20px;
+        }
+
+        h3 {
+            font-size: 24px;
+            color: var(--secondary);
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        h4 {
+            font-size: 18px;
+            color: var(--text);
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        code {
+            background-color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+        }
+
+        pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 12px;
+            line-height: 1.6;
+            font-family: "Courier New", monospace;
+        }
+
+        .box {
+            border-left: 4px solid var(--primary);
+            background-color: #f0f4ff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .box.success {
+            border-left-color: var(--success);
+            background-color: #ecfdf5;
+        }
+
+        .box.warning {
+            border-left-color: var(--warning);
+            background-color: #fffbeb;
+        }
+
+        .day-task {
+            background-color: #f9fafb;
+            border-left: 4px solid var(--warning);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .day-task h4 {
+            color: var(--warning);
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 12px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .checklist {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .checklist li:before {
+            content: "☐ ";
+            color: var(--primary);
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .week-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .week-header h2 {
+            color: white;
+            border: none;
+            margin-top: 0;
+            padding-left: 0;
+        }
+
+        .footer {
+            text-align: center;
+            color: var(--secondary);
+            font-size: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-number {
+            text-align: center;
+            color: var(--secondary);
+            font-size: 12px;
+            margin-top: 30px;
+        }
+
+        .time-estimate {
+            background-color: #e0e7ff;
+            padding: 10px 15px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 13px;
+            margin: 10px 0;
+        }
+
+        @media print {
+            body { background: white; }
+            .page { box-shadow: none; margin-bottom: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 封面 -->
+        <div class="page">
+            <div style="text-align: center; padding: 100px 0;">
+                <h1 style="border: none;">詳細週進度計劃與實現指南</h1>
+                <h3 style="color: var(--secondary); font-weight: 400; margin-bottom: 30px;">
+                    對話記憶管理系統 - 完整代碼與任務清單
+                </h3>
+                <div style="margin-top: 80px;">
+                    <p style="font-size: 16px; margin: 15px 0;"><strong>總時間：</strong> 6 週，每週 10-12 小時</p>
+                    <p style="font-size: 16px; margin: 15px 0;"><strong>課堂時間：</strong> 3 小時/週</p>
+                    <p style="font-size: 16px; margin: 15px 0;"><strong>自主練習：</strong> 7-9 小時/週</p>
+                </div>
+                <div style="margin-top: 100px; border-top: 2px solid var(--border); padding-top: 30px;">
+                    <p style="color: var(--secondary); font-size: 14px;">本文檔包含完整的代碼答案和每日任務清單</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 目錄 -->
+        <div class="page">
+            <h1 style="text-align: left; border: none; border-bottom: 4px solid var(--primary);">目錄</h1>
+            <ol style="font-size: 16px; line-height: 2.5;">
+                <li>第 1 週：棧（Stack）實現與測試</li>
+                <li>第 2 週：佇列（Queue）實現與測試</li>
+                <li>第 3 週：雜湊表與會話管理</li>
+                <li>第 4 週：後端開發 - Agent 實現</li>
+                <li>第 5 週：前端開發</li>
+                <li>第 6 週：集成與優化</li>
+                <li>常見問題與解決方案</li>
+                <li>進階學習方向</li>
+            </ol>
+            <div class="page-number">- 目錄頁 -</div>
+        </div>
+
+        <!-- 第 1 週 -->
+        <div class="page">
+            <div class="week-header">
+                <h2>第 1 週：棧（Stack）實現與測試</h2>
+            </div>
+
+            <h3>學習目標</h3>
+            <ul>
+                <li>理解棧的 LIFO 原理</li>
+                <li>從零實現完整的 Stack 類</li>
+                <li>理解時間複雜度</li>
+            </ul>
+
+            <!-- 第 1 天 -->
+            <div class="day-task">
+                <h4>📅 第 1 天（星期一）- 上午（2 小時）</h4>
+                <p><strong>📖 學習內容：</strong> 棧的定義、LIFO 原理、應用場景</p>
+                <p><strong>🎯 代碼任務：</strong> 實現 Stack 類的基本框架</p>
+
+                <pre>class Stack:
+    """棧的基本實現"""
+    def __init__(self):
+        self._items: List[Any] = []
+
+    def push(self, item: Any) -> None:
+        """將元素添加到棧頂"""
+        self._items.append(item)
+
+    def pop(self) -> Optional[Any]:
+        """移除並返回棧頂元素"""
+        if self.is_empty():
+            return None
+        return self._items.pop()
+
+    def peek(self) -> Optional[Any]:
+        """查看棧頂元素但不移除"""
+        if self.is_empty():
+            return None
+        return self._items[-1]
+
+    def is_empty(self) -> bool:
+        """檢查棧是否為空"""
+        return len(self._items) == 0
+
+    def size(self) -> int:
+        """返回棧中元素個數"""
+        return len(self._items)</pre>
+
+                <ul class="checklist">
+                    <li>Stack 類有 5 個基本方法</li>
+                    <li>可以運行 <code>stack.push(1)</code> 不報錯</li>
+                </ul>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <!-- 第 1 天下午 -->
+            <div class="day-task">
+                <h4>📅 第 1 天（星期一）- 下午（2 小時）</h4>
+                <p><strong>🧪 測試任務：</strong> 寫測試驗證 Stack 的基本功能</p>
+
+                <pre>def test_stack_basic():
+    """測試棧的基本操作"""
+    stack = Stack()
+
+    # 測試空棧
+    assert stack.is_empty() == True
+    assert stack.size() == 0
+
+    # 測試 push
+    stack.push("A")
+    assert stack.size() == 1
+    assert stack.peek() == "A"
+
+    stack.push("B")
+    stack.push("C")
+    assert stack.size() == 3
+    assert stack.peek() == "C"
+
+    # 測試 pop（LIFO）
+    assert stack.pop() == "C"  # 最後進來的
+    assert stack.pop() == "B"
+    assert stack.pop() == "A"
+    assert stack.is_empty() == True
+
+    print("✅ 所有基本測試通過！")
+
+if __name__ == "__main__":
+    test_stack_basic()</pre>
+
+                <ul class="checklist">
+                    <li>測試代碼能運行</li>
+                    <li>所有斷言都通過</li>
+                </ul>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <div class="page-number">- 第 1 頁 -</div>
+        </div>
+
+        <!-- 第 1 週第 2-3 天 -->
+        <div class="page">
+            <!-- 第 2 天 -->
+            <div class="day-task">
+                <h4>📅 第 2 天（星期二）- 上午（2 小時）</h4>
+                <p><strong>🎯 代碼任務：</strong> 添加複雜操作</p>
+
+                <pre>def get_all(self) -> List[Any]:
+    """返回棧中所有元素（順序）"""
+    return self._items.copy()
+
+def clear(self) -> None:
+    """清空棧"""
+    self._items.clear()</pre>
+
+                <p><strong>🧪 測試：</strong></p>
+
+                <pre>def test_stack_advanced():
+    stack = Stack()
+    stack.push(1)
+    stack.push(2)
+    stack.push(3)
+
+    # 測試 get_all()
+    all_items = stack.get_all()
+    assert all_items == [1, 2, 3]
+
+    # 測試 clear()
+    stack.clear()
+    assert stack.is_empty() == True
+
+    print("✅ 高級測試通過！")</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <!-- 第 2 天下午 -->
+            <div class="day-task">
+                <h4>📅 第 2 天（星期二）- 下午（2 小時）</h4>
+                <p><strong>🎯 應用練習：</strong> 用棧實現「撤回功能」</p>
+
+                <pre>class EditHistory:
+    """編輯歷史，支持撤回"""
+    def __init__(self):
+        self.history = Stack()
+
+    def type_text(self, text: str) -> None:
+        """鍵入文本"""
+        self.history.push(text)
+
+    def undo(self) -> Optional[str]:
+        """撤回"""
+        return self.history.pop()
+
+    def get_current(self) -> str:
+        """獲取當前文本"""
+        if self.history.is_empty():
+            return ""
+        return " ".join(self.history.get_all())
+
+# 測試
+editor = EditHistory()
+editor.type_text("Hello")
+editor.type_text(" ")
+editor.type_text("World")
+print(editor.get_current())  # "Hello   World"
+
+editor.undo()
+print(editor.get_current())  # "Hello  "
+
+editor.undo()
+print(editor.get_current())  # "Hello"</pre>
+
+                <ul class="checklist">
+                    <li><code>get_all()</code> 返回正確順序</li>
+                    <li><code>clear()</code> 正確清空棧</li>
+                    <li>撤回功能正常工作</li>
+                </ul>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <div class="page-number">- 第 2 頁 -</div>
+        </div>
+
+        <!-- 第 1 週第 3-4 天 -->
+        <div class="page">
+            <!-- 第 3 天 -->
+            <div class="day-task">
+                <h4>📅 第 3 天（星期三）- 上午（2 小時）</h4>
+                <p><strong>📖 複雜度分析：</strong> 理解為什麼棧操作是 O(1)</p>
+
+                <pre>push(item):     O(1)    - 只需 append，一次操作
+pop():          O(1)    - 只需移除最後元素，一次操作
+peek():         O(1)    - 只需訪問最後元素，一次操作
+is_empty():     O(1)    - 只需檢查長度，一次操作
+size():         O(1)    - 直接返回長度，一次操作
+get_all():      O(n)    - 需要複製 n 個元素</pre>
+
+                <p><strong>🎯 性能測試：</strong></p>
+
+                <pre>import time
+
+def test_stack_performance():
+    stack = Stack()
+
+    # 推入 100,000 個元素
+    start = time.time()
+    for i in range(100000):
+        stack.push(i)
+    push_time = time.time() - start
+    print(f"Push 100,000 個元素耗時: {push_time:.4f}秒")
+
+    # 彈出 100,000 個元素
+    start = time.time()
+    while not stack.is_empty():
+        stack.pop()
+    pop_time = time.time() - start
+    print(f"Pop 100,000 個元素耗時: {pop_time:.4f}秒")
+
+    # 結論：應該都很快（< 0.1 秒），證明是 O(1)
+    assert push_time < 0.1
+    assert pop_time < 0.1
+    print("✅ 性能測試通過！")</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <!-- 第 3 天下午 -->
+            <div class="day-task">
+                <h4>📅 第 3 天（星期三）- 下午（2 小時）</h4>
+                <p><strong>🎯 實現特殊棧：ConversationStack</strong></p>
+
+                <pre>class ConversationStack(Stack):
+    """對話棧的特殊實現"""
+
+    def add_message(self, role: str, content: str) -> None:
+        """添加對話消息"""
+        message = {
+            "role": role,      # "user" 或 "assistant"
+            "content": content
+        }
+        self.push(message)
+
+    def get_conversation_history(self) -> List[dict]:
+        """獲取完整對話歷史"""
+        return self.get_all()
+
+    def undo_last_message(self) -> Optional[dict]:
+        """撤回最後一條消息"""
+        return self.pop()
+
+    def get_recent_messages(self, n: int = 5) -> List[dict]:
+        """獲取最近 n 條消息"""
+        all_messages = self.get_all()
+        return all_messages[-n:] if len(all_messages) > 0 else []</pre>
+
+                <ul class="checklist">
+                    <li>ConversationStack 能添加消息</li>
+                    <li>能正確撤回消息</li>
+                    <li>能獲取最近的 n 條消息</li>
+                </ul>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <div class="page-number">- 第 3 頁 -</div>
+        </div>
+
+        <!-- 第 1 週第 4 天 -->
+        <div class="page">
+            <div class="day-task">
+                <h4>📅 第 4 天（星期四）- 全天（4 小時）</h4>
+                <p><strong>🧪 完整測試套件</strong></p>
+
+                <pre>def test_conversation_stack():
+    """測試對話棧"""
+    conv = ConversationStack()
+
+    # 模擬對話
+    conv.add_message("user", "你好")
+    conv.add_message("assistant", "你好！有什麼我可以幫助你的嗎？")
+    conv.add_message("user", "告訴我 Python")
+    conv.add_message("assistant", "Python 是一種...")
+
+    # 檢查歷史
+    history = conv.get_conversation_history()
+    assert len(history) == 4
+    assert history[0]["role"] == "user"
+    assert history[-1]["content"].startswith("Python")
+
+    # 測試撤回
+    last_msg = conv.undo_last_message()
+    assert last_msg["role"] == "assistant"
+    assert len(conv.get_conversation_history()) == 3
+
+    # 測試最近消息
+    recent = conv.get_recent_messages(2)
+    assert len(recent) == 2
+
+    print("✅ 對話棧測試通過！")
+
+if __name__ == "__main__":
+    test_conversation_stack()</pre>
+
+                <h4>📋 整理代碼</h4>
+                <ul>
+                    <li>添加文檔字符串</li>
+                    <li>確保所有方法都有註釋</li>
+                </ul>
+
+                <div class="time-estimate">⏱️ 預計耗時：4 小時</div>
+            </div>
+
+            <!-- 第 5-6 天 -->
+            <div class="day-task">
+                <h4>📅 第 5-6 天（星期五-星期六）- 自主練習（6 小時）</h4>
+                <p><strong>🎯 LeetCode 練習</strong>（至少做 3 道題）</p>
+                <ul>
+                    <li>有效的括號 (Valid Parentheses)</li>
+                    <li>最小棧 (Min Stack)</li>
+                    <li>棧序列 (Validate Stack Sequences)</li>
+                </ul>
+
+                <p><strong>🎯 額外挑戰：</strong> 實現一個「計算機」</p>
+
+                <pre>def calculate_with_stack(expression: str) -> float:
+    """用棧計算表達式：如 "3 + 4 * 2 - 1""""
+    # 實現提示：
+    # 1. 用棧存儲數字
+    # 2. 根據運算符優先級決定何時計算
+    # 3. 最後棧中只有一個元素：結果
+    pass
+
+# 測試
+assert calculate_with_stack("3 + 4 * 2 - 1") == 10</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：6 小時</div>
+            </div>
+
+            <div class="box success">
+                <h4>✅ 第 1 週檢查清單</h4>
+                <ul class="checklist">
+                    <li>Stack 類完整實現</li>
+                    <li>所有單元測試通過</li>
+                    <li>ConversationStack 實現正確</li>
+                    <li>完成至少 3 個 LeetCode 題目</li>
+                    <li>理解時間複雜度</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 4 頁 -</div>
+        </div>
+
+        <!-- 第 2 週簡化版 -->
+        <div class="page">
+            <div class="week-header">
+                <h2>第 2 週：佇列（Queue）實現與測試</h2>
+            </div>
+
+            <h3>學習目標</h3>
+            <ul>
+                <li>理解佇列的 FIFO 原理</li>
+                <li>理解為什麼用 deque 而不是列表</li>
+                <li>實現完整的 Queue 類</li>
+            </ul>
+
+            <div class="day-task">
+                <h4>📅 第 1 天 - 性能對比實驗</h4>
+
+                <pre>import time
+from collections import deque
+
+# 測試 List
+def test_list_performance():
+    lst = []
+    start = time.time()
+    for i in range(100000):
+        lst.append(i)
+    for i in range(100000):
+        lst.pop(0)  # ❌ 每次都要移動所有元素
+    return time.time() - start
+
+# 測試 Deque
+def test_deque_performance():
+    dq = deque()
+    start = time.time()
+    for i in range(100000):
+        dq.append(i)
+    for i in range(100000):
+        dq.popleft()  # ✅ O(1) 操作
+    return time.time() - start
+
+list_time = test_list_performance()
+deque_time = test_deque_performance()
+
+print(f"List 耗時: {list_time:.4f}秒")
+print(f"Deque 耗時: {deque_time:.4f}秒")
+print(f"Deque 快 {list_time/deque_time:.1f}x")</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <div class="day-task">
+                <h4>📅 第 1 天下午 - 實現 Queue 類</h4>
+
+                <pre>from collections import deque
+
+class Queue:
+    """佇列實現（FIFO）"""
+
+    def __init__(self):
+        self._items: deque = deque()
+
+    def enqueue(self, item: Any) -> None:
+        """將元素添加到隊尾"""
+        self._items.append(item)
+
+    def dequeue(self) -> Optional[Any]:
+        """移除並返回隊頭元素"""
+        if self.is_empty():
+            return None
+        return self._items.popleft()
+
+    def peek(self) -> Optional[Any]:
+        """查看隊頭元素但不移除"""
+        if self.is_empty():
+            return None
+        return self._items[0]
+
+    def is_empty(self) -> bool:
+        """檢查隊列是否為空"""
+        return len(self._items) == 0
+
+    def size(self) -> int:
+        """返回隊列中元素個數"""
+        return len(self._items)
+
+    def get_all(self) -> List[Any]:
+        """返回隊列中所有元素"""
+        return list(self._items)
+
+    def clear(self) -> None:
+        """清空隊列"""
+        self._items.clear()</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：2 小時</div>
+            </div>
+
+            <div class="day-task">
+                <h4>📅 第 2 天 - 實現 TaskQueue</h4>
+
+                <pre>class TaskQueue(Queue):
+    """任務隊列的特殊實現"""
+
+    def add_task(self, task_id: str, task_type: str, data: dict) -> None:
+        """添加任務到隊列"""
+        task = {
+            "id": task_id,
+            "type": task_type,
+            "data": data,
+            "status": "pending"
+        }
+        self.enqueue(task)
+
+    def get_next_task(self) -> Optional[dict]:
+        """獲取下一個待執行的任務"""
+        return self.peek()
+
+    def complete_task(self) -> Optional[dict]:
+        """完成並移除下一個任務"""
+        task = self.dequeue()
+        if task:
+            task["status"] = "completed"
+        return task
+
+    def get_pending_tasks(self) -> List[dict]:
+        """獲取所有待執行任務"""
+        return self.get_all()</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：4 小時</div>
+            </div>
+
+            <div class="day-task">
+                <h4>📅 第 3 天 - BFS 算法</h4>
+
+                <pre>class Graph:
+    """簡單的圖實現"""
+
+    def __init__(self):
+        self.adjacency = {}  # {節點: [相鄰節點列表]}
+
+    def add_edge(self, from_node, to_node):
+        """添加邊"""
+        if from_node not in self.adjacency:
+            self.adjacency[from_node] = []
+        self.adjacency[from_node].append(to_node)
+
+    def bfs(self, start_node):
+        """廣度優先搜尋"""
+        visited = set()
+        queue = Queue()
+        queue.enqueue(start_node)
+        visited.add(start_node)
+
+        result = []
+        while not queue.is_empty():
+            node = queue.dequeue()
+            result.append(node)
+
+            # 訪問所有相鄰節點
+            if node in self.adjacency:
+                for neighbor in self.adjacency[node]:
+                    if neighbor not in visited:
+                        queue.enqueue(neighbor)
+                        visited.add(neighbor)
+
+        return result
+
+# 測試
+graph = Graph()
+graph.add_edge("A", "B")
+graph.add_edge("A", "C")
+graph.add_edge("B", "D")
+graph.add_edge("C", "E")
+
+path = graph.bfs("A")
+print(f"BFS 順序: {path}")  # ['A', 'B', 'C', 'D', 'E']</pre>
+
+                <div class="time-estimate">⏱️ 預計耗時：4 小時</div>
+            </div>
+
+            <div class="box success">
+                <h4>✅ 第 2 週檢查清單</h4>
+                <ul class="checklist">
+                    <li>Queue 類完整實現</li>
+                    <li>所有單元測試通過</li>
+                    <li>TaskQueue 實現正確</li>
+                    <li>BFS 算法實現成功</li>
+                    <li>完成 LeetCode 相關題目</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 5 頁 -</div>
+        </div>
+
+        <!-- 第 3-6 週快速指南 -->
+        <div class="page">
+            <div class="week-header">
+                <h2>第 3-6 週：快速指南</h2>
+            </div>
+
+            <h3>第 3 週：雜湊表與會話管理</h3>
+            <div class="day-task">
+                <p><strong>核心任務：</strong> 實現 HashTable 和 SessionCache</p>
+                <p><strong>主要代碼：</strong></p>
+                <pre>class HashTable:
+    def __init__(self, capacity: int = 100):
+        self._table: dict = {}
+        self.capacity = capacity
+        self._size = 0
+
+    def put(self, key: str, value: Any) -> None:
+        if key not in self._table:
+            self._size += 1
+        self._table[key] = value
+
+    def get(self, key: str) -> Optional[Any]:
+        return self._table.get(key)
+
+    def remove(self, key: str) -> Optional[Any]:
+        if key in self._table:
+            self._size -= 1
+            return self._table.pop(key)
+        return None
+
+class SessionCache(HashTable):
+    def create_session(self, user_id: str, session_data: dict) -> None:
+        session = {
+            "user_id": user_id,
+            "conversation_stack": ConversationStack(),
+            "task_queue": TaskQueue(),
+            "metadata": session_data
+        }
+        self.put(user_id, session)</pre>
+                <div class="time-estimate">⏱️ 第 3 週 12 小時</div>
+            </div>
+
+            <h3>第 4 週：後端開發 - Agent 實現</h3>
+            <div class="day-task">
+                <p><strong>核心任務：</strong> 集成 Claude API，實現 ConversationAgent 和 MultiSessionAgent</p>
+                <p><strong>關鍵代碼框架：</strong></p>
+                <pre>class ConversationAgent:
+    def __init__(self):
+        self.client = Anthropic()
+        self.conversation_stack = ConversationStack()
+
+    def generate_response(self, user_input: str) -> str:
+        self.add_user_message(user_input)
+        messages = self.get_conversation_history()
+        response = self.client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1024,
+            messages=messages
+        )
+        assistant_response = response.content[0].text
+        self.add_assistant_message(assistant_response)
+        return assistant_response
+
+class MultiSessionAgent:
+    def __init__(self):
+        self.agents: Dict[str, ConversationAgent] = {}
+
+    def generate_response(self, session_id: str, user_input: str) -> str:
+        if not self.session_exists(session_id):
+            self.create_session(session_id)
+        agent = self.get_session(session_id)
+        return agent.generate_response(user_input)</pre>
+                <div class="time-estimate">⏱️ 第 4 週 10 小時</div>
+            </div>
+
+            <h3>第 5 週：前端開發</h3>
+            <div class="day-task">
+                <p><strong>核心任務：</strong> 構建 HTML/CSS/JavaScript 聊天界面</p>
+                <p><strong>關鍵 JavaScript 代碼：</strong></p>
+                <pre>const API_BASE = "http://localhost:8000";
+
+async function sendMessage() {
+    const content = document.getElementById("userInput").value;
+    if (!content || !currentSessionId) return;
+
+    addMessageToUI("user", content);
+    document.getElementById("userInput").value = "";
+
+    const response = await fetch(
+        `${API_BASE}/sessions/${currentSessionId}/messages`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content }),
+        }
+    );
+
+    if (response.ok) {
+        const data = await response.json();
+        addMessageToUI("assistant", data.response);
+    }
+}
+
+function addMessageToUI(role, content) {
+    const container = document.getElementById("messagesContainer");
+    const messageEl = document.createElement("div");
+    messageEl.className = `message ${role}`;
+    messageEl.textContent = content;
+    container.appendChild(messageEl);
+    container.scrollTop = container.scrollHeight;
+}</pre>
+                <div class="time-estimate">⏱️ 第 5 週 12 小時</div>
+            </div>
+
+            <h3>第 6 週：集成與優化</h3>
+            <div class="box success">
+                <p><strong>✅ 最終檢查清單</strong></p>
+                <ul class="checklist">
+                    <li>所有 API 端點實現完整</li>
+                    <li>前後端能正確通信</li>
+                    <li>支持多用戶並發</li>
+                    <li>代碼有完整註釋</li>
+                    <li>文檔完善</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 6 頁 -</div>
+        </div>
+
+        <!-- 快速參考 -->
+        <div class="page">
+            <h1>快速參考與常見問題</h1>
+
+            <h2>📝 每週時間分配</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>週次</th>
+                        <th>主要任務</th>
+                        <th>課堂 (3h)</th>
+                        <th>自主 (9h)</th>
+                        <th>總計</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1-2</strong></td>
+                        <td>棧與隊列</td>
+                        <td>講解+演示</td>
+                        <td>代碼實現</td>
+                        <td>12h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2-3</strong></td>
+                        <td>雜湊表</td>
+                        <td>講解+演示</td>
+                        <td>代碼實現</td>
+                        <td>12h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3-4</strong></td>
+                        <td>Agent 開發</td>
+                        <td>API 設計</td>
+                        <td>代碼實現</td>
+                        <td>10h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>4-5</strong></td>
+                        <td>前端開發</td>
+                        <td>UI 設計</td>
+                        <td>代碼實現</td>
+                        <td>12h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>5-6</strong></td>
+                        <td>集成優化</td>
+                        <td>集成演示</td>
+                        <td>測試優化</td>
+                        <td>8h</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>❓ 常見問題</h2>
+
+            <h3>Q: 我的代碼運行不了，怎麼辦？</h3>
+            <div class="box">
+                <p><strong>A:</strong> 按以下步驟診斷：</p>
+                <ol>
+                    <li>檢查語法錯誤：<code>python -m py_compile filename.py</code></li>
+                    <li>查看錯誤信息：錯誤信息會指出問題在哪一行</li>
+                    <li>使用 debugger：在代碼中加 <code>import pdb; pdb.set_trace()</code></li>
+                    <li>查看測試輸出：運行單元測試看具體失敗</li>
+                </ol>
+            </div>
+
+            <h3>Q: 如何測試我的代碼？</h3>
+            <div class="box">
+                <p><strong>A:</strong> 三種方式：</p>
+                <ol>
+                    <li><strong>單元測試：</strong> 本文檔中提供了每個方法的測試</li>
+                    <li><strong>集成測試：</strong> 測試多個模塊一起工作</li>
+                    <li><strong>手動測試：</strong> 用 Swagger UI 或 curl 測試 API</li>
+                </ol>
+            </div>
+
+            <div class="page-number">- 第 7 頁 -</div>
+        </div>
+
+        <!-- 結語 -->
+        <div class="page">
+            <div style="text-align: center; padding: 100px 0;">
+                <h1 style="border: none; font-size: 36px;">學習建議</h1>
+                <div style="margin-top: 60px; font-size: 18px; line-height: 2;">
+                    <p><strong>1. 動手實踐</strong> - 不要只讀代碼，要運行和修改它</p>
+                    <p style="margin-top: 20px;"><strong>2. 循序漸進</strong> - 按照週進度計劃逐步進行</p>
+                    <p style="margin-top: 20px;"><strong>3. 理解原理</strong> - 不僅要會用，還要理解為什麼</p>
+                    <p style="margin-top: 20px;"><strong>4. 經常測試</strong> - 每寫完一個方法就測試</p>
+                    <p style="margin-top: 20px;"><strong>5. 查看答案</strong> - 卡住時可參考本文檔的代碼</p>
+                </div>
+
+                <div style="margin-top: 100px; border-top: 2px solid var(--border); padding-top: 30px;">
+                    <p style="color: var(--secondary); font-size: 14px;">
+                        祝你學習愉快！認真跟著這份計劃走，6 週後你將擁有一個完整的 AI Agent 系統。🎓
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

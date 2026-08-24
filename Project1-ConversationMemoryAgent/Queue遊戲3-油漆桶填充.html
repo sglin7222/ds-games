@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>油漆桶填充 - Queue 互動遊戲</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Microsoft JhengHei","微軟正黑體",sans-serif;
+  background:linear-gradient(135deg,#0c4a6e 0%,#7c3aed 100%);
+  min-height:100vh; padding:20px; color:#e2e8f0;
+}
+.wrap { max-width:1150px; margin:0 auto; }
+.card { background:#fff; color:#1e293b; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.35); padding:28px; margin-bottom:22px; }
+h1 { font-size:32px; text-align:center; color:#0c4a6e; margin-bottom:6px; }
+.sub { text-align:center; color:#64748b; font-size:14px; margin-bottom:20px; }
+h2 { font-size:20px; color:#0c4a6e; margin:24px 0 12px; border-left:5px solid #0ea5e9; padding-left:12px; }
+
+.controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; margin-bottom:14px; }
+button { padding:10px 16px; border:none; border-radius:8px; background:#0ea5e9; color:#fff; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; transition:.2s; }
+button:hover { background:#0284c7; transform:translateY(-2px); }
+button.mode { background:#e2e8f0; color:#334155; }
+button.mode.on { background:#0ea5e9; color:#fff; }
+button.alt { background:#10b981; } button.alt:hover { background:#059669; }
+.ctl { display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:700; color:#334155; }
+input[type=range] { width:110px; }
+
+.algo-switch { display:flex; justify-content:center; gap:0; margin:16px 0 6px; }
+.algo-btn { padding:12px 26px; border:3px solid #cbd5e1; background:#f8fafc; color:#64748b; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:.2s; }
+.algo-btn:first-child { border-radius:10px 0 0 10px; }
+.algo-btn:last-child { border-radius:0 10px 10px 0; border-left:none; }
+.algo-btn.on.q { background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
+.algo-btn.on.s { background:#f59e0b; border-color:#f59e0b; color:#fff; }
+.algo-hint { text-align:center; font-size:13px; color:#64748b; margin-bottom:14px; }
+.algo-hint code { background:#0f172a; color:#7dd3fc; padding:2px 8px; border-radius:4px; }
+
+.palette { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:14px 0; }
+.swatch { width:38px; height:38px; border-radius:8px; cursor:pointer; border:3px solid #e2e8f0; transition:.15s; }
+.swatch:hover { transform:scale(1.12); }
+.swatch.on { border-color:#0f172a; transform:scale(1.18); box-shadow:0 4px 12px rgba(0,0,0,.25); }
+
+.stage { display:grid; grid-template-columns:1fr 260px; gap:22px; align-items:start; }
+@media(max-width:1000px){ .stage { grid-template-columns:1fr; } }
+
+#canvas { display:grid; gap:0; width:max-content; margin:0 auto; border:3px solid #0f172a; border-radius:6px; overflow:hidden; user-select:none; cursor:crosshair; }
+.px { width:20px; height:20px; transition:background .1s; }
+.px.wave { box-shadow:inset 0 0 0 2px #fff; }
+
+.panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; }
+.plabel { font-size:12px; font-weight:800; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.stat .k { font-size:11px; color:#64748b; font-weight:700; }
+.stat .v { font-size:22px; font-weight:800; color:#0c4a6e; }
+
+.msg { text-align:center; font-size:16px; font-weight:800; min-height:28px; margin:12px 0; color:#0c4a6e; }
+
+.code { background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-family:Consolas,monospace; font-size:13px; line-height:1.75; overflow-x:auto; white-space:pre; }
+.code .hi { color:#fbbf24; font-weight:700; }
+.note { background:#f0f9ff; border-left:5px solid #0ea5e9; padding:14px 18px; border-radius:8px; margin:14px 0; color:#075985; font-size:14px; line-height:1.8; }
+.note b { color:#0c4a6e; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
+th { background:#0c4a6e; color:#fff; padding:10px; text-align:left; }
+td { padding:10px; border-bottom:1px solid #e2e8f0; }
+tr:nth-child(even) td { background:#f8fafc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>🪣 油漆桶填充（Flood Fill）</h1>
+    <p class="sub">就是小畫家的油漆桶 —— 點一下，看 Queue 怎麼把顏色一圈一圈擴散出去</p>
+
+    <div class="algo-switch">
+      <button class="algo-btn q on" id="btnQ" onclick="setAlgo(true)">📦 Queue → 波紋擴散</button>
+      <button class="algo-btn s"    id="btnS" onclick="setAlgo(false)">🥞 Stack → 蛇形爬行</button>
+    </div>
+    <p class="algo-hint">目前取出方式：<code id="opHint">cur = frontier.popleft()  ← Queue</code></p>
+
+    <div class="controls">
+      <button class="mode on" id="mFill" onclick="setMode('fill')">🪣 油漆桶</button>
+      <button class="mode"    id="mPen"  onclick="setMode('pen')">✏️ 畫筆</button>
+      <button onclick="loadPreset()">🖼 換一張圖</button>
+      <button onclick="clearCanvas()">🧹 全部清空</button>
+      <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="98" value="80"></div>
+      <div class="ctl">
+        <label><input type="checkbox" id="diag8"> 8 方向（含斜角）</label>
+      </div>
+    </div>
+
+    <div class="palette" id="palette"></div>
+
+    <div class="msg" id="msg">選一個顏色，用油漆桶點畫布看看</div>
+
+    <div class="stage">
+      <div id="canvas"></div>
+
+      <div class="panel">
+        <div class="plabel">📊 這次填充</div>
+        <div class="stats">
+          <div class="stat"><div class="k">已填格數</div><div class="v" id="sFilled">0</div></div>
+          <div class="stat"><div class="k">容器大小</div><div class="v" id="sSize">0</div></div>
+          <div class="stat"><div class="k">目前層數</div><div class="v" id="sDepth">0</div></div>
+          <div class="stat"><div class="k">總格數</div><div class="v" id="sTotal">0</div></div>
+        </div>
+
+        <div class="note" style="margin-top:16px;font-size:13px;padding:12px 14px;">
+          <b>觀察重點：</b><br>
+          • Queue → 顏色像水波一樣<b>同心圓</b>往外散<br>
+          • Stack → 顏色像蛇一樣<b>沿著一條線</b>亂鑽<br><br>
+          兩者最後結果<b>完全一樣</b>，只是過程不同。這就是 FIFO 和 LIFO 的差別。
+        </div>
+
+        <div class="note" style="background:#fffbeb;border-color:#f59e0b;color:#92400e;font-size:13px;padding:12px 14px;">
+          <b>試試看：</b>勾選「8 方向」再填一次。你會發現顏色會從<b>斜角的縫隙漏出去</b> —— 這就是為什麼小畫家的油漆桶用 4 方向。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Flood Fill 就是 BFS</h2>
+    <div class="code">def flood_fill(image, sr, sc, new_color):
+    old_color = image[sr][sc]
+    if old_color == new_color:      <span class="hi"># 沒這行會無限迴圈！</span>
+        return image
+
+    frontier = deque([(sr, sc)])
+    image[sr][sc] = new_color
+
+    while frontier:
+        r, c = frontier.popleft()   <span class="hi"># Queue → 波紋；改成 pop() → 蛇形</span>
+
+        for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
+            nr, nc = r + dr, c + dc
+            if 0 &lt;= nr &lt; len(image) and 0 &lt;= nc &lt; len(image[0]):
+                if image[nr][nc] == old_color:
+                    image[nr][nc] = new_color   <span class="hi"># 一放進去就上色 = 標記已走訪</span>
+                    frontier.append((nr, nc))
+
+    return image</div>
+
+    <div class="note">
+      <b>兩個最常見的 bug：</b><br>
+      1️⃣ <b>忘記檢查 old_color == new_color</b> → 每個格子都符合條件，永遠塞回 Queue，無限迴圈直到記憶體爆掉。<br>
+      2️⃣ <b>在 pop 出來時才上色，而不是 push 進去時</b> → 同一格會被重複放進 Queue 好幾次，慢好幾倍（但結果仍正確）。
+    </div>
+
+    <h2>日常生活中你早就在用它</h2>
+    <table>
+      <tr><th>應用</th><th>怎麼用到 Flood Fill</th></tr>
+      <tr><td>🎨 小畫家油漆桶</td><td>就是本體。點一下，同色區域全部換色</td></tr>
+      <tr><td>💣 踩地雷</td><td>點到空白格時，自動翻開整片相連的空白區</td></tr>
+      <tr><td>📷 Photoshop 魔術棒</td><td>Flood Fill + 顏色容差（相近的顏色也算同一區）</td></tr>
+      <tr><td>🧩 消消樂 / 泡泡龍</td><td>找出所有相連的同色方塊，一起消除</td></tr>
+      <tr><td>🏝 演算法題「島嶼數量」</td><td>每次 Flood Fill 一整塊陸地，算做了幾次就是幾座島</td></tr>
+      <tr><td>🖨 影像處理</td><td>找出連通區域（Connected Component Labeling）</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>🎯 給 Claude 的 Prompt</h2>
+    <div class="code">用 Queue 實作 Flood Fill（油漆桶）。
+
+函式：flood_fill(image, sr, sc, new_color)
+- image 是二維陣列，每格是一個顏色值
+- (sr, sc) 是點擊位置
+- 把所有和 (sr, sc) 相連且同色的格子換成 new_color
+
+要求：
+1. 用 collections.deque
+2. 只走上下左右 4 個方向
+3. 處理 old_color == new_color 的情況（否則會無限迴圈）
+4. 在放進 Queue 時就上色，不要等 pop 出來才上色 —— 說明為什麼
+
+測資：
+image = [[1,1,1],
+         [1,1,0],
+         [1,0,1]]
+flood_fill(image, 1, 1, 2)
+應該得到 [[2,2,2],
+          [2,2,0],
+          [2,0,1]]</div>
+
+    <div class="code" style="margin-top:16px;">延伸題 1：踩地雷的自動翻開
+
+寫一個踩地雷的 reveal(board, r, c) 函式：
+- 點到數字格 → 只翻開那一格
+- 點到空白格（周圍 0 顆地雷）→ 用 Flood Fill 把整片空白區
+  以及空白區「邊界上的數字格」一起翻開
+- 點到地雷 → 遊戲結束
+
+這題的難點：邊界數字格要翻開，但不能從它繼續往外擴散。
+想清楚哪些格子該進 Queue、哪些只翻開不進 Queue。</div>
+
+    <div class="code" style="margin-top:16px;">延伸題 2：島嶼數量（LeetCode 200）
+
+grid = [
+  ["1","1","0","0","0"],
+  ["1","1","0","0","0"],
+  ["0","0","1","0","0"],
+  ["0","0","0","1","1"]
+]
+'1' 是陸地，'0' 是海。相連的陸地算同一座島。
+回傳島嶼數量（上面答案是 3）。
+
+做法：掃過每一格，遇到沒走訪過的 '1' 就做一次 Flood Fill
+把整座島標記掉，計數器 +1。
+
+寫完後回答：
+1. 時間複雜度是多少？為什麼不是 O(n²·m²)？
+2. 如果改用 Stack（DFS）做，結果會一樣嗎？為什麼？</div>
+
+    <div class="code" style="margin-top:16px;">延伸題 3：多起點 BFS「爛橘子」（LeetCode 994）
+
+grid 裡 0=空格, 1=新鮮橘子, 2=爛橘子
+每分鐘，爛橘子會把上下左右的新鮮橘子傳染成爛的。
+問幾分鐘後全部爛掉？無法全爛回傳 -1。
+
+關鍵：一開始就把「所有」爛橘子放進 Queue（多起點），
+然後一層一層擴散，層數就是分鐘數。
+
+這題和油漆桶的差別是什麼？（提示：起點數量、要不要記錄層數）</div>
+  </div>
+
+</div>
+
+<script>
+const ROWS = 20, COLS = 32, PX = 20;
+const BG = '#ffffff', LINE = '#1e293b';
+const COLORS = ['#ffffff','#1e293b','#ef4444','#f97316','#fbbf24','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#a16207'];
+
+let grid = [];
+let curColor = '#3b82f6';
+let mode = 'fill';
+let useQueue = true;
+let drawing = false;
+
+let frontier = [], filling = false, timer = null;
+let filledCount = 0, depth = 0, layerLeft = 0;
+
+const $ = id => document.getElementById(id);
+
+/* ---------- 建立畫布 ---------- */
+function buildCanvas(){
+  const cv = $('canvas');
+  cv.style.gridTemplateColumns = `repeat(${COLS}, ${PX}px)`;
+  cv.innerHTML = '';
+  for (let r = 0; r < ROWS; r++){
+    for (let c = 0; c < COLS; c++){
+      const d = document.createElement('div');
+      d.className = 'px';
+      d.addEventListener('mousedown', e => {
+        e.preventDefault();
+        if (mode === 'pen'){ drawing = true; setPixel(r,c,curColor); }
+        else startFill(r,c);
+      });
+      d.addEventListener('mouseenter', () => { if (drawing && mode === 'pen') setPixel(r,c,curColor); });
+      cv.appendChild(d);
+    }
+  }
+  document.addEventListener('mouseup', () => drawing = false);
+}
+function pxEl(r,c){ return $('canvas').children[r*COLS + c]; }
+function setPixel(r,c,color){ grid[r][c] = color; pxEl(r,c).style.background = color; }
+
+function buildPalette(){
+  const p = $('palette');
+  p.innerHTML = '';
+  COLORS.forEach(col => {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (col === curColor ? ' on' : '');
+    s.style.background = col;
+    s.onclick = () => {
+      curColor = col;
+      [...p.children].forEach(x => x.classList.remove('on'));
+      s.classList.add('on');
+    };
+    p.appendChild(s);
+  });
+}
+
+/* ---------- 預設圖案 ---------- */
+const PRESETS = [drawShapes, drawHouse, drawGrid9];
+
+function loadPreset(){
+  clearCanvas(true);
+  const f = PRESETS[Math.floor(Math.random()*PRESETS.length)];
+  f();
+  setMsg('圖案準備好了 —— 選顏色，然後用油漆桶點各個區塊');
+}
+
+function line(r1,c1,r2,c2){
+  const steps = Math.max(Math.abs(r2-r1), Math.abs(c2-c1));
+  for (let i = 0; i <= steps; i++){
+    const r = Math.round(r1 + (r2-r1)*i/steps);
+    const c = Math.round(c1 + (c2-c1)*i/steps);
+    if (r>=0 && r<ROWS && c>=0 && c<COLS) setPixel(r,c,LINE);
+  }
+}
+function rect(r1,c1,r2,c2){ line(r1,c1,r1,c2); line(r2,c1,r2,c2); line(r1,c1,r2,c1); line(r1,c2,r2,c2); }
+function circle(cr,cc,rad){
+  for (let a = 0; a < 360; a += 2){
+    const r = Math.round(cr + rad*Math.sin(a*Math.PI/180));
+    const c = Math.round(cc + rad*1.0*Math.cos(a*Math.PI/180));
+    if (r>=0 && r<ROWS && c>=0 && c<COLS) setPixel(r,c,LINE);
+  }
+}
+
+function drawShapes(){
+  circle(9, 7, 7);
+  rect(3, 17, 16, 29);
+  line(9, 17, 9, 29);
+  line(3, 23, 16, 23);
+  circle(6, 20, 2);
+}
+function drawHouse(){
+  rect(9, 6, 18, 24);       // 房子主體
+  line(9, 6, 4, 15); line(4, 15, 9, 24);  // 屋頂
+  rect(12, 9, 16, 13);      // 窗
+  line(14, 9, 14, 13); line(12, 11, 16, 11);
+  rect(13, 18, 18, 22);     // 門
+  circle(3, 28, 2);         // 太陽
+}
+function drawGrid9(){
+  for (let i = 0; i <= 3; i++){
+    line(2 + i*5, 4, 2 + i*5, 28);
+    line(2, 4 + i*8, 17, 4 + i*8);
+  }
+}
+
+function clearCanvas(silent){
+  stopFill();
+  grid = Array.from({length:ROWS}, () => Array(COLS).fill(BG));
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) pxEl(r,c).style.background = BG;
+  $('sTotal').textContent = ROWS*COLS;
+  if (!silent) setMsg('畫布清空了 —— 用畫筆畫點東西，或按「換一張圖」');
+}
+
+/* ---------- 核心：Flood Fill ---------- */
+let startColor = BG;   // 這次填充的起始顏色（要被換掉的那個顏色）
+
+function startFill(r,c){
+  stopFill();
+  startColor = grid[r][c];
+
+  if (startColor === curColor){
+    setMsg('⚠️ 起點已經是這個顏色了 —— 直接 return，否則會無限迴圈');
+    return;
+  }
+
+  frontier = [{r, c, d:0}];
+  setPixel(r, c, curColor);   // push 進去就上色 = 標記已走訪
+  filledCount = 1;
+  depth = 0;
+  filling = true;
+
+  const delay = Math.max(1, 100 - parseInt($('spd').value));
+  timer = setInterval(fillStep, delay);
+  setMsg(useQueue ? '📦 Queue 填充中 —— 注意顏色是同心圓往外散' : '🥞 Stack 填充中 —— 注意顏色像蛇一樣亂鑽');
+  updateStats();
+}
+
+function fillStep(){
+  // 一個 tick 處理幾格，速度快時多處理一些
+  const batch = parseInt($('spd').value) > 90 ? 12 : (parseInt($('spd').value) > 70 ? 4 : 1);
+
+  for (let b = 0; b < batch; b++){
+    if (frontier.length === 0){
+      stopFill();
+      setMsg(`✅ 填充完成，共 ${filledCount} 格`);
+      updateStats();
+      return;
+    }
+
+    const cur = useQueue ? frontier.shift() : frontier.pop();
+    depth = cur.d;
+
+    const dirs = $('diag8').checked
+      ? [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]
+      : [[-1,0],[1,0],[0,-1],[0,1]];
+
+    for (const [dr,dc] of dirs){
+      const nr = cur.r + dr, nc = cur.c + dc;
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      if (grid[nr][nc] === startColor){
+        setPixel(nr, nc, curColor);   // 一放進容器就上色，避免重複入列
+        filledCount++;
+        frontier.push({r:nr, c:nc, d:cur.d + 1});
+      }
+    }
+  }
+  updateStats();
+}
+
+function stopFill(){
+  filling = false;
+  if (timer){ clearInterval(timer); timer = null; }
+}
+
+function updateStats(){
+  $('sFilled').textContent = filledCount;
+  $('sSize').textContent = frontier.length;
+  $('sDepth').textContent = depth;
+  $('sTotal').textContent = ROWS*COLS;
+}
+
+/* ---------- UI ---------- */
+function setAlgo(q){
+  useQueue = q;
+  $('btnQ').classList.toggle('on', q);
+  $('btnS').classList.toggle('on', !q);
+  $('opHint').textContent = q ? 'cur = frontier.popleft()  ← Queue' : 'cur = frontier.pop()      ← Stack';
+  setMsg(q ? '切換成 Queue：填充會像水波紋一樣擴散' : '切換成 Stack：填充會像蛇一樣沿線爬行');
+}
+function setMode(m){
+  mode = m;
+  $('mFill').classList.toggle('on', m === 'fill');
+  $('mPen').classList.toggle('on', m === 'pen');
+  $('canvas').style.cursor = (m === 'pen') ? 'crosshair' : 'pointer';
+}
+function setMsg(t){ $('msg').textContent = t; }
+
+buildCanvas();
+buildPalette();
+clearCanvas(true);
+loadPreset();
+</script>
+</body>
+</html>

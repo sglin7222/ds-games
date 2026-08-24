@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ▼▼ 改這裡：頁面標題 ▼▼ -->
+<title>遊戲名稱 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============================================================
+   本頁遊戲專用樣式只寫「這一關獨有的視覺」，例如圓圈、迷宮格、
+   柱狀圖、塔柱、字元帶……
+
+   下面這些 site.css 已經有了，不要重複定義：
+     .game / .game-side       遊戲版面（主視覺 + 右側欄）
+     .bar / .bar-label / .ctl 控制列與各種輸入
+     .modes / .mode-btn       模式切換
+     .chips / .chip           關卡籌碼
+     .controls / .progress    播放控制與進度條
+     .stats / .stat           統計格
+     .say / .say-*            說明面板（data-k 決定顏色）
+     .algo                    逐行高亮的虛擬碼
+     .log                     操作歷程
+     .quiz / .opt / .score    闖關計分
+     .panel / .block / .callout / .tablewrap / pre.code / .arch
+   ============================================================ */
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列（每頁一樣，只改 crumb 和 jump 文字） ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">NN · 核心結構</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題區 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game NN · English Name</p>
+    <h1>遊戲名稱</h1>
+    <p class="lede">一到兩句話說清楚這個遊戲在演什麼，以及為什麼這個資料結構會出現在這個問題裡。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>—</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>時間</span><b>O(n)</b></div>
+      <div class="fact"><span>空間</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>—</b></div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       01　怎麼玩・你會學到什麼
+       左欄寫操作，右欄寫觀念清單。觀念要具體到可以被考，
+       不要寫「了解堆疊」這種話。
+       ============================================================ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>一句話說明畫面上有什麼、指標怎麼動。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>，或自己輸入。</li>
+            <li>按 <b>下一步</b> 一格一格走。</li>
+            <li>邊走邊看哪幾塊畫面同步變化。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你選下一步該做什麼。</li>
+            <li>答對得分，連對加分；答錯立刻說明理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>觀念一</b> —— 用一句話說清楚，最好帶上「為什麼」。</li>
+            <li><b>觀念二</b> —— ……</li>
+            <li><b>觀念三</b> —— ……</li>
+            <li><b>複雜度</b> —— 為什麼是這個時間／空間。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩哪一關建立直覺，再玩哪一關踩坑。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       02　遊戲本體
+       ============================================================ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看資料結構怎麼動。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <!-- 模式切換、關卡列 -->
+      </div>
+
+      <div class="game">
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">主視覺</h3>
+            <span class="panel-note"></span>
+          </div>
+          <!-- ▼▼ 遊戲主畫面放這裡 ▼▼ -->
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head"><h3 class="panel-title">資料結構</h3></div>
+            <!-- 堆疊塔 / 佇列 / 樹 … -->
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3 class="panel-title">演算法</h3></div>
+            <!-- 逐行高亮的虛擬碼 -->
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3 class="panel-title">歷程</h3></div>
+            <!-- 操作紀錄 -->
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化拿掉之後的演算法本體：</p>
+                <pre class="code">int solve(...) {
+    <i>// …十行左右的 C/C++ 本體…</i>
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       03　原理詳解
+       這一段是整頁最重要的部分。建議固定寫這幾塊：
+         問題定義 → 破除一個錯誤直覺（反例）→ 關鍵觀察
+         → 演算法 → 失敗／邊界情況 → 手算表 → 複雜度 → 常見誤解
+       ============================================================ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從問題定義走到完整演算法，中間每一個判斷為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>把題目講清楚，並用一張表列幾個合法／不合法的例子。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">輸入</th><th>結果</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">—</td><td style="color:var(--jade);font-weight:700">合法</td><td>—</td></tr>
+              <tr><td class="mono">—</td><td style="color:var(--alarm);font-weight:700">不合法</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：〇〇不行</h3>
+        <p>學生最常想到的簡單做法，以及它在哪裡壞掉。</p>
+        <ul class="bullets no">
+          <li><b>問題一</b> —— ……</li>
+          <li><b>問題二</b> —— ……</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">一句話點出簡單做法「記不住」的那個東西是什麼。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察</h3>
+        <p>問題結構本身有什麼性質，逼出了這個資料結構。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">因此用〇〇不是巧合，是問題結構本身逼出來的。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <ol class="steps">
+          <li><b>情況一</b> —— 做什麼。</li>
+          <li><b>情況二</b> —— 做什麼。</li>
+          <li><b>情況三</b> —— 做什麼。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">初學者最容易忘記的那一行。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次</h3>
+        <p>考試要在紙上追蹤時，就是畫這張表。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th class="mono">i</th><th>動作</th><th class="mono">結構狀態</th></tr></thead>
+            <tbody><tr><td class="mono">0</td><td class="mono">—</td><td>初始化</td><td class="mono">（空）</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O(?)</b> —— 為什麼。</li>
+          <li><b>空間 O(?)</b> —— 最壞情況長什麼樣。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「錯誤說法」</b> —— 為什麼錯，用哪個反例打破。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       04　程式架構
+       只講流程與分工，不逐行拆解。建議固定寫這幾塊：
+         整體設計決定 → 模組分工表 → 資料流圖
+         → 核心資料長什麼樣 → 你可以怎麼改 → 精簡版本體
+       ============================================================ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>演算法先一次跑完產生「步驟陣列」，畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">輸入 <small>—</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps() <small>把整個過程跑完</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是當下的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫反向操作。</li>
+          <li><b>畫面函式變單純</b> —— 同一個 step 一定畫出同樣的畫面。</li>
+          <li><b>演算法與畫面分離</b> —— buildSteps 裡沒有半行畫面程式碼。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步存一份快照，記憶體較高。教學規模沒問題，真實工程不會這樣寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps()</td><td>唯一真正跑演算法的地方。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>全站唯一一份狀態物件。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paint* / render*</td><td>各自只讀 steps[S.cur]，彼此不互相呼叫。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto / next / prev</td><td>只改 S.cur，然後呼叫 render()。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">renderQuiz / answerQuiz</td><td>出題、對答案、計分。</td></tr>
+              <tr><td><b>載入</b></td><td class="mono">loadLevel / setMode</td><td>換題目、換模式。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto(k) <small>只改一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintA<small>—</small></div>
+            <div class="node">paintB<small>—</small></div>
+            <div class="node">paintC<small>—</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// 這一步的種類 → 決定顏色與徽章</i>
+  <b>i</b>:      <i>// 指標位置</i>
+  <b>before</b>: <i>// 動作前的結構快照</i>
+  <b>after</b>:  <i>// 動作後的結構快照 → 主視覺直接畫這個</i>
+  <b>line</b>:   <i>// 演算法要高亮第幾行</i>
+  <b>title</b>, <b>msg</b>: <i>// 說明面板文字</i>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列</td><td>1 行</td></tr>
+              <tr><td>改播放速度</td><td><code>startPlay()</code> 的毫秒數</td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次全站生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · NN 遊戲名稱</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  /* ============================================================
+     建議的骨架（照這個順序寫，每個遊戲都一樣）：
+
+     1. 常數        LEVELS（關卡）、CODE（虛擬碼）、其他對照表
+     2. 狀態        var S = { steps, cur, mode, score, ... }
+     3. 資料層      buildSteps(input) → 回傳步驟陣列
+     4. 畫面層      paintXxx()：只讀 S.steps[S.cur]，畫自己那塊
+     5. render()    把所有 paintXxx() 叫過一遍
+     6. 導覽        goto_() / next() / prev() / startPlay() / stopPlay()
+     7. 闖關        nextQuizIndex() / renderQuiz() / answerQuiz()
+     8. 載入        loadString() / loadLevel() / setMode()
+     9. 事件綁定    按鈕、鍵盤、resize
+    10. 啟動        loadLevel(0)
+     ============================================================ */
+})();
+</script>
+</body>
+</html>

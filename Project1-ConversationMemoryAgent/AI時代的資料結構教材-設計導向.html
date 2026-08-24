@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 時代的資料結構教材 - 設計導向</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4f46e5;
+            --secondary: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+            line-height: 1.8;
+            color: var(--text);
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page {
+            background: white;
+            margin-bottom: 40px;
+            padding: 60px 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 30px;
+            text-align: center;
+            border-bottom: 4px solid var(--primary);
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 32px;
+            color: var(--primary);
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-left: 6px solid var(--primary);
+            padding-left: 20px;
+        }
+
+        h3 {
+            font-size: 24px;
+            color: var(--secondary);
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        h4 {
+            font-size: 18px;
+            color: var(--text);
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .box {
+            border-left: 4px solid var(--primary);
+            background-color: #f0f4ff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .box.success {
+            border-left-color: var(--success);
+            background-color: #ecfdf5;
+        }
+
+        .box.warning {
+            border-left-color: var(--warning);
+            background-color: #fffbeb;
+        }
+
+        .box.important {
+            border-left-color: var(--danger);
+            background-color: #fef2f2;
+        }
+
+        .task {
+            background-color: #f9fafb;
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .week-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 12px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .comparison-item {
+            border: 2px solid var(--border);
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .comparison-item h4 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        .page-number {
+            text-align: center;
+            color: var(--secondary);
+            font-size: 12px;
+            margin-top: 30px;
+        }
+
+        .ai-tip {
+            background-color: #e0e7ff;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .ai-tip strong {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 封面 -->
+        <div class="page">
+            <div style="text-align: center; padding: 100px 0;">
+                <h1 style="border: none;">AI 時代的資料結構教材</h1>
+                <h3 style="color: var(--secondary); font-weight: 400; margin-bottom: 30px; font-size: 24px;">
+                    設計導向 · 不教語法 · 用 AI 完成項目
+                </h3>
+                <div style="margin-top: 80px; font-size: 18px;">
+                    <p style="margin: 15px 0;"><strong>核心理念</strong></p>
+                    <p style="margin: 15px 0; color: var(--secondary);">
+                        學生不需要學 Python 語法。<br>
+                        他們需要學會 <strong>設計好的資料結構</strong>、<strong>思考複雜度</strong> 和 <strong>用 AI 工具</strong>。<br>
+                        讓 Claude 幫你寫代碼，你來審查和改進。
+                    </p>
+                </div>
+                <div style="margin-top: 100px; border-top: 2px solid var(--border); padding-top: 30px;">
+                    <p style="color: var(--secondary); font-size: 14px;">
+                        6 週課程 | 學生用 AI 完成一個完整的 AI Agent 系統
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 教学理念 -->
+        <div class="page">
+            <h1 style="text-align: left; border: none; border-bottom: 4px solid var(--primary);">為什麼不教基本語法？</h1>
+
+            <div class="comparison">
+                <div class="comparison-item">
+                    <h4>❌ 傳統方式</h4>
+                    <p><strong>第 1 週：</strong> Python 基礎</p>
+                    <p><strong>第 2 週：</strong> 數據類型</p>
+                    <p><strong>第 3 週：</strong> 循環和條件</p>
+                    <p><strong>第 4 週：</strong> 函數</p>
+                    <p><strong>第 5 週：</strong> 資料結構</p>
+                    <p><strong>第 6 週：</strong> 實戰項目</p>
+                    <p style="margin-top: 20px;"><span style="background-color: #fef2f2; padding: 5px;">效果不佳：學生忘記語法，卡在細節上</span></p>
+                </div>
+
+                <div class="comparison-item">
+                    <h4>✅ AI 時代方式</h4>
+                    <p><strong>第 1 週：</strong> 設計 Stack</p>
+                    <p><strong>第 2 週：</strong> 設計 Queue</p>
+                    <p><strong>第 3 週：</strong> 設計 HashTable</p>
+                    <p><strong>第 4 週：</strong> 設計 Agent</p>
+                    <p><strong>第 5 週：</strong> 設計前端</p>
+                    <p><strong>第 6 週：</strong> 優化系統</p>
+                    <p style="margin-top: 20px;"><span style="background-color: #ecfdf5; padding: 5px;">效果更好：專注設計，用 AI 實現</span></p>
+                </div>
+            </div>
+
+            <h3>核心改變</h3>
+
+            <div class="box success">
+                <p><strong>1. 從「學語法」到「用 AI」</strong></p>
+                <p style="margin-top: 10px; margin-left: 20px;">
+                    不讓學生背語法。<br>
+                    讓他們告訴 Claude：「幫我實現一個 Stack，要有 push、pop、peek 方法」<br>
+                    然後他們審查代碼、測試、改進。
+                </p>
+            </div>
+
+            <div class="box success">
+                <p><strong>2. 從「寫代碼」到「思考設計」</strong></p>
+                <p style="margin-top: 10px; margin-left: 20px;">
+                    學生的時間花在：<br>
+                    • 理解為什麼用棧而不是列表<br>
+                    • 分析時間複雜度<br>
+                    • 設計應用場景<br>
+                    • 優化系統性能
+                </p>
+            </div>
+
+            <div class="box success">
+                <p><strong>3. 從「模仿範例」到「獨立設計」</strong></p>
+                <p style="margin-top: 10px; margin-left: 20px;">
+                    每一步，學生都需要：<br>
+                    • 先思考「需要什麼資料結構」<br>
+                    • 再告訴 AI「我需要這樣的功能」<br>
+                    • 然後審查、測試、改進
+                </p>
+            </div>
+
+            <div class="page-number">- 第 1 頁 -</div>
+        </div>
+
+        <!-- 新的教學流程 -->
+        <div class="page">
+            <h1>新的教學流程：設計 → AI 實現 → 審查 → 優化</h1>
+
+            <h2>每週 4 個步驟（不涉及基本語法）</h2>
+
+            <div class="week-header">
+                <h3 style="color: white; margin-top: 0;">第 1 步：理解設計需求（1-2 小時）</h3>
+            </div>
+
+            <div class="task">
+                <h4>你需要回答 3 個問題：</h4>
+                <ol>
+                    <li><strong>為什麼需要這個資料結構？</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>例：Stack - 為了支持「撤回」功能，後進先出</li>
+                        </ul>
+                    </li>
+                    <li><strong>應該有哪些操作？</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>例：push、pop、peek、size、is_empty</li>
+                        </ul>
+                    </li>
+                    <li><strong>時間複雜度應該是多少？</strong>
+                        <ul style="margin-top: 10px;">
+                            <li>例：push/pop 應該是 O(1)，不能是 O(n)</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="week-header">
+                <h3 style="color: white; margin-top: 0;">第 2 步：用 AI 實現代碼（1-2 小時）</h3>
+            </div>
+
+            <div class="task">
+                <h4>如何使用 Claude：</h4>
+                <pre>你：「幫我用 Python 實現一個 Stack。
+要求：
+- 有 push、pop、peek、size、is_empty 5 個方法
+- push/pop 的時間複雜度是 O(1)
+- 添加完整的文檔字符串」
+
+Claude：[給你完整的代碼]
+
+你：檢查代碼，看是否滿足要求</pre>
+
+                <div class="ai-tip">
+                    <strong>💡 AI 提示：</strong> 不要讓 AI 教你 Python 語法。只讓它寫代碼。你的工作是審查和改進。
+                </div>
+            </div>
+
+            <div class="week-header">
+                <h3 style="color: white; margin-top: 0;">第 3 步：測試和審查（1-2 小時）</h3>
+            </div>
+
+            <div class="task">
+                <h4>關鍵問題：</h4>
+                <ol>
+                    <li><strong>代碼能跑嗎？</strong> 運行測試</li>
+                    <li><strong>時間複雜度對嗎？</strong> 分析 push/pop 的操作次數</li>
+                    <li><strong>有邊界情況嗎？</strong> 空棧、單元素棧</li>
+                    <li><strong>可以改進嗎？</strong> 是否有冗餘代碼</li>
+                </ol>
+
+                <pre>你：「這個 pop 方法有什麼問題嗎？」
+
+Claude：「如果棧是空的，pop 會拋異常。
+應該檢查 is_empty()。」
+
+你：「修改代碼。」
+
+Claude：[修改代碼]</pre>
+            </div>
+
+            <div class="week-header">
+                <h3 style="color: white; margin-top: 0;">第 4 步：應用和優化（1-2 小時）</h3>
+            </div>
+
+            <div class="task">
+                <h4>真實應用場景：</h4>
+                <p>不只是寫 Stack，而是用 Stack 解決問題：</p>
+                <ol>
+                    <li><strong>場景 1：</strong> 實現「撤回功能」
+                        <ul style="margin-top: 10px;">
+                            <li>用 Stack 管理編輯歷史</li>
+                            <li>讓 Claude 幫你寫 EditHistory 類</li>
+                            <li>測試撤回功能</li>
+                        </ul>
+                    </li>
+                    <li><strong>場景 2：</strong> 括號匹配
+                        <ul style="margin-top: 10px;">
+                            <li>用 Stack 檢查括號是否匹配</li>
+                            <li>分析為什麼 Stack 比列表更合適</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="page-number">- 第 2 頁 -</div>
+        </div>
+
+        <!-- 6 週計劃 -->
+        <div class="page">
+            <h1>6 週課程計劃（設計導向）</h1>
+
+            <h2>第 1-2 週：棧（Stack）</h2>
+
+            <div class="task">
+                <h4>🎯 學習目標</h4>
+                <ul>
+                    <li><strong>理解：</strong> 為什麼需要棧？LIFO 原理？什麼時候用？</li>
+                    <li><strong>設計：</strong> Stack 應該有哪些操作？時間複雜度是多少？</li>
+                    <li><strong>應用：</strong> 用棧實現「撤回」、「括號匹配」、「表達式求值」</li>
+                </ul>
+            </div>
+
+            <div class="task">
+                <h4>📅 每週流程</h4>
+                <table>
+                    <tr>
+                        <th>步驟</th>
+                        <th>你的工作</th>
+                        <th>AI 的工作</th>
+                        <th>時間</th>
+                    </tr>
+                    <tr>
+                        <td><strong>1. 理解</strong></td>
+                        <td>回答：為什麼用棧？什麼時候用？</td>
+                        <td>-</td>
+                        <td>30 分鐘</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. 設計</strong></td>
+                        <td>畫出 Stack 的接口（push、pop 等）</td>
+                        <td>-</td>
+                        <td>30 分鐘</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. 實現</strong></td>
+                        <td>告訴 Claude：「幫我實現這個 Stack」</td>
+                        <td>寫出完整代碼</td>
+                        <td>30 分鐘</td>
+                    </tr>
+                    <tr>
+                        <td><strong>4. 測試</strong></td>
+                        <td>運行測試，檢查時間複雜度</td>
+                        <td>-</td>
+                        <td>30 分鐘</td>
+                    </tr>
+                    <tr>
+                        <td><strong>5. 應用</strong></td>
+                        <td>想一個應用場景（如撤回功能）</td>
+                        <td>-</td>
+                        <td>30 分鐘</td>
+                    </tr>
+                    <tr>
+                        <td><strong>6. 實現應用</strong></td>
+                        <td>讓 AI 寫應用代碼</td>
+                        <td>寫代碼</td>
+                        <td>1 小時</td>
+                    </tr>
+                    <tr>
+                        <td><strong>7. 審查優化</strong></td>
+                        <td>分析代碼，問「能改進嗎？」</td>
+                        <td>優化代碼</td>
+                        <td>1 小時</td>
+                    </tr>
+                </table>
+            </div>
+
+            <h2>第 2-3 週：佇列（Queue）</h2>
+
+            <div class="task">
+                <h4>🎯 核心問題</h4>
+                <ul>
+                    <li><strong>為什麼用 deque 而不是列表？</strong> O(1) vs O(n)</li>
+                    <li><strong>什麼時候用佇列？</strong> 消息隊列、任務調度、BFS</li>
+                    <li><strong>怎樣用 AI 實現？</strong> 告訴 Claude「我需要一個支持 O(1) 入隊和出隊的 Queue」</li>
+                </ul>
+            </div>
+
+            <h2>第 3-4 週：雜湊表（Hash Table）</h2>
+
+            <div class="task">
+                <h4>🎯 核心問題</h4>
+                <ul>
+                    <li><strong>為什麼用雜湊表查詢會很快？</strong> O(1) 時間複雜度</li>
+                    <li><strong>怎樣用在會話管理？</strong> 快速查詢用戶會話</li>
+                    <li><strong>性能對比：</strong> 列表 O(n) vs 雜湊表 O(1)</li>
+                </ul>
+            </div>
+
+            <h2>第 4-5 週：設計 AI Agent 系統</h2>
+
+            <div class="task">
+                <h4>🎯 系統設計（不涉及語法）</h4>
+                <ul>
+                    <li><strong>API 設計：</strong> 什麼是 REST？應該有哪些端點？</li>
+                    <li><strong>數據流：</strong> 用戶輸入 → Agent 處理 → 返回回應</li>
+                    <li><strong>前端設計：</strong> 用戶如何與系統交互？</li>
+                </ul>
+
+                <p style="margin-top: 20px;"><strong>實現流程：</strong></p>
+                <ol>
+                    <li>你設計系統架構圖</li>
+                    <li>你告訴 Claude：「幫我實現一個 ConversationAgent，要求：[功能列表]」</li>
+                    <li>Claude 給你代碼</li>
+                    <li>你測試和審查</li>
+                    <li>如果有問題：「這裡為什麼要這樣做？能改進嗎？」</li>
+                    <li>Claude 解釋和改進</li>
+                </ol>
+            </div>
+
+            <h2>第 5-6 週：集成和優化</h2>
+
+            <div class="task">
+                <h4>🎯 系統集成</h4>
+                <ul>
+                    <li><strong>前後端通信：</strong> 理解 HTTP、JSON</li>
+                    <li><strong>性能測試：</strong> 系統能支持多少並發用戶？</li>
+                    <li><strong>代碼審查：</strong> 代碼質量如何？</li>
+                    <li><strong>優化：</strong> 能改進哪些地方？</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 3 頁 -</div>
+        </div>
+
+        <!-- 與 AI 的對話方式 -->
+        <div class="page">
+            <h1>如何與 AI（Claude）有效對話</h1>
+
+            <h2>❌ 不要這樣做</h2>
+
+            <div class="box warning">
+                <p><strong>學生說：</strong>「Python 中的 append 是什麼意思？」</p>
+                <p style="margin-top: 10px; color: var(--danger);">❌ 這是語法問題。要麼自己查文檔，要麼問 ChatGPT。不要浪費課堂時間。</p>
+            </div>
+
+            <div class="box warning">
+                <p><strong>學生說：</strong>「幫我寫一個 Stack。」</p>
+                <p style="margin-top: 10px; color: var(--danger);">❌ 太模糊。AI 不知道你的具體需求。</p>
+            </div>
+
+            <h2>✅ 應該這樣做</h2>
+
+            <div class="box success">
+                <p><strong>學生說：</strong></p>
+                <pre>「幫我設計一個 Stack 類。
+要求：
+- 5 個方法：push、pop、peek、size、is_empty
+- push/pop 時間複雜度必須是 O(1)
+- 需要完整文檔字符串
+- 內部用 Python list 實現」</pre>
+                <p style="margin-top: 10px; color: var(--success);">✅ 明確、具體、可驗證。</p>
+            </div>
+
+            <div class="box success">
+                <p><strong>學生說：</strong></p>
+                <pre>「用這個 Stack 實現一個 EditHistory 類。
+功能：
+- type_text(text)：添加文本
+- undo()：撤回最後一次編輯
+- get_current()：獲取當前文本」</pre>
+                <p style="margin-top: 10px; color: var(--success);">✅ 清晰的應用場景。</p>
+            </div>
+
+            <div class="box success">
+                <p><strong>學生說：</strong></p>
+                <pre>「這個代碼的時間複雜度是多少？
+能優化嗎？」</pre>
+                <p style="margin-top: 10px; color: var(--success);">✅ 讓 AI 幫你分析和改進。</p>
+            </div>
+
+            <h2>3 種對話模式</h2>
+
+            <table>
+                <tr>
+                    <th>模式</th>
+                    <th>何時使用</th>
+                    <th>例子</th>
+                </tr>
+                <tr>
+                    <td><strong>設計討論</strong></td>
+                    <td>課堂設計階段</td>
+                    <td>「Stack 應該有哪些方法？」</td>
+                </tr>
+                <tr>
+                    <td><strong>代碼生成</strong></td>
+                    <td>需要實現功能</td>
+                    <td>「用 Python 實現 Stack」</td>
+                </tr>
+                <tr>
+                    <td><strong>代碼審查</strong></td>
+                    <td>檢查和優化</td>
+                    <td>「這個代碼有問題嗎？」</td>
+                </tr>
+            </table>
+
+            <div class="page-number">- 第 4 頁 -</div>
+        </div>
+
+        <!-- 學習檢驗 -->
+        <div class="page">
+            <h1>如何檢驗學習成果（不考察語法）</h1>
+
+            <h2>考什麼？</h2>
+
+            <table>
+                <tr>
+                    <th>考查維度</th>
+                    <th>具體問題</th>
+                    <th>佔比</th>
+                </tr>
+                <tr>
+                    <td><strong>理解深度</strong></td>
+                    <td>
+                        • 為什麼用棧而不是列表？<br>
+                        • Stack 和 Queue 的區別？<br>
+                        • 時間複雜度是多少？為什麼？
+                    </td>
+                    <td>30%</td>
+                </tr>
+                <tr>
+                    <td><strong>系統設計</strong></td>
+                    <td>
+                        • 這個系統應該用什麼資料結構？<br>
+                        • 怎樣組織代碼？<br>
+                        • 有更好的方案嗎？
+                    </td>
+                    <td>30%</td>
+                </tr>
+                <tr>
+                    <td><strong>代碼審查</strong></td>
+                    <td>
+                        • 代碼對嗎？<br>
+                        • 有問題嗎？<br>
+                        • 能改進嗎？
+                    </td>
+                    <td>25%</td>
+                </tr>
+                <tr>
+                    <td><strong>應用能力</strong></td>
+                    <td>
+                        • 能用資料結構解決新問題嗎？<br>
+                        • 能優化系統性能嗎？<br>
+                        • 能獨立設計系統嗎？
+                    </td>
+                    <td>15%</td>
+                </tr>
+            </table>
+
+            <h2>不考什麼？</h2>
+
+            <div class="box important">
+                <p><strong>❌ 不考 Python 語法細節</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>append vs extend 的區別</li>
+                    <li>list comprehension 怎麼寫</li>
+                    <li>裝飾器、生成器、上下文管理器</li>
+                </ul>
+                <p style="margin-top: 15px;"><strong>原因：</strong> 有 AI 時，語法細節不重要。重要的是思想。</p>
+            </div>
+
+            <h2>考試例子</h2>
+
+            <h3>例 1：理解深度</h3>
+            <div class="task">
+                <p><strong>問：</strong>「為什麼在對話系統中用棧管理對話歷史，而不是用列表？」</p>
+                <p style="margin-top: 15px;"><strong>期望答案：</strong></p>
+                <ul>
+                    <li>LIFO：最後一條消息最先被撤回</li>
+                    <li>O(1) pop：即使有 10000 條消息，撤回也很快</li>
+                    <li>語義明確：Stack 天然表達「後進先出」的概念</li>
+                </ul>
+            </div>
+
+            <h3>例 2：系統設計</h3>
+            <div class="task">
+                <p><strong>問：</strong>「設計一個支持 1000 個並發用戶的聊天系統。你會用什麼資料結構來存儲用戶會話？為什麼？」</p>
+                <p style="margin-top: 15px;"><strong>期望答案：</strong></p>
+                <ul>
+                    <li>用雜湊表（字典），key 是 user_id</li>
+                    <li>理由：O(1) 查詢速度，每個查詢都是常數時間</li>
+                    <li>如果用列表：O(n)，1000 個用戶要掃 1000 次</li>
+                </ul>
+            </div>
+
+            <h3>例 3：代碼審查</h3>
+            <div class="task">
+                <p><strong>問：</strong>「這段代碼有問題嗎？」</p>
+                <pre>def pop(self):
+    return self._items.pop()  # 如果列表是空的會報錯</pre>
+                <p style="margin-top: 15px;"><strong>期望答案：</strong></p>
+                <ul>
+                    <li>有問題：沒有檢查空棧</li>
+                    <li>應該：先檢查 is_empty()，再 pop()</li>
+                    <li>或者：讓它拋異常，但要文檔說明</li>
+                </ul>
+            </div>
+
+            <div class="page-number">- 第 5 頁 -</div>
+        </div>
+
+        <!-- 最後 -->
+        <div class="page">
+            <div style="text-align: center; padding: 80px 20px;">
+                <h1 style="border: none;">AI 時代的學習哲學</h1>
+
+                <div style="margin-top: 60px; text-align: left; max-width: 700px; margin-left: auto; margin-right: auto;">
+                    <div class="box success">
+                        <p style="margin: 0;"><strong>1. 不要學語法</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">有 Google 和 AI。專注於理解和設計。</p>
+                    </div>
+
+                    <div class="box success" style="margin-top: 20px;">
+                        <p style="margin: 0;"><strong>2. 要學設計思維</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">為什麼用這個資料結構？時間複雜度？能優化嗎？</p>
+                    </div>
+
+                    <div class="box success" style="margin-top: 20px;">
+                        <p style="margin: 0;"><strong>3. 學會用 AI 工具</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">清楚地描述需求，讓 AI 生成代碼，你來審查和改進。</p>
+                    </div>
+
+                    <div class="box success" style="margin-top: 20px;">
+                        <p style="margin: 0;"><strong>4. 最後的檢驗</strong></p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">系統能跑嗎？性能好嗎？代碼質量高嗎？</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 80px; border-top: 2px solid var(--border); padding-top: 30px;">
+                    <p style="color: var(--secondary); font-size: 16px; margin: 0;">
+                        <strong>6 週後，學生會擁有：</strong>
+                    </p>
+                    <p style="margin-top: 15px;">
+                        ✅ 對資料結構的深刻理解<br>
+                        ✅ 系統設計的實戰經驗<br>
+                        ✅ 與 AI 協作的能力<br>
+                        ✅ 一個完整可運行的 AI Agent 系統<br>
+                        ✅ 自信面對更複雜的挑戰
+                    </p>
+                </div>
+            </div>
+
+            <div class="page-number">- 第 6 頁 -</div>
+        </div>
+
+    </div>
+</body>
+</html>

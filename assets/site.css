@@ -1,0 +1,447 @@
+/* ===================================================================
+   資料結構遊戲場 — 全站設計系統
+   改這一個檔案，index 與所有遊戲頁的外觀同時更新。
+   =================================================================== */
+
+:root{
+  /* --- 色彩：冷調藍灰紙面，橘=堆疊/進行中，綠=完成，紅=錯誤 --- */
+  --paper:#EEF1F5;
+  --surface:#FFFFFF;
+  --surface-2:#E3E9F0;
+  --sunken:#DDE4EC;
+  --ink:#16222E;
+  --ink-soft:#55677A;
+  --ink-faint:#8496A6;
+  --line:#C7D2DC;
+  --line-soft:#DAE2EA;
+  --accent:#B85C1B;
+  --accent-soft:#F3E0CE;
+  --jade:#0E7361;
+  --jade-soft:#D3E9E3;
+  --alarm:#B4322A;
+  --alarm-soft:#F4DAD7;
+  --shadow:0 1px 2px rgba(22,34,46,.08), 0 8px 24px -12px rgba(22,34,46,.28);
+  --shadow-lift:0 2px 4px rgba(22,34,46,.10), 0 14px 32px -14px rgba(22,34,46,.40);
+
+  --font-sans:"Microsoft JhengHei UI","Microsoft JhengHei","PingFang TC","Noto Sans TC",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --font-mono:"Cascadia Mono",Consolas,ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+
+  --r:10px;
+  --dur:.22s;
+  --wrap:1180px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F1A22; --surface:#17242E; --surface-2:#1E2E3A; --sunken:#132029;
+    --ink:#E5EDF3; --ink-soft:#94A8B7; --ink-faint:#6B8090;
+    --line:#2B3C4A; --line-soft:#233340;
+    --accent:#EFA254; --accent-soft:#3B2A19;
+    --jade:#3FC7A8; --jade-soft:#14332F;
+    --alarm:#F4796F; --alarm-soft:#3A1E1C;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.8);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.5), 0 18px 40px -16px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F1A22; --surface:#17242E; --surface-2:#1E2E3A; --sunken:#132029;
+  --ink:#E5EDF3; --ink-soft:#94A8B7; --ink-faint:#6B8090;
+  --line:#2B3C4A; --line-soft:#233340;
+  --accent:#EFA254; --accent-soft:#3B2A19;
+  --jade:#3FC7A8; --jade-soft:#14332F;
+  --alarm:#F4796F; --alarm-soft:#3A1E1C;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.8);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5), 0 18px 40px -16px rgba(0,0,0,.9);
+}
+
+/* ---------------- 基礎 ---------------- */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:15px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{text-wrap:balance;margin:0;line-height:1.3}
+p{margin:0}
+button{font:inherit;color:inherit}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
+code{font-family:var(--font-mono)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 20px}
+
+/* ---------------- 頂部列 ---------------- */
+.sitebar{
+  position:sticky;top:0;z-index:50;
+  background:color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.sitebar .wrap{display:flex;align-items:center;gap:14px;height:52px}
+.sitebar .home{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;
+  color:var(--ink-soft);text-decoration:none;font-weight:600;
+}
+.sitebar .home:hover{color:var(--ink)}
+.sitebar .crumb{
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-faint);
+  letter-spacing:.08em;
+}
+.jump{margin-left:auto;display:flex;gap:2px}
+.jump a{
+  padding:5px 11px;border-radius:7px;
+  font-size:12.5px;font-weight:600;color:var(--ink-soft);text-decoration:none;
+  transition:background var(--dur),color var(--dur);
+}
+.jump a:hover{background:var(--surface-2);color:var(--ink)}
+.jump a .n{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);margin-right:4px}
+
+/* ---------------- 標題區 ---------------- */
+.eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-faint);
+}
+.hero{padding:38px 0 8px;display:flex;flex-direction:column;gap:10px}
+.hero h1{font-size:clamp(28px,4.6vw,42px);font-weight:800;letter-spacing:.04em}
+.hero .lede{max-width:62ch;color:var(--ink-soft);font-size:16px}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.fact{
+  display:inline-flex;align-items:baseline;gap:6px;
+  padding:4px 11px;border-radius:999px;
+  background:var(--surface);border:1px solid var(--line-soft);
+  font-size:12.5px;
+}
+.fact b{font-weight:700}
+.fact span{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-faint)}
+
+/* ---------------- 四段式章節 ---------------- */
+.sec{padding:34px 0;border-top:1px solid var(--line-soft)}
+.sec:first-of-type{border-top:0}
+.sec-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px}
+.sec-num{
+  flex:0 0 auto;
+  font-family:var(--font-mono);font-size:13px;font-weight:700;
+  letter-spacing:.06em;
+  color:var(--accent);
+  padding:3px 9px;border-radius:6px;background:var(--accent-soft);
+  margin-top:4px;
+}
+.sec-head h2{font-size:clamp(20px,3vw,26px);font-weight:800;letter-spacing:.03em}
+.sec-head .sub{font-size:13.5px;color:var(--ink-faint);margin-top:2px}
+.sec-body{display:flex;flex-direction:column;gap:18px}
+
+/* ---------------- 通用容器 ---------------- */
+.panel{
+  background:var(--surface);
+  border:1px solid var(--line-soft);
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  padding:16px;
+  display:flex;flex-direction:column;gap:12px;
+  min-width:0;
+}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.panel-title{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin:0;
+}
+.panel-note{font-family:var(--font-mono);font-size:12px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
+.cols-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+
+.block{
+  background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:var(--r);padding:18px 20px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.block h3{font-size:16px;font-weight:800;letter-spacing:.02em}
+.block h4{font-size:14px;font-weight:700;color:var(--ink);margin-top:4px}
+.block p{color:var(--ink-soft);font-size:14px}
+
+/* 有序步驟 / 條列 */
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;counter-reset:st}
+.steps li{display:flex;gap:11px;font-size:14px;color:var(--ink-soft)}
+.steps li::before{
+  counter-increment:st;content:counter(st);
+  flex:0 0 20px;height:20px;margin-top:3px;
+  display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;
+  background:var(--surface-2);color:var(--ink);border-radius:5px;
+}
+.steps li b{color:var(--ink)}
+.bullets{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.bullets li{position:relative;padding-left:17px;font-size:14px;color:var(--ink-soft)}
+.bullets li::before{
+  content:"";position:absolute;left:0;top:9px;
+  width:6px;height:6px;border-radius:2px;background:var(--accent);
+}
+.bullets li b{color:var(--ink)}
+.bullets.ok li::before{background:var(--jade)}
+.bullets.no li::before{background:var(--alarm)}
+
+/* 提示框 */
+.callout{
+  display:flex;gap:12px;
+  padding:14px 16px;border-radius:0 var(--r) var(--r) 0;
+  background:var(--sunken);border-left:3px solid var(--line);
+}
+.callout .tag{
+  flex:0 0 auto;font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.14em;padding:3px 8px;border-radius:5px;
+  background:rgba(128,128,128,.2);margin-top:3px;
+}
+.callout .txt{font-size:13.5px;color:var(--ink-soft);min-width:0}
+.callout .txt b{color:var(--ink)}
+.callout[data-k="key"]{background:var(--accent-soft);border-color:var(--accent)}
+.callout[data-k="key"] .tag{background:var(--accent);color:var(--surface)}
+.callout[data-k="ok"]{background:var(--jade-soft);border-color:var(--jade)}
+.callout[data-k="ok"] .tag{background:var(--jade);color:var(--surface)}
+.callout[data-k="no"]{background:var(--alarm-soft);border-color:var(--alarm)}
+.callout[data-k="no"] .tag{background:var(--alarm);color:var(--surface)}
+
+/* 表格 */
+.tablewrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:top}
+thead th{
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600;
+  background:var(--sunken);white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td code,th code{font-size:13px;font-weight:700}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+td.mono,th.mono{white-space:nowrap}
+
+/* 程式碼區塊 */
+pre.code{
+  margin:0;padding:14px 16px;
+  background:var(--sunken);border-radius:var(--r);
+  overflow-x:auto;
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.8;
+  color:var(--ink-soft);
+}
+pre.code b{color:var(--ink);font-weight:700}
+pre.code i{color:var(--ink-faint);font-style:normal}
+
+/* 架構圖：純 CSS 方塊 + 箭頭，離線也能看 */
+.arch{display:flex;flex-direction:column;align-items:center;gap:0;padding:8px 0}
+.arch .node{
+  padding:9px 16px;border-radius:8px;text-align:center;
+  background:var(--surface-2);border:1.5px solid var(--line);
+  font-size:13.5px;font-weight:700;
+  max-width:100%;
+}
+.arch .node small{display:block;font-weight:500;font-size:11.5px;color:var(--ink-faint);
+  font-family:var(--font-mono);letter-spacing:.04em}
+.arch .node[data-k="in"]{border-color:var(--ink-faint)}
+.arch .node[data-k="core"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.arch .node[data-k="data"]{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.arch .arrow{
+  width:2px;height:20px;background:var(--line);position:relative;flex:0 0 auto;
+}
+.arch .arrow::after{
+  content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:7px solid var(--line);
+}
+.arch .fan{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.arch .fan .node{font-size:12.5px;padding:7px 12px}
+.arch .bracket{
+  width:min(680px,100%);height:12px;
+  border:2px solid var(--line);border-bottom:0;border-radius:6px 6px 0 0;
+}
+
+/* 檔案樹 */
+.tree{
+  margin:0;padding:14px 16px;
+  background:var(--sunken);border-radius:var(--r);
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.9;
+  color:var(--ink-soft);overflow-x:auto;
+}
+.tree b{color:var(--ink)}
+.tree i{color:var(--ink-faint);font-style:normal}
+
+/* 按鈕 */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 16px;
+  background:var(--surface-2);border:1px solid var(--line-soft);
+  border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+  text-decoration:none;color:var(--ink);
+  transition:background var(--dur),border-color var(--dur),transform var(--dur),opacity var(--dur);
+}
+.btn:hover:not(:disabled){border-color:var(--line);transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
+.kbd{font-family:var(--font-mono);font-size:11px;padding:1px 5px;border-radius:4px;
+  background:rgba(128,128,128,.18)}
+.btn-primary .kbd{background:rgba(255,255,255,.18)}
+
+/* ===================================================================
+   遊戲共用元件
+   所有遊戲頁的控制列、統計格、說明面板、歷程都用這一組。
+   各遊戲只需要自己寫獨有的主視覺（圓圈、迷宮、柱狀圖、塔柱…）。
+   =================================================================== */
+
+/* 遊戲版面：主視覺在左，資料結構／演算法／歷程在右 */
+.game{display:grid;grid-template-columns:minmax(0,1fr) 268px;gap:16px;align-items:start}
+.game-side{display:flex;flex-direction:column;gap:16px}
+@media (max-width:880px){
+  .game{grid-template-columns:minmax(0,1fr)}
+  .game-side{display:grid;grid-template-columns:1fr 1fr}
+}
+@media (max-width:620px){ .game-side{grid-template-columns:1fr} }
+
+/* 控制列 */
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:12px 14px;background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:var(--r);box-shadow:var(--shadow)}
+.bar-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-faint);padding-right:4px}
+.ctl{display:flex;align-items:center;gap:7px;padding:5px 12px;
+  background:var(--surface-2);border-radius:8px}
+.ctl label{font-size:12.5px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+input[type=number],input[type=text]{
+  padding:5px 9px;font-family:var(--font-mono);font-size:14px;
+  color:var(--ink);background:var(--sunken);
+  border:1px solid var(--line);border-radius:6px;
+  font-variant-numeric:tabular-nums}
+input[type=number]{width:66px;text-align:center}
+input[type=text]{min-width:0}
+input::placeholder{color:var(--ink-faint)}
+input[type=range]{width:120px;accent-color:var(--accent)}
+select{padding:5px 9px;font:inherit;font-size:13px;color:var(--ink);
+  background:var(--sunken);border:1px solid var(--line);border-radius:6px}
+
+/* 模式切換 */
+.modes{display:inline-flex;padding:3px;gap:3px;background:var(--sunken);
+  border:1px solid var(--line-soft);border-radius:999px}
+.mode-btn{border:0;background:transparent;cursor:pointer;padding:6px 16px;border-radius:999px;
+  font-size:13.5px;font-weight:700;letter-spacing:.05em;color:var(--ink-soft);
+  transition:background var(--dur),color var(--dur)}
+.mode-btn:hover{color:var(--ink)}
+.mode-btn.is-on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* 關卡籌碼 */
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 380px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;
+  background:var(--surface-2);border:1px solid transparent;border-radius:999px;cursor:pointer;
+  transition:border-color var(--dur),background var(--dur),transform var(--dur)}
+.chip:hover{transform:translateY(-1px);border-color:var(--line)}
+.chip.is-on{border-color:var(--accent);background:var(--accent-soft)}
+.chip code{font-size:13px;font-weight:700}
+.chip span{font-size:12px;color:var(--ink-soft)}
+.chip.is-on span{color:var(--ink)}
+
+/* 播放控制 */
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.progress{flex:1 1 120px;min-width:90px;height:5px;background:var(--sunken);
+  border-radius:999px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width var(--dur)}
+.step-count{font-family:var(--font-mono);font-size:12px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+
+/* 統計格 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.stat{background:var(--sunken);border-radius:8px;padding:8px 11px}
+.stat .k{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.stat .v{font-family:var(--font-mono);font-size:20px;font-weight:700;
+  font-variant-numeric:tabular-nums;line-height:1.3}
+.stat[data-k="ok"] .v{color:var(--jade)}
+.stat[data-k="no"] .v{color:var(--alarm)}
+.stat[data-k="hot"] .v{color:var(--accent)}
+
+/* 說明面板：每一步在做什麼 */
+.say{display:flex;gap:12px;align-items:flex-start;padding:13px 15px;
+  background:var(--sunken);border-left:3px solid var(--line);
+  border-radius:0 8px 8px 0;min-height:74px}
+.say[data-k="push"],.say[data-k="hot"]{border-color:var(--accent);background:var(--accent-soft)}
+.say[data-k="pop"],.say[data-k="done"],.say[data-k="ok"]{border-color:var(--jade);background:var(--jade-soft)}
+.say[data-k="error"],.say[data-k="no"]{border-color:var(--alarm);background:var(--alarm-soft)}
+.say-badge{flex:0 0 auto;font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.14em;padding:3px 8px;border-radius:5px;
+  background:rgba(128,128,128,.2);margin-top:3px}
+.say[data-k="push"] .say-badge,.say[data-k="hot"] .say-badge{background:var(--accent);color:var(--surface)}
+.say[data-k="pop"] .say-badge,.say[data-k="done"] .say-badge,.say[data-k="ok"] .say-badge{background:var(--jade);color:var(--surface)}
+.say[data-k="error"] .say-badge,.say[data-k="no"] .say-badge{background:var(--alarm);color:var(--surface)}
+.say-body{min-width:0}
+.say-title{font-weight:700;font-size:15px;margin-bottom:1px}
+.say-text{font-size:13.5px;color:var(--ink-soft);line-height:1.55}
+.say-text b{color:var(--ink);font-family:var(--font-mono);font-weight:700}
+.verdict{font-weight:700}
+.verdict.ok{color:var(--jade)}
+.verdict.no{color:var(--alarm)}
+
+/* 演算法逐行高亮 */
+.algo{margin:0;padding:0;list-style:none;font-family:var(--font-mono);font-size:12.5px;
+  line-height:1.85;background:var(--sunken);border-radius:8px;overflow-x:auto;counter-reset:ln}
+.algo li{display:flex;gap:10px;padding:0 12px 0 0;border-left:3px solid transparent;
+  white-space:pre;color:var(--ink-soft);
+  transition:background var(--dur),color var(--dur),border-color var(--dur)}
+.algo li::before{counter-increment:ln;content:counter(ln);flex:0 0 26px;text-align:right;
+  color:var(--ink-faint);opacity:.6;padding-left:6px}
+.algo li.is-now{background:var(--accent-soft);border-left-color:var(--accent);
+  color:var(--ink);font-weight:700}
+.algo li.is-now::before{opacity:1;color:var(--accent)}
+
+/* 操作歷程 */
+.log{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;
+  max-height:200px;overflow-y:auto;font-family:var(--font-mono);font-size:11.5px;
+  font-variant-numeric:tabular-nums}
+.log li{display:flex;gap:8px;align-items:center;padding:3px 7px;border-radius:5px;
+  background:var(--sunken);color:var(--ink-soft)}
+.log li b{flex:0 0 auto;font-weight:700}
+.log li .tag{flex:0 0 46px;font-size:10px;letter-spacing:.06em}
+.log li[data-k="push"] .tag,.log li[data-k="hot"] .tag{color:var(--accent)}
+.log li[data-k="pop"] .tag,.log li[data-k="done"] .tag,.log li[data-k="ok"] .tag{color:var(--jade)}
+.log li[data-k="error"] .tag,.log li[data-k="no"] .tag{color:var(--alarm)}
+.log li .tail{margin-left:auto;color:var(--ink-faint);font-size:10.5px}
+.log-empty{color:var(--ink-faint);font-size:12px;font-family:var(--font-sans);
+  background:none !important;padding:0 !important}
+
+/* 闖關計分 */
+.quiz{display:none;flex-direction:column;gap:10px}
+.quiz.is-on{display:flex}
+.quiz-q{font-size:14.5px;font-weight:700}
+.quiz-q b{color:var(--accent);font-family:var(--font-mono);font-size:17px}
+.quiz-opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{padding:9px 18px;border-radius:8px;cursor:pointer;border:1.5px solid var(--line);
+  background:var(--surface-2);font-weight:700;font-size:14px;
+  transition:transform var(--dur),border-color var(--dur),background var(--dur)}
+.opt:hover{transform:translateY(-1px);border-color:var(--accent)}
+.opt small{display:block;font-family:var(--font-mono);font-size:10px;font-weight:500;
+  letter-spacing:.1em;color:var(--ink-faint)}
+.score{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline}
+.score div{display:flex;align-items:baseline;gap:5px}
+.score b{font-family:var(--font-mono);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.score span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-faint);font-family:var(--font-mono)}
+
+/* 頁尾 */
+.sitefoot{
+  margin-top:20px;padding:22px 0 48px;
+  border-top:1px solid var(--line-soft);
+  font-size:12.5px;color:var(--ink-faint);
+  display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;
+}
+.sitefoot a{color:var(--ink-soft)}
+
+@media (max-width:720px){
+  .jump{display:none}
+  .sec-head{gap:10px}
+  .wrap{padding:0 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+}

@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>河內塔 - Stack 應用教材</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "微软雅黑", monospace;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.8;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page {
+            background: white;
+            padding: 40px;
+            margin-bottom: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2563eb;
+            font-size: 36px;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            color: #1e40af;
+            font-size: 28px;
+            margin: 40px 0 20px 0;
+            border-left: 4px solid #2563eb;
+            padding-left: 15px;
+        }
+
+        h3 {
+            color: #2563eb;
+            font-size: 20px;
+            margin: 25px 0 15px 0;
+        }
+
+        .prompt-section {
+            margin: 30px 0;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .prompt-header {
+            background: #1f2937;
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .prompt-content {
+            background: #f9fafb;
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .prompt-box {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 10px 0;
+        }
+
+        .output-section {
+            background: #ecfdf5;
+            border: 2px solid #10b981;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .output-header {
+            background: #10b981;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px 4px 0 0;
+            font-weight: bold;
+            margin: -20px -20px 15px -20px;
+            padding-left: 20px;
+        }
+
+        .output-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .copy-button {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 10px 0;
+            border: none;
+            font-family: inherit;
+        }
+
+        .copy-button:hover {
+            background: #2563eb;
+        }
+
+        .step {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .step-title {
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 8px;
+        }
+
+        .note {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+            color: #1e40af;
+        }
+
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .comparison-box {
+            border: 2px solid #e5e7eb;
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .comparison-box h4 {
+            margin-bottom: 15px;
+            color: #2563eb;
+        }
+
+        .tower-visual {
+            background: #fff8e1;
+            border: 2px solid #fbbf24;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-family: "Courier New", monospace;
+            text-align: center;
+        }
+
+        .tower-label {
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .tower-title {
+            color: #2563eb;
+            font-weight: bold;
+            margin: 20px 0 15px 0;
+            font-size: 16px;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 封面 -->
+        <div class="page">
+            <div style="text-align: center; padding: 80px 0;">
+                <h1 style="border: none; font-size: 48px;">🗼 河內塔</h1>
+                <h3 style="margin-top: 20px; color: #666;">Stack 的經典遞迴應用</h3>
+                <p style="font-size: 16px; color: #888; margin-top: 30px;">
+                    用 Stack 解決古老的河內塔謎題<br>
+                    理解遞迴如何對應 Stack 的壓棧/出棧
+                </p>
+            </div>
+        </div>
+
+        <!-- 問題介紹 -->
+        <div class="page">
+            <h1>什麼是河內塔？</h1>
+
+            <div class="tower-visual">
+                <div class="tower-label">初始狀態：所有盤子在左塔</div>
+                <div style="display: flex; justify-content: space-around; align-items: flex-end; margin: 20px 0; height: 200px;">
+                    <div style="text-align: center;">
+                        <div style="width: 100px; height: 30px; background: #ef4444; margin: 5px auto; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">盤 1</div>
+                        <div style="width: 100px; height: 40px; background: #f97316; margin: 5px auto; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">盤 2</div>
+                        <div style="width: 100px; height: 50px; background: #eab308; margin: 5px auto; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">盤 3</div>
+                        <div style="width: 120px; height: 10px; background: #333; margin: 10px auto;"></div>
+                        <div style="color: #2563eb; font-weight: bold; margin-top: 10px;">左塔（起始）</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 120px; height: 10px; background: #333; margin: 10px auto;"></div>
+                        <div style="color: #2563eb; font-weight: bold; margin-top: 170px;">中塔（臨時）</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 120px; height: 10px; background: #333; margin: 10px auto;"></div>
+                        <div style="color: #2563eb; font-weight: bold; margin-top: 170px;">右塔（目標）</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2>規則</h2>
+            <ol style="font-size: 16px;">
+                <li><strong>只能移動一個盤子</strong> - 一次只能從一個塔移到另一個塔</li>
+                <li><strong>大盤不能在小盤上</strong> - 大的盤子永遠在小的下方</li>
+                <li><strong>目標</strong> - 把所有盤子從左塔移到右塔</li>
+            </ol>
+
+            <h2>為什麼是 Stack？</h2>
+            <div class="note">
+                ℹ️ 每個塔都是一個 Stack！
+                <ul style="margin-top: 10px;">
+                    <li>🔝 每個塔只能從頂部放/取盤子</li>
+                    <li>⬇️ 最上面的盤子最先被移走（LIFO）</li>
+                    <li>🔄 用遞迴時，函數調用棧也正好對應塔的移動</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 理解階段 -->
+        <div class="page">
+            <h1>第 1 步：理解河內塔遞迴</h1>
+
+            <div class="prompt-section">
+                <div class="prompt-header">📚 Prompt 1：解釋河內塔如何用遞迴解決</div>
+                <div class="prompt-content">
+                    <div class="step">
+                        <div class="step-title">✂️ 複製下面的 Prompt：</div>
+                    </div>
+                    <div class="prompt-box">解釋「河內塔」問題和它的遞迴解法。
+
+不要講代碼，講思路：
+
+1. 什麼是河內塔？用盤子和塔的例子
+2. 3 個盤子的情況怎麼解？
+3. 把 3 個盤子的解法推廣到 n 個盤子
+4. 這個解法為什麼是遞迴的？
+5. 需要多少步移動？（公式）
+
+用日常語言和圖示。</div>
+                    <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">✅ Claude 的解釋（部分）：</div>
+                <div class="output-box">河內塔（Tower of Hanoi）：
+
+【問題】
+有 3 個塔（A、B、C）和 n 個盤子
+初始時所有盤子在 A 塔，小的在大的上面
+目標：把所有盤子移到 C 塔
+
+【3 個盤子的解法】
+1. 把上面 2 個盤子從 A 移到 B（用 C 幫助）
+2. 把最大的盤子（第 3 個）從 A 移到 C
+3. 把 2 個盤子從 B 移到 C（用 A 幫助）
+
+【n 個盤子的遞迴解法】
+hanoi(n, 起點, 目標, 臨時):
+  if n == 1:
+    直接移動 1 個盤子
+  else:
+    1. hanoi(n-1, 起點, 臨時, 目標)  // 移上面 n-1 個
+    2. 移最大的盤子從起點到目標
+    3. hanoi(n-1, 臨時, 目標, 起點)  // 移上面 n-1 個
+
+【需要多少步？】
+T(n) = 2^n - 1
+- 1 個盤子：1 步
+- 2 個盤子：3 步
+- 3 個盤子：7 步
+- 4 個盤子：15 步
+- 64 個盤子：18,446,744,073,709,551,615 步！</div>
+            </div>
+
+            <div class="success-box">
+                ✅ <strong>現在理解了：</strong> 河內塔的遞迴結構，為什麼需要 2^n - 1 步
+            </div>
+        </div>
+
+        <!-- 實現階段 -->
+        <div class="page">
+            <h1>第 2 步：用 Stack 實現河內塔</h1>
+
+            <div class="prompt-section">
+                <div class="prompt-header">💻 Prompt 2：用 Stack 實現河內塔</div>
+                <div class="prompt-content">
+                    <div class="step">
+                        <div class="step-title">✂️ 複製下面的 Prompt：</div>
+                    </div>
+                    <div class="prompt-box">用 Stack 實現河內塔。
+
+代碼結構：
+1. 定義 Stack 類（或使用我之前的）
+2. 創建 3 個 Stack（left, middle, right），代表 3 個塔
+3. 初始化：left 塔有盤子 n, n-1, ..., 2, 1（盤子 1 在頂部）
+4. 實現 hanoi(n, source, target, temp) 函數：
+   - 如果 n == 1：直接從 source pop 到 target
+   - 否則：遞迴調用 hanoi(n-1, source, temp, target)
+5. 每次移動盤子時，打印過程：「盤 X：源塔 → 目標塔」
+
+給我完整代碼，測試 3 個盤子的情況。</div>
+                    <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">✅ Claude 給出的代碼：</div>
+                <div class="output-box">class Stack:
+    def __init__(self):
+        self._items = []
+
+    def push(self, item):
+        self._items.append(item)
+
+    def pop(self):
+        return self._items.pop() if not self.is_empty() else None
+
+    def peek(self):
+        return self._items[-1] if not self.is_empty() else None
+
+    def is_empty(self):
+        return len(self._items) == 0
+
+    def size(self):
+        return len(self._items)
+
+    def __str__(self):
+        return str(self._items)
+
+def hanoi(n, source, target, temp, towers, source_name, target_name):
+    """
+    遞迴解決河內塔
+    n: 盤子數
+    source, target, temp: Stack 對象
+    source_name, target_name: 塔的名稱
+    """
+    if n == 1:
+        # 基本情況：直接移動 1 個盤子
+        disk = source.pop()
+        target.push(disk)
+        print(f"  盤 {disk}: {source_name} → {target_name}")
+        return
+
+    # 遞迴情況
+    # 找到臨時塔的名稱
+    temp_name = [name for name in ['左', '中', '右']
+                 if name != source_name and name != target_name][0]
+
+    # 步驟 1: 把 n-1 個盤子從 source 移到 temp
+    hanoi(n-1, source, temp, target, towers, source_name, temp_name)
+
+    # 步驟 2: 把最大的盤子從 source 移到 target
+    disk = source.pop()
+    target.push(disk)
+    print(f"  盤 {disk}: {source_name} → {target_name}")
+
+    # 步驟 3: 把 n-1 個盤子從 temp 移到 target
+    hanoi(n-1, temp, target, source, towers, temp_name, target_name)
+
+# 測試
+print("===== 河內塔（3 個盤子）=====\n")
+
+left = Stack()
+middle = Stack()
+right = Stack()
+
+# 初始化：左塔有 3 個盤子
+for disk in [3, 2, 1]:
+    left.push(disk)
+
+print(f"初始狀態：")
+print(f"  左塔: {left}")
+print(f"  中塔: {middle}")
+print(f"  右塔: {right}")
+print()
+
+# 移動所有 3 個盤子從左塔到右塔
+hanoi(3, left, right, middle, None, "左", "右")
+
+print()
+print(f"最終狀態：")
+print(f"  左塔: {left}")
+print(f"  中塔: {middle}")
+print(f"  右塔: {right}")
+print(f"✅ 完成！總共 {2**3 - 1} 步")</div>
+            </div>
+        </div>
+
+        <!-- 測試結果 -->
+        <div class="page">
+            <h1>第 3 步：查看執行結果</h1>
+
+            <div class="output-section">
+                <div class="output-header">✅ 程序執行結果：</div>
+                <div class="output-box">===== 河內塔（3 個盤子）=====
+
+初始狀態：
+  左塔: [3, 2, 1]
+  中塔: []
+  右塔: []
+
+  盤 1: 左 → 右
+  盤 2: 左 → 中
+  盤 1: 右 → 中
+  盤 3: 左 → 右
+  盤 1: 中 → 左
+  盤 2: 中 → 右
+  盤 1: 左 → 右
+
+最終狀態：
+  左塔: []
+  中塔: []
+  右塔: [3, 2, 1]
+✅ 完成！總共 7 步</div>
+            </div>
+
+            <div class="tower-visual">
+                <div class="tower-label">最終狀態：所有盤子成功移到右塔</div>
+                <div style="display: flex; justify-content: space-around; align-items: flex-end; margin: 20px 0; height: 200px;">
+                    <div style="text-align: center;">
+                        <div style="width: 120px; height: 10px; background: #333; margin: 10px auto;"></div>
+                        <div style="color: #2563eb; font-weight: bold; margin-top: 170px;">左塔</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 120px; height: 10px; background: #333; margin: 10px auto;"></div>
+                        <div style="color: #2563eb; font-weight: bold; margin-top: 170px;">中塔</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 100px; height: 30px; background: #ef4444; margin: 5px auto; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">盤 1</div>
+                        <div style="width: 100px; height: 40px; background: #f97316; margin: 5px auto; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">盤 2</div>
+                        <div style="width: 100px; height: 50px; background: #eab308; margin: 5px auto; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">盤 3</div>
+                        <div style="width: 120px; height: 10px; background: #333; margin: 10px auto;"></div>
+                        <div style="color: #2563eb; font-weight: bold; margin-top: 10px;">右塔（目標）</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="success-box">
+                ✅ <strong>成功！</strong> 7 步正確地解決了河內塔問題
+            </div>
+        </div>
+
+        <!-- 驗證步驟 -->
+        <div class="page">
+            <h1>第 4 步：驗證解法的正確性</h1>
+
+            <div class="prompt-section">
+                <div class="prompt-header">🔍 Prompt 3：驗證河內塔解法</div>
+                <div class="prompt-content">
+                    <div class="step">
+                        <div class="step-title">✂️ 複製下面的 Prompt：</div>
+                    </div>
+                    <div class="prompt-box">寫測試代碼驗證河內塔的解法。
+
+測試內容：
+1. 測試 1 個盤子（應該 1 步）
+2. 測試 2 個盤子（應該 3 步）
+3. 測試 3 個盤子（應該 7 步）
+4. 測試 4 個盤子（應該 15 步）
+5. 測試所有情況下，最終狀態是否正確：
+   - 左塔和中塔為空
+   - 右塔有所有盤子
+   - 盤子順序是 [n, n-1, ..., 2, 1]
+
+給我完整的測試代碼。</div>
+                    <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">✅ 測試結果：</div>
+                <div class="output-box">===== 河內塔測試 =====
+
+測試 1 個盤子：
+  步數: 1，預期: 1 ✅
+
+測試 2 個盤子：
+  步數: 3，預期: 3 ✅
+
+測試 3 個盤子：
+  步數: 7，預期: 7 ✅
+
+測試 4 個盤子：
+  步數: 15，預期: 15 ✅
+
+最終狀態檢驗：
+  1 盤: 左 [] 中 [] 右 [1] ✅
+  2 盤: 左 [] 中 [] 右 [2, 1] ✅
+  3 盤: 左 [] 中 [] 右 [3, 2, 1] ✅
+  4 盤: 左 [] 中 [] 右 [4, 3, 2, 1] ✅
+
+✅ 所有測試通過！解法正確！</div>
+            </div>
+
+            <div class="success-box">
+                ✅ <strong>驗證完成：</strong> 解法對所有情況都是正確的
+            </div>
+        </div>
+
+        <!-- 進階：複雜度分析 -->
+        <div class="page">
+            <h1>第 5 步：複雜度分析</h1>
+
+            <div class="prompt-section">
+                <div class="prompt-header">📊 Prompt 4：分析河內塔的時間複雜度</div>
+                <div class="prompt-content">
+                    <div class="step">
+                        <div class="step-title">✂️ 複製下面的 Prompt：</div>
+                    </div>
+                    <div class="prompt-box">分析河內塔的時間複雜度。
+
+問題：
+1. 為什麼需要 2^n - 1 步？用遞迴關係推導
+2. 時間複雜度是 O(2^n) 嗎？
+3. 空間複雜度是多少？（考慮遞迴調用棧）
+4. 能優化嗎？為什麼不能更少步？
+
+用數學推導和例子說明。</div>
+                    <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">✅ Claude 的分析（部分）：</div>
+                <div class="output-box">【時間複雜度分析】
+
+遞迴關係：T(n) = T(n-1) + 1 + T(n-1) = 2*T(n-1) + 1
+邊界：T(1) = 1
+
+展開：
+T(n) = 2*T(n-1) + 1
+     = 2*(2*T(n-2) + 1) + 1
+     = 4*T(n-2) + 2 + 1
+     = 2^(n-1)*T(1) + 2^(n-2) + ... + 1
+     = 2^(n-1) + 2^(n-2) + ... + 1
+     = 2^n - 1
+
+時間複雜度：O(2^n) ⏱️ 指數級別！
+
+【空間複雜度】
+遞迴調用棧深度：O(n)
+3 個 Stack 存儲盤子：O(n)
+總體：O(n)
+
+【為什麼不能更優？】
+每一步都是必要的。沒有任何盤子可以「跳過」。
+根據國際象棋傳說，64 個盤子需要 2^64-1 步。
+即使每秒移動 1 盤，也需要 5,850 億年！</div>
+            </div>
+
+            <div class="note">
+                ℹ️ <strong>關鍵洞察：</strong> 河內塔展示了遞迴的威力和限制
+                <ul style="margin-top: 10px;">
+                    <li>✅ 簡潔的遞迴代碼（只需要 15 行）</li>
+                    <li>❌ 指數級時間複雜度（n=64 時無法完成）</li>
+                    <li>🎯 必然的複雜度（問題本身就是指數級的）</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 進階應用 -->
+        <div class="page">
+            <h1>第 6 步：進階延伸</h1>
+
+            <h2>變型 1：非遞迴解法</h2>
+            <div class="prompt-section">
+                <div class="prompt-header">🔄 Prompt 5：用迴圈實現河內塔（不用遞迴）</div>
+                <div class="prompt-content">
+                    <div class="step">
+                        <div class="step-title">✂️ 複製下面的 Prompt：</div>
+                    </div>
+                    <div class="prompt-box">寫一個非遞迴版本的河內塔。
+
+思路：
+1. 用棧來模擬遞迴調用
+2. 或用二進制數字找規律
+3. 或用「最合法的移動」法則
+
+給我完整代碼，測試 3 個盤子。</div>
+                    <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+                </div>
+            </div>
+
+            <h2>變型 2：多塔問題</h2>
+            <div class="prompt-section">
+                <div class="prompt-header">🚀 Prompt 6：如果有 4 個塔呢？</div>
+                <div class="prompt-content">
+                    <div class="step">
+                        <div class="step-title">✂️ 複製下面的 Prompt：</div>
+                    </div>
+                    <div class="prompt-box">如果河內塔有 4 個塔（而不是 3 個）會怎樣？
+
+問題：
+1. 4 個塔的情況下，n 個盤子最少需要多少步？
+2. 公式是什麼？
+3. 相比 3 個塔，是不是快很多？
+4. 為什麼會這樣？
+
+用例子計算（比如 n=4）。</div>
+                    <button class="copy-button" onclick="copyToClipboard(this)">複製 Prompt</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 總結 -->
+        <div class="page">
+            <h1>完整學習總結</h1>
+
+            <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 25px; border-radius: 8px;">
+                <h3 style="color: #10b981; margin-top: 0;">✅ 你在這個應用中學到了：</h3>
+
+                <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 6px;">
+                    <h4 style="margin-top: 0; color: #10b981;">🎯 Stack 的應用：</h4>
+                    <ul style="margin-left: 20px;">
+                        <li>✅ Stack 與遞迴的關係</li>
+                        <li>✅ 函數調用棧如何對應實際的塔</li>
+                        <li>✅ 時間和空間複雜度分析</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 6px;">
+                    <h4 style="margin-top: 0; color: #10b981;">💡 演算法思維：</h4>
+                    <ul style="margin-left: 20px;">
+                        <li>✅ 遞迴分治法</li>
+                        <li>✅ 指數級複雜度的問題</li>
+                        <li>✅ 為什麼某些問題本身就很難</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 6px;">
+                    <h4 style="margin-top: 0; color: #10b981;">📚 實踐經驗：</h4>
+                    <ul style="margin-left: 20px;">
+                        <li>✅ 用 Stack 建模真實問題</li>
+                        <li>✅ 編寫和驗證遞迴代碼</li>
+                        <li>✅ 測試複雜度理論</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #fff8e1; border-radius: 6px; border-left: 4px solid #fbbf24;">
+                    <h4 style="margin-top: 0; color: #92400e;">🎁 附加收穫：</h4>
+                    <p>理解了為什麼簡潔的算法不一定是最優的。有時我們需要接受指數級的複雜度，因為問題本身就是這樣的。</p>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function copyToClipboard(button) {
+                const promptBox = button.previousElementSibling;
+                const text = promptBox.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    button.textContent = '✅ 已複製！';
+                    setTimeout(() => {
+                        button.textContent = '複製 Prompt';
+                    }, 2000);
+                });
+            }
+        </script>
+    </div>
+</body>
+</html>

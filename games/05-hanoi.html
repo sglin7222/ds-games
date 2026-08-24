@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>河內塔 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：三根柱子 ============ */
+.yard{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end;
+  background:var(--sunken);border-radius:var(--r);padding:18px 12px 12px;
+  min-height:330px}
+.tower{display:flex;flex-direction:column;align-items:center;cursor:pointer;
+  border-radius:8px;padding:6px 4px 0;transition:background var(--dur)}
+.tower:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.tower.is-src{background:color-mix(in srgb,var(--accent) 16%,transparent);
+  outline:2px dashed var(--accent);outline-offset:-2px}
+.tower.can-drop{outline:2px dashed var(--jade);outline-offset:-2px}
+.tower.no-drop{outline:2px dashed var(--alarm);outline-offset:-2px}
+.rod{position:relative;display:flex;flex-direction:column-reverse;
+  justify-content:flex-start;align-items:center;gap:4px;
+  width:100%;min-height:240px;padding-bottom:2px}
+.rod::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:8px;height:100%;background:var(--line);border-radius:4px 4px 0 0;z-index:0}
+.disk{position:relative;z-index:1;height:26px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:var(--font-mono);font-weight:800;font-size:14px;
+  box-shadow:var(--shadow);
+  transition:transform var(--dur),box-shadow var(--dur),opacity var(--dur)}
+.disk.lifted{transform:translateY(-8px) scale(1.04);box-shadow:var(--shadow-lift);
+  outline:2px solid var(--ink);outline-offset:2px}
+.disk.hint{animation:pulse 1s ease-in-out 3}
+@keyframes pulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.base{width:100%;height:11px;background:var(--ink);border-radius:3px}
+.tower-name{margin-top:7px;font-size:13px;font-weight:700;color:var(--ink-soft)}
+.tower-name b{color:var(--ink)}
+.tower-note{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint)}
+
+.movelist{display:flex;flex-direction:column;gap:3px;max-height:230px;overflow-y:auto;
+  background:var(--sunken);border-radius:8px;padding:9px;
+  font-family:var(--font-mono);font-size:12px}
+.movelist div{padding:3px 8px;border-radius:5px;background:var(--surface-2);color:var(--ink-soft)}
+.movelist div.fresh{background:var(--jade);color:var(--surface);font-weight:700}
+.movelist div.bad{background:var(--alarm-soft);color:var(--alarm)}
+.movelist div.none{background:none;color:var(--ink-faint);font-family:var(--font-sans)}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){ .two{grid-template-columns:1fr} }
+.box{border:1.5px solid var(--line);border-radius:var(--r);padding:15px 17px;
+  display:flex;flex-direction:column;gap:8px}
+.box.a{border-color:var(--accent);background:var(--accent-soft)}
+.box.b{border-color:var(--jade);background:var(--jade-soft)}
+.box h4{font-size:15px;font-weight:800;margin:0}
+.box.a h4{color:var(--accent)}
+.box.b h4{color:var(--jade)}
+.hand td,.hand th{font-family:var(--font-mono);font-size:12.5px}
+.hand td.zh,.hand th.zh{font-family:var(--font-sans);font-size:13px}
+.hand tr.last td{background:var(--jade-soft);font-weight:800}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">05 · 堆疊・遞迴</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 05 · Tower of Hanoi</p>
+    <h1>河內塔</h1>
+    <p class="lede">三根柱子、n 個盤子，大的不能壓在小的上面。這一題同時出現兩種堆疊 —— <b>柱子本身就是堆疊</b>（只能動最上面那個），而<b>解法靠的是呼叫堆疊</b>。先自己動手玩，再看它為什麼一定要 2ⁿ−1 步。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>堆疊 · 遞迴</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>最少步數</span><b>2ⁿ − 1</b></div>
+      <div class="fact"><span>時間</span><b>O(2ⁿ)</b></div>
+      <div class="fact"><span>先備知識</span><b>呼叫堆疊（04）</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先自己玩到會，再看電腦怎麼想。順序不要顛倒。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <ol class="steps">
+            <li>選盤子數（<b>先從 3 開始</b>）。</li>
+            <li><b>點一下</b>某根柱子 → 拿起它<b>最上面</b>的盤子。</li>
+            <li><b>再點</b>另一根柱子 → 放下去。放不下會告訴你為什麼。</li>
+            <li>目標：把所有盤子搬到<b>右柱</b>。</li>
+            <li>卡住了按 <b>提示</b>，它會告訴你最佳解的下一步是什麼。</li>
+            <li>玩過一輪之後，按 <b>自動示範</b> 看電腦用遞迴算出來的解，並對照自己走的路。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">先別看提示</span>
+            <span class="txt">3 個盤子請務必自己解一次。你會親身經歷「<b>要把最大的搬過去，得先把上面全部挪開</b>」這個卡點 —— 這個卡點就是第 03 段三步法的全部內容。先體驗，再看解釋，效果差很多。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>柱子就是堆疊</b> —— 「只能拿最上面的」這句規則，就是 LIFO 的定義。</li>
+            <li><b>遞迴的三步法</b> —— 不要想第一步搬哪個，要想「假設 n−1 個已經會搬」。</li>
+            <li><b>數學歸納法 = 遞迴</b> —— 你只負責定義這一層怎麼拆，剩下交給更小的自己。</li>
+            <li><b>為什麼三步法一定合法</b> —— 搬最大盤子時，目標柱必定是空的。</li>
+            <li><b>2ⁿ−1 怎麼推出來</b> —— 從遞迴式 T(n) = 2T(n−1) + 1 展開。</li>
+            <li><b>指數成長有多可怕</b> —— 64 個金盤要 5850 億年。</li>
+            <li><b>最佳解無法再優化</b> —— 因為答案本身就有 2ⁿ−1 步，這不是演算法慢，是題目大。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">配套</span>
+            <span class="txt">看完這一頁，去 <a href="04-call-stack.html">04 呼叫堆疊</a> 把模式切到「河內塔」，就能看到同一個解法在<b>呼叫堆疊上的樣子</b>。兩頁一起看，遞迴就通了。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">點一下拿起、再點一下放下。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <div class="ctl">
+          <label>盤子數</label>
+          <select id="diskCount">
+            <option value="3" selected>3 個</option>
+            <option value="4">4 個</option>
+            <option value="5">5 個</option>
+            <option value="6">6 個</option>
+          </select>
+        </div>
+        <button class="btn" id="btnHint" type="button">💡 提示</button>
+        <button class="btn" id="btnAuto" type="button">▶ 自動示範</button>
+        <button class="btn" id="btnReset" type="button">↺ 重新開始</button>
+        <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="60"></div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">三根柱子</h3>
+            <span class="panel-note" id="yardNote"></span>
+          </div>
+
+          <div class="yard" id="yard">
+            <div class="tower" data-t="0">
+              <div class="rod" id="rod0"></div>
+              <div class="base"></div>
+              <div class="tower-name"><b>左柱</b> A</div>
+              <div class="tower-note" id="note0"></div>
+            </div>
+            <div class="tower" data-t="1">
+              <div class="rod" id="rod1"></div>
+              <div class="base"></div>
+              <div class="tower-name"><b>中柱</b> B</div>
+              <div class="tower-note" id="note1"></div>
+            </div>
+            <div class="tower" data-t="2">
+              <div class="rod" id="rod2"></div>
+              <div class="base"></div>
+              <div class="tower-name"><b>右柱</b> C　目標</div>
+              <div class="tower-note" id="note2"></div>
+            </div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">READY</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">點一根柱子，拿起最上面的盤子</div>
+              <div class="say-text" id="sayText">目標是把全部盤子搬到右柱。大的不能壓在小的上面。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">戰績</h3>
+              <span class="panel-note" id="statusNote">進行中</span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="hot"><div class="k">目前步數</div><div class="v" id="sMoves">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">最少步數</div><div class="v" id="sOptimal">7</div></div>
+              <div class="stat"><div class="k">還差</div><div class="v" id="sLeft">7</div></div>
+              <div class="stat"><div class="k">效率</div><div class="v" id="sEff" style="font-size:16px">—</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">搬移紀錄</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <div class="movelist" id="movelist"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="callout" data-k="key">
+        <span class="tag">規則</span>
+        <span class="txt">① 一次只能搬<b>一個</b>盤子。② 只能搬每根柱子<b>最上面</b>的盤子。③ 任何時候都<b>不能把大盤壓在小盤上</b>。④ 目標是用 2ⁿ−1 步完成。</span>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+                <pre class="code">#include &lt;cstdio&gt;
+
+void hanoi(int n, char a = 'A', char c = 'C', char b = 'B') {
+    <b>if (n == 0) return;</b>                    <i>// 基底條件：沒有盤子要搬</i>
+    hanoi(n - 1, a, b, c);                 <i>// 上面 n-1 個先搬去中繼柱</i>
+    printf("盤子 %d: %c → %c\n", n, a, c);  <i>// 最大的搬過去</i>
+    hanoi(n - 1, b, c, a);                 <i>// 中繼柱那疊再搬回來蓋上</i>
+}
+
+int main() { hanoi(3); }
+<i>// 盤子 1: A → C</i>
+<i>// 盤子 2: A → B</i>
+<i>// 盤子 1: C → B</i>
+<i>// 盤子 3: A → C</i>
+<i>// 盤子 1: B → A</i>
+<i>// 盤子 2: B → C</i>
+<i>// 盤子 1: A → C</i></pre>
+        <p>演算法本體只有五行。這一頁其餘幾百行全部都是為了「讓你看得見、摸得到」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「不要想第一步」開始。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>三根柱子 A、B、C，n 個大小不同的盤子一開始由大到小疊在 A 上。把它們全部搬到 C，規則如上。求<b>一個合法的搬法</b>，最好是<b>步數最少</b>的。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">先注意這件事</span>
+          <span class="txt">規則第 ② 條「只能搬最上面的盤子」，其實就是在說：<b>每根柱子都是一個堆疊</b>。你只能 push 和 pop，不能伸手去中間抽一個。整題的限制就是這個限制。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>為什麼直覺會卡住</h3>
+        <p>大部分人第一個念頭是「第一步該搬哪個盤子？」—— 然後就卡死了，因為第一步的選擇看起來完全沒有理由。</p>
+        <p>換個問法就通了：<b>「最大的那個盤子，什麼時候才能搬？」</b></p>
+        <ul class="bullets">
+          <li>它要從 A 搬到 C，所以<b>它上面必須沒有任何東西</b>。</li>
+          <li>而且 <b>C 必須是空的</b>（不然它會壓到別人）。</li>
+          <li>所以在那一刻，其他 n−1 個盤子<b>全部都得在 B 上</b>。</li>
+        </ul>
+        <div class="callout" data-k="ok">
+          <span class="tag">於是</span>
+          <span class="txt">整個問題被逼出了唯一的形狀：<b>先把 n−1 個搬到 B，再搬最大的到 C，再把 n−1 個從 B 搬到 C。</b></span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>三步法</h3>
+        <p>不要試著想細節。<b>假設 hanoi(n−1) 已經有人幫你做好了</b>，那 n 個盤子的解法必然是這三步：</p>
+        <ol class="steps">
+          <li>把<b>上面 n−1 個</b>從 A 搬到中繼柱 B（借 C 當中繼）→ <code>hanoi(n−1, A, B, C)</code></li>
+          <li>把<b>最大的第 n 個</b>從 A 直接搬到 C → <b>一步</b>，這是唯一真正搬盤子的地方</li>
+          <li>把 B 上的 <b>n−1 個</b>搬到 C（借 A 當中繼）→ <code>hanoi(n−1, B, C, A)</code></li>
+        </ol>
+                <pre class="code">void hanoi(int n, char a, char c, char b) {  <i>// 把 n 個盤子從 a 移到 c，b 當中繼</i>
+    <b>if (n == 0) return;</b>          <i>// 基底條件</i>
+    hanoi(n - 1, a, b, c);       <i>// 第一步</i>
+    printf("盤子 %d: %c → %c\n", n, a, c);   <i>// 第二步</i>
+    hanoi(n - 1, b, c, a);       <i>// 第三步</i>
+}</pre>
+        <p>整個解法就是這四行。沒有任何「判斷該搬哪個」的邏輯 —— 因為根本不需要判斷。</p>
+      </div>
+
+      <div class="block">
+        <h3>兩個為什麼</h3>
+        <div class="two">
+          <div class="box a">
+            <h4>為什麼一定合法？</h4>
+            <p style="font-size:13.5px;color:var(--ink-soft)">第 2 步搬的是<b>最大</b>的盤子。此時 C 是空的（n−1 個都在 B），A 上除了它也沒別的。既然它最大，放到空柱子上不可能壓到誰 —— <b>不可能違反規則</b>。</p>
+          </div>
+          <div class="box b">
+            <h4>為什麼可以假設 n−1 個已經會搬？</h4>
+            <p style="font-size:13.5px;color:var(--ink-soft)">這就是<b>數學歸納法</b>，也是遞迴的本質：n=0 顯然會（什麼都不用做），而如果 n−1 會，上面三步就證明了 n 也會。<b>你只負責定義這一層怎麼拆。</b></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次 n = 3 的七步</h3>
+        <div class="tablewrap">
+          <table class="hand">
+            <thead><tr><th>步</th><th class="zh">搬什麼</th><th class="zh">屬於三步法的哪一步</th><th>A</th><th>B</th><th>C</th></tr></thead>
+            <tbody>
+              <tr><td>—</td><td class="zh">初始</td><td>—</td><td>3 2 1</td><td>—</td><td>—</td></tr>
+              <tr><td>1</td><td class="zh">盤1 A→C</td><td class="zh">把 2 個搬到 B 的過程</td><td>3 2</td><td>—</td><td>1</td></tr>
+              <tr><td>2</td><td class="zh">盤2 A→B</td><td class="zh">把 2 個搬到 B 的過程</td><td>3</td><td>2</td><td>1</td></tr>
+              <tr><td>3</td><td class="zh">盤1 C→B</td><td class="zh">把 2 個搬到 B　<b>完成</b></td><td>3</td><td>2 1</td><td>—</td></tr>
+              <tr><td>4</td><td class="zh"><b>盤3 A→C</b></td><td class="zh"><b>第二步：搬最大的</b></td><td>—</td><td>2 1</td><td>3</td></tr>
+              <tr><td>5</td><td class="zh">盤1 B→A</td><td class="zh">把 2 個搬到 C 的過程</td><td>1</td><td>2</td><td>3</td></tr>
+              <tr><td>6</td><td class="zh">盤2 B→C</td><td class="zh">把 2 個搬到 C 的過程</td><td>1</td><td>—</td><td>3 2</td></tr>
+              <tr class="last"><td>7</td><td class="zh">盤1 A→C</td><td class="zh">把 2 個搬到 C　<b>完成</b></td><td>—</td><td>—</td><td>3 2 1</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>注意第 4 步剛好卡在正中間，把七步切成 <b>3 + 1 + 3</b>。這個對稱結構在任何 n 都成立：<code>(2ⁿ⁻¹−1) + 1 + (2ⁿ⁻¹−1) = 2ⁿ−1</code>。</p>
+      </div>
+
+      <div class="block">
+        <h3>最少步數怎麼推</h3>
+        <pre class="code"><i># 三步法裡只有第 2 步真的搬一片盤子</i>
+T(n) = 2·T(n-1) + 1       <i># 兩次 n-1 的搬移，加上中間那一步</i>
+T(0) = 0
+
+<i># 展開：</i>
+T(n) = 2·T(n-1) + 1
+     = 4·T(n-2) + 2 + 1
+     = 8·T(n-3) + 4 + 2 + 1
+     = 2^k·T(n-k) + (2^k - 1)
+     <b>= 2^n·T(0) + 2^n - 1  =  2^n - 1</b>   <i># 令 k = n</i></pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">n</th><th class="mono">最少步數 2ⁿ−1</th><th>一秒搬一個要多久</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">3</td><td class="mono">7</td><td>7 秒</td></tr>
+              <tr><td class="mono">10</td><td class="mono">1,023</td><td>17 分鐘</td></tr>
+              <tr><td class="mono">20</td><td class="mono">1,048,575</td><td>12 天</td></tr>
+              <tr><td class="mono">30</td><td class="mono">約 10.7 億</td><td>34 年</td></tr>
+              <tr><td class="mono">64</td><td class="mono">約 1.8 × 10¹⁹</td><td style="color:var(--alarm);font-weight:700">5850 億年</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>傳說中梵天廟裡的 64 個金盤搬完世界就會毀滅 —— 從這張表看，暫時不用擔心。</p>
+      </div>
+
+      <div class="block">
+        <h3>一個關於複雜度的重要區別</h3>
+        <div class="callout" data-k="key">
+          <span class="tag">別搞混</span>
+          <span class="txt">河內塔是 O(2ⁿ)，但這<b>不代表演算法很爛</b>。<br><br>
+          <b>答案本身就有 2ⁿ−1 步</b> —— 你光是把答案印出來就要 2ⁿ−1 行。這叫<b>輸出敏感</b>：再聰明的演算法也不可能更快，因為它至少得把每一步講出來。</span>
+        </div>
+        <p>這跟 <a href="04-call-stack.html">04</a> 的費氏數列完全不同。費氏的 O(2ⁿ) 是<b>白費力氣</b>（重複算同樣的東西），加個 memo 就降到 O(n)。河內塔的 O(2ⁿ) 是<b>必要的</b>，無法優化。</p>
+        <p><b>看到指數複雜度時，先問一句：是演算法笨，還是答案本來就這麼大？</b></p>
+      </div>
+
+      <div class="block">
+        <h3>最佳解的另一個看法：不用遞迴也能走</h3>
+        <p>最佳解其實有一個機械式的走法，完全不用想：</p>
+        <ul class="bullets">
+          <li><b>奇數步</b>永遠搬<b>最小的盤子</b>，而且方向固定 —— n 是奇數時循環 A→C→B→A，n 是偶數時循環 A→B→C→A。</li>
+          <li><b>偶數步</b>只有一個合法的搬法（不動最小盤的那個），照做就對了。</li>
+        </ul>
+        <p>照這個規則走出來的，就是那 2ⁿ−1 步的最佳解。你可以在上面的遊戲裡驗證：<b>最小的盤子每兩步就動一次</b>，而且一直往同一個方向繞。</p>
+        <p style="color:var(--ink-soft)">這是遞迴解的另一面 —— 同一個答案，一個從「怎麼拆問題」看，一個從「觀察結果的規律」看。</p>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「要想清楚第一步搬哪個」</b> —— 反了。想「最大的那個什麼時候才能搬」，答案自己會浮出來。</li>
+          <li><b>「遞迴只是把問題丟給別人，沒有真的解決」</b> —— 它真的解決了，因為每次都更小，最後一定碰到 n=0 這個不用做事的基底。</li>
+          <li><b>「這題可以用貪心法」</b> —— 不行。任何「每一步選看起來最好的」策略都會卡死，因為有些步驟看起來是在<b>倒退</b>（把盤子搬回 A）卻是必要的。</li>
+          <li><b>「O(2ⁿ) 就是爛演算法」</b> —— 這題不是。答案本身就有 2ⁿ−1 步，這是下限，不是缺點。</li>
+          <li><b>「四根柱子也是 2ⁿ−1」</b> —— 不是。四根柱子的最少步數（Frame–Stewart 問題）少很多，而且到今天都還沒有被完整證明。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：玩家模式與示範模式共用同一個狀態</h3>
+        <p>這一頁跟前面幾頁不一樣 —— 它<b>同時是遊戲也是演示</b>。兩種模式都改動同一份資料：</p>
+        <div class="arch">
+          <div class="node" data-k="in">玩家點兩下柱子　／　自動示範的計時器</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">tryMove(from, to) <small>唯一能改動盤子的入口，規則檢查也在這裡</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">towers[3] <small>三個陣列，就是三個堆疊</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">為什麼共用</span>
+          <span class="txt">自動示範<b>不是播放預錄的動畫</b>，它是真的一步一步呼叫 <code>tryMove()</code> —— 跟玩家點滑鼠走的是同一條路。所以如果遞迴算出了不合法的一步，畫面會<b>當場出錯</b>。這等於是演算法的即時驗證。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>三個柱子就是三個堆疊</h3>
+        <pre class="code">towers = [[3,2,1], [], []]   <i># 每個陣列的「最後一個元素」就是最上面的盤子</i>
+
+<i># 拿起最上面的：</i>
+disk = towers[from].pop()          <i># ← 這就是 pop</i>
+
+<i># 放下去：</i>
+towers[to].push(disk)              <i># ← 這就是 push</i></pre>
+        <p>整個遊戲的資料結構就這樣。<b>「只能動最上面」這條規則不需要另外寫程式碼強制</b> —— 只要規定自己只能用 <code>pop()</code> 和 <code>push()</code>，規則就自動被遵守了。</p>
+        <div class="callout">
+          <span class="tag">選對結構的價值</span>
+          <span class="txt">這是「選對資料結構，一半的規則就免費了」最直接的例子。剩下要自己檢查的<b>只有一條</b>：大不能壓小。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>狀態</b></td><td class="mono">towers / moves / picked</td><td>三個堆疊、步數、目前拿起的是哪一柱。</td></tr>
+              <tr><td><b>規則</b></td><td class="mono">tryMove(from, to)</td><td><b>唯一</b>的改動入口。檢查來源非空、目標頂端比較大，然後 pop + push。</td></tr>
+              <tr><td><b>互動</b></td><td class="mono">clickTower(i)</td><td>第一下記住來源，第二下呼叫 tryMove。再點同一柱等於放棄。</td></tr>
+              <tr><td><b>最佳解</b></td><td class="mono">solve(n,a,c,b)</td><td>用遞迴算出完整的最佳步驟清單。<b>提示</b>和<b>自動示範</b>都吃它。</td></tr>
+              <tr><td><b>畫面</b></td><td class="mono">render()</td><td>把三個陣列畫成三疊盤子，寬度由盤子大小決定。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>「提示」是怎麼做到的</h3>
+        <p>提示功能有一個看似簡單、實際很關鍵的問題：<b>玩家亂走之後，最佳解的清單就對不上了</b>，不能只是報第 k 步。</p>
+        <p>本頁的做法很直接：<b>從目前這個盤面重新算一次</b>。因為河內塔的最佳解只跟「盤面長什麼樣」有關，跟你怎麼走到這裡無關 —— 這叫<b>無記憶性</b>。</p>
+        <pre class="code"><i># 從任意合法盤面求下一步：由大到小逐一決定每個盤子「該去哪」</i>
+nextMove(towers, n):              <i># 虛擬碼</i>
+    <i># 目標：把第 n 個盤子搬到 target 柱</i>
+    <i># 若它已經在 target → 問題縮小成 n-1，繼續往下看</i>
+    <i># 若不在 → 先把上面 n-1 個清到「第三根柱子」，所以</i>
+    <i>#          真正的下一步藏在「搬 n-1 個到 other」這個子問題裡</i></pre>
+        <p>這段程式碼比遞迴解本身還難寫一點，因為它要處理「任意盤面」而不只是初始盤面 —— 但它讓提示在<b>玩家走錯之後仍然有用</b>，這對教學很重要。</p>
+      </div>
+
+      <div class="block">
+        <h3>畫面：盤子的寬度就是它的大小</h3>
+        <p>盤子的寬度用 <code>基準寬 + 編號 × 級距</code> 算出來，而不是寫死五種尺寸。好處是<b>盤子數改成 6、7 也不用改 CSS</b>，顏色同理（用色相環均勻取樣）。</p>
+        <p>柱子中間那根桿子是 <code>::before</code> 畫的一條長方形，用 <code>z-index</code> 壓在盤子後面。盤子用 <code>flex-direction: column-reverse</code> 由下往上堆 —— 跟這個站上所有堆疊的畫法一致。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th></tr></thead>
+            <tbody>
+              <tr><td>放寬盤子數上限</td><td>HTML 的 <code>&lt;select&gt;</code> 加選項。7 個以上會需要 127 步，畫面還撐得住</td></tr>
+              <tr><td>加「上一步」功能</td><td>把每次 tryMove 的 (from, to) 存進一個陣列，倒著執行即可</td></tr>
+              <tr><td>加計時器 / 排行榜</td><td>用 <code>localStorage</code> 存最佳成績</td></tr>
+              <tr><td>做成四根柱子</td><td>資料改成 <code>towers[4]</code> 很容易，但<b>最佳解演算法完全不同</b>（Frame–Stewart）</td></tr>
+              <tr><td>看解法在呼叫堆疊上的樣子</td><td>去 <a href="04-call-stack.html">04 呼叫堆疊</a> 切到河內塔模式</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">實作河內塔，並把整個過程講清楚。
+
+要求：
+1. 用 C++ 寫 hanoi(n, a, c, b) 遞迴版，印出每一步「盤子 k: X → Y」
+2. 加一個計數器，驗證步數剛好是 2^n - 1
+3. 加一個 check(towers) 函式，每一步都驗證盤面合法
+   （沒有大盤壓小盤），確保演算法真的沒問題
+4. 用 n = 1..10 跑一遍，做一張「n / 步數 / 耗時」的表格
+
+寫完後回答：
+- 為什麼可以「假設 n-1 個已經會搬」？這叫什麼證明方法？
+- 第二步（搬最大的盤子）為什麼一定合法？</pre>
+
+        <h4>延伸題：改成不用遞迴</h4>
+        <pre class="code">把河內塔改寫成迭代版，不准用 recursion。
+
+方法一：自己拿一個 std::stack 當呼叫堆疊
+  - stack 裡放「還沒展開的任務」struct Task { n, a, c, b, expanded }
+  - 注意 push 的順序要反過來寫（因為 LIFO）
+
+方法二：用「機械規則」直接走最佳解
+  - 奇數步永遠搬最小盤，方向固定（n 奇數時 A→C→B→A）
+  - 偶數步只有唯一一個合法搬法（不動最小盤的那個）
+
+要求：
+- 兩個版本的輸出必須和遞迴版「一模一樣」（寫測試驗證）
+- 說明方法一的 push 順序為什麼要反過來
+- 說明方法二為什麼會恰好是最佳解</pre>
+
+        <h4>進階：四根柱子</h4>
+        <pre class="code">研究「四根柱子的河內塔」（Reve's puzzle）。
+
+1. 先用暴力 BFS 求 n = 1..8 的真正最少步數
+   （盤面當成狀態，BFS 找最短路徑 —— 這就是 07 迷宮那一題）
+2. 查 Frame-Stewart 演算法，實作它，比較兩者答案
+3. 做表格比較三根柱子和四根柱子的步數差距
+
+最後回答：
+- 為什麼多一根柱子步數就少這麼多？
+- Frame-Stewart 給出的答案「被證明是最佳解」了嗎？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 05 河內塔</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var $ = function(id){ return document.getElementById(id); };
+  var NAMES = ["左柱 A", "中柱 B", "右柱 C"];
+  var SHORT = ["A", "B", "C"];
+
+  var n = 3;
+  var towers = [[], [], []];
+  var moves = 0, picked = null, solved = false;
+  var log = [];
+  var autoTimer = null, autoQueue = [];
+
+  /* ---------- 規則：唯一能改動盤子的入口 ---------- */
+  function tryMove(from, to){
+    if(from === to) return {ok:false, why:"same"};
+    if(towers[from].length === 0) return {ok:false, why:"empty"};
+    var disk = towers[from][towers[from].length - 1];
+    var topTo = towers[to].length ? towers[to][towers[to].length - 1] : Infinity;
+    if(disk > topTo) return {ok:false, why:"bigger", disk:disk, blocked:topTo};
+
+    towers[from].pop();          // ← 這就是 pop
+    towers[to].push(disk);       // ← 這就是 push
+    moves++;
+    log.push({text:"盤 " + disk + "：" + SHORT[from] + " → " + SHORT[to], bad:false});
+    return {ok:true, disk:disk};
+  }
+
+  /* ---------- 最佳解：遞迴 ---------- */
+  function solve(k, a, c, b, out){
+    if(k === 0) return out;
+    solve(k-1, a, b, c, out);
+    out.push([a, c, k]);
+    solve(k-1, b, c, a, out);
+    return out;
+  }
+
+  /* ---------- 從任意盤面求最佳的下一步 ---------- */
+  function whereIs(disk){
+    for(var t=0;t<3;t++) if(towers[t].indexOf(disk) >= 0) return t;
+    return -1;
+  }
+  function nextBest(){
+    // 由大到小決定每個盤子該去哪；第一個「不在該在的位置」的盤子決定下一步
+    var target = 2;
+    for(var d = n; d >= 1; d--){
+      var at = whereIs(d);
+      if(at === target){
+        continue;                       // 已就位，問題縮小成 d-1，目標不變
+      }
+      // d 還沒到 target → 得先把 d 上面的 d-1 個清到「第三根柱」
+      var other = 3 - at - target;
+      // 若 d-1 那疊已經全部在 other，就可以直接搬 d
+      var ready = true;
+      for(var k = d-1; k >= 1; k--){
+        if(whereIs(k) !== other){ ready = false; break; }
+      }
+      if(ready) return [at, target, d];
+      // 否則遞迴進子問題：把 d-1 個從 at 搬到 other
+      target = other;
+      continue;
+    }
+    return null;   // 全部就位
+  }
+
+  /* ---------- 畫面 ---------- */
+  function diskWidth(d){ return 44 + d * 20; }
+  function diskColor(d){
+    var hue = Math.round((d - 1) / Math.max(1, n) * 300);
+    return "hsl(" + hue + " 62% 46%)";
+  }
+
+  function render(){
+    for(var t=0;t<3;t++){
+      var rod = $("rod" + t);
+      rod.innerHTML = "";
+      towers[t].forEach(function(d, i){
+        var el = document.createElement("div");
+        el.className = "disk" + (picked === t && i === towers[t].length-1 ? " lifted" : "");
+        el.style.width = diskWidth(d) + "px";
+        el.style.background = diskColor(d);
+        el.textContent = d;
+        rod.appendChild(el);
+      });
+      $("note" + t).textContent = towers[t].length ? (towers[t].length + " 片") : "空";
+      var tw = document.querySelector('.tower[data-t="' + t + '"]');
+      tw.classList.remove("is-src", "can-drop", "no-drop");
+      if(picked !== null){
+        if(t === picked) tw.classList.add("is-src");
+        else {
+          var d = towers[picked][towers[picked].length - 1];
+          var topTo = towers[t].length ? towers[t][towers[t].length-1] : Infinity;
+          tw.classList.add(d < topTo ? "can-drop" : "no-drop");
+        }
+      }
+    }
+
+    var optimal = Math.pow(2, n) - 1;
+    $("sMoves").textContent = moves;
+    $("sOptimal").textContent = optimal;
+    $("sLeft").textContent = solved ? 0 : Math.max(0, optimal - moves);
+    $("sEff").textContent = moves > 0 ? Math.round(optimal / moves * 100) + "%" : "—";
+    $("yardNote").textContent = n + " 個盤子";
+    $("statusNote").textContent = solved ? "完成" : "進行中";
+
+    var ml = $("movelist");
+    ml.innerHTML = "";
+    if(log.length === 0){
+      ml.innerHTML = '<div class="none">（還沒搬過）</div>';
+    } else {
+      log.slice(-60).forEach(function(r, i, a){
+        var d = document.createElement("div");
+        if(r.bad) d.className = "bad";
+        else if(i === a.length-1) d.className = "fresh";
+        d.textContent = (r.bad ? "✗ " : (log.length - a.length + i + 1) + ". ") + r.text;
+        ml.appendChild(d);
+      });
+      ml.scrollTop = ml.scrollHeight;
+    }
+    $("logNote").textContent = moves + " 步";
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", kind);
+    $("sayBadge").textContent =
+      ({start:"READY", push:"拿起", ok:"移動", no:"不行", done:"完成"})[kind] || "…";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+
+  /* ---------- 互動 ---------- */
+  function clickTower(t){
+    if(solved || autoTimer) return;
+
+    if(picked === null){
+      if(towers[t].length === 0){
+        say("no", "這根柱子是空的", "點一根有盤子的柱子，會拿起它<b>最上面</b>那一片。");
+        return;
+      }
+      picked = t;
+      var d = towers[t][towers[t].length-1];
+      say("push", "拿起盤子 " + d + "（在 " + NAMES[t] + "）",
+          "現在點另一根柱子放下去。<b>綠色虛線</b>的柱子可以放，<b>紅色</b>的不行。");
+      render();
+      return;
+    }
+
+    if(picked === t){
+      picked = null;
+      say("start", "放回原處", "再點一根柱子重新拿起。");
+      render();
+      return;
+    }
+
+    var from = picked;
+    picked = null;
+    var r = tryMove(from, t);
+
+    if(!r.ok){
+      log.push({text:"想把大盤壓在小盤上", bad:true});
+      say("no", "放不下去",
+          "<b>" + NAMES[t] + "</b> 最上面是比較小的盤子 —— <b>大的不能壓在小的上面</b>。換一根柱子，或先把小的挪走。");
+      render();
+      return;
+    }
+
+    checkWin(r.disk, from, t);
+  }
+
+  function checkWin(disk, from, to){
+    var optimal = Math.pow(2, n) - 1;
+    if(towers[2].length === n){
+      solved = true;
+      picked = null;
+      if(moves === optimal){
+        say("done", "完美！用最少的 " + optimal + " 步完成",
+            "這就是 2^" + n + " − 1 步的最佳解。換一個盤子數再試試 —— 步數會<b>翻倍再加一</b>。");
+      } else {
+        say("done", "完成！用了 " + moves + " 步",
+            "最少只要 <b>" + optimal + "</b> 步。按<b>自動示範</b>看最佳解怎麼走，或按提示重玩一次。");
+      }
+    } else {
+      say("ok", "盤子 " + disk + "：" + NAMES[from] + " → " + NAMES[to],
+          "第 <b>" + moves + "</b> 步。還要把 <b>" + (n - towers[2].length) + "</b> 片搬到右柱。");
+    }
+    render();
+  }
+
+  /* ---------- 提示 ---------- */
+  function hint(){
+    if(solved || autoTimer) return;
+    picked = null;
+    var m = nextBest();
+    if(!m){ render(); return; }
+    say("push", "提示：盤子 " + m[2] + "，" + NAMES[m[0]] + " → " + NAMES[m[1]],
+        "這是<b>從目前盤面</b>重新算出來的最佳下一步 —— 就算你剛剛走錯了，它還是有效。");
+    render();
+    var rod = $("rod" + m[0]);
+    var top = rod.lastChild;
+    if(top){ top.classList.add("hint"); setTimeout(function(){ top.classList.remove("hint"); }, 3000); }
+  }
+
+  /* ---------- 自動示範 ---------- */
+  function toggleAuto(){
+    if(autoTimer){ stopAuto(); return; }
+    reset();
+    autoQueue = solve(n, 0, 2, 1, []);
+    $("btnAuto").textContent = "❚❚ 停止";
+    say("ok", "自動示範：遞迴算出來的最佳解",
+        "共 <b>" + autoQueue.length + "</b> 步。注意<b>最小的盤子每兩步就動一次</b>，而且一直往同一個方向繞。");
+    var delay = Math.max(90, 1100 - parseInt($("spd").value, 10) * 11);
+    autoTimer = setInterval(function(){
+      if(!autoQueue.length){ stopAuto(); checkWin(0,0,2); return; }
+      var m = autoQueue.shift();
+      tryMove(m[0], m[1]);
+      render();
+      if(towers[2].length === n){ stopAuto(); checkWin(0,0,2); }
+    }, delay);
+  }
+  function stopAuto(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    $("btnAuto").textContent = "▶ 自動示範";
+  }
+
+  /* ---------- 重設 ---------- */
+  function reset(){
+    stopAuto();
+    n = parseInt($("diskCount").value, 10);
+    towers = [[], [], []];
+    for(var i = n; i >= 1; i--) towers[0].push(i);
+    moves = 0; picked = null; solved = false; log = [];
+    say("start", "點一根柱子，拿起最上面的盤子",
+        "目標是把 <b>" + n + "</b> 片全部搬到右柱，最少要 <b>" + (Math.pow(2,n)-1) + "</b> 步。");
+    render();
+  }
+
+  /* ---------- 事件 ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".tower"), function(el){
+    el.addEventListener("click", function(){ clickTower(parseInt(el.getAttribute("data-t"), 10)); });
+  });
+  $("diskCount").addEventListener("change", reset);
+  $("btnReset").addEventListener("click", reset);
+  $("btnHint").addEventListener("click", hint);
+  $("btnAuto").addEventListener("click", toggleAuto);
+
+  reset();
+})();
+</script>
+</body>
+</html>
