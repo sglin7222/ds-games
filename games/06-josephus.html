@@ -195,6 +195,14 @@
               <span class="panel-note">O(n·k)</span>
             </div>
             <ol class="algo" id="algo"></ol>
+            <div class="algo-doc idle" id="algoDoc">
+              <span class="ln" id="algoDocLn">—</span>
+              <span id="algoDocTxt">開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+            </div>
+            <details class="algo-all">
+              <summary>整份程式逐行中文說明</summary>
+              <ol id="algoAll"></ol>
+            </details>
           </div>
 
           <div class="panel">
@@ -569,6 +577,17 @@ n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
     "return dequeue()"
   ];
 
+  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "把 1 到 n 號依序放進佇列。排隊順序就是圈上的報數順序 —— 「圍成一圈」在程式裡其實就是「排成一列」。",
+    "只要佇列裡還有兩個人以上，遊戲就繼續。等到只剩一個人，他就是生還者。",
+    "前 k−1 聲報數都是安全的，所以先讓 k−1 個人依序輪過去。",
+    "隊頭的人報數但沒數到 k：把他 dequeue 出來，馬上 enqueue 回隊尾等下一輪。這一出一進，就等於他在圈子裡「被跳過、輪到下一個」。",
+    "第 k 聲：隊頭的人 dequeue 出來之後不放回去 —— 他就這樣從隊伍裡消失了，完全不需要額外的「刪除」動作。",
+    "把出局的人記下來。演算法本身不需要這一行，純粹是為了畫面能把他標成灰色。",
+    "佇列只剩最後一個人，他就是活到最後的生還者，回傳他的編號。"
+  ];
+
   var $ = function(id){ return document.getElementById(id); };
 
   var n = 7, k = 3, guess = 1;
@@ -741,10 +760,35 @@ n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
       li.textContent = t;
       ol.appendChild(li);
     });
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
   }
   function hilite(line){
     var lis = $("algo").children;
     for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    var rows = $("algoAll").children;
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。";
+    }
   }
 
   /* ---------- 重設 ---------- */

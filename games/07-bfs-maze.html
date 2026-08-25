@@ -223,6 +223,14 @@
               <span class="panel-note">O(V+E)</span>
             </div>
             <ol class="algo" id="algo"></ol>
+            <div class="algo-doc idle" id="algoDoc">
+              <span class="ln" id="algoDocLn">—</span>
+              <span id="algoDocTxt">開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+            </div>
+            <details class="algo-all">
+              <summary>整份程式逐行中文說明</summary>
+              <ol id="algoAll"></ol>
+            </details>
           </div>
 
         </div>
@@ -576,6 +584,18 @@ S = 起點，E = 終點，# = 牆，. = 可走
     "            seen、parent、放進 frontier"
   ];
 
+  /* 每一行程式的中文說明，索引和 CODE 一一對應。
+     佇列（BFS）和堆疊（DFS）共用同一份程式，只差第 3 行的取法。 */
+  var CODE_DOC = [
+    "準備「待處理」容器 frontier，一開始只放起點。裡面裝的是「已經知道可以走、但還沒去展開鄰居」的格子。",
+    "只要容器裡還有格子就繼續搜。容器空了還沒碰到終點，代表終點被牆圍死，這張圖無解。",
+    "整份程式唯一有差別的一行：佇列從最前面拿（先進先出 → BFS 一圈一圈擴散），堆疊從最後面拿（後進先出 → DFS 一路鑽到底）。",
+    "取出的格子正好是終點 → 搜尋結束，沿著 parent 一路回溯就能畫出路徑。BFS 在這裡停下時，這條路保證是最短的。",
+    "不是終點，就把 cur 上下左右四個鄰居一格一格拿出來檢查。",
+    "三關都要過：沒出界、不是牆、也沒被排過隊（seen）。少了 seen 檢查，程式會在原地來回繞圈永遠跑不完。",
+    "放進容器的當下就標記 seen（晚了會被重複入列），順便記下「它是從 cur 走過來的」—— 之後才有辦法回溯出路徑。"
+  ];
+
   var $ = function(id){ return document.getElementById(id); };
   var key = function(r,c){ return r * COLS + c; };
 
@@ -851,10 +871,35 @@ S = 起點，E = 終點，# = 牆，. = 可走
       li.textContent = t;
       ol.appendChild(li);
     });
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
   }
   function hilite(line){
     var lis = $("algo").children;
     for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    var rows = $("algoAll").children;
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。";
+    }
   }
 
   /* ---------- 事件 ---------- */

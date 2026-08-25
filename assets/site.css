@@ -394,6 +394,37 @@ select{padding:5px 9px;font:inherit;font-size:13px;color:var(--ink);
   color:var(--ink);font-weight:700}
 .algo li.is-now::before{opacity:1;color:var(--accent)}
 
+/* 目前執行行的中文說明（跟著逐步高亮更新） */
+.algo-doc{display:flex;gap:9px;align-items:baseline;margin-top:8px;padding:9px 12px;
+  background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
+  font-size:13px;line-height:1.6;color:var(--ink)}
+.algo-doc .ln{flex:0 0 auto;font-family:var(--font-mono);font-size:11px;font-weight:700;
+  color:var(--accent);letter-spacing:.04em}
+.algo-doc.idle{background:var(--sunken);border-left-color:var(--line);color:var(--ink-faint)}
+.algo-doc.idle .ln{color:var(--ink-faint)}
+
+/* 整份程式逐行中文說明（摺疊清單） */
+.algo-all{margin-top:10px;border:1px solid var(--line-soft);border-radius:8px;overflow:hidden}
+.algo-all summary{cursor:pointer;padding:9px 12px;font-size:13px;font-weight:700;
+  color:var(--ink-soft);background:var(--surface-2);user-select:none}
+.algo-all summary:hover{color:var(--ink)}
+.algo-all[open] summary{border-bottom:1px solid var(--line-soft)}
+.algo-all ol{margin:0;padding:0;list-style:none}
+.algo-all li{display:grid;grid-template-columns:30px minmax(150px,42%) 1fr;gap:0 12px;
+  padding:6px 12px 6px 0;border-bottom:1px solid var(--line-soft);align-items:baseline}
+.algo-all li:last-child{border-bottom:0}
+.algo-all li .no{font-family:var(--font-mono);font-size:11px;text-align:right;
+  color:var(--ink-faint)}
+.algo-all li .src{font-family:var(--font-mono);font-size:12px;color:var(--ink);
+  white-space:pre-wrap;word-break:break-all}
+.algo-all li .doc{font-size:12.5px;color:var(--ink-soft);line-height:1.55}
+.algo-all li.is-now{background:var(--accent-soft)}
+.algo-all li.is-now .no{color:var(--accent);font-weight:700}
+@media (max-width:640px){
+  .algo-all li{grid-template-columns:26px 1fr;row-gap:2px}
+  .algo-all li .doc{grid-column:2}
+}
+
 /* 操作歷程 */
 .log{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;
   max-height:200px;overflow-y:auto;font-family:var(--font-mono);font-size:11.5px;

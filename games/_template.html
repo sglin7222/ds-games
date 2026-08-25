@@ -20,6 +20,8 @@
      .stats / .stat           統計格
      .say / .say-*            說明面板（data-k 決定顏色）
      .algo                    逐行高亮的虛擬碼
+     .algo-doc / .algo-all    目前行中文說明框 + 整份逐行說明摺疊清單
+                              （CODE 配 CODE_DOC 陣列，寫法照 01 關）
      .log                     操作歷程
      .quiz / .opt / .score    闖關計分
      .panel / .block / .callout / .tablewrap / pre.code / .arch
@@ -375,7 +377,8 @@
   /* ============================================================
      建議的骨架（照這個順序寫，每個遊戲都一樣）：
 
-     1. 常數        LEVELS（關卡）、CODE（虛擬碼）、其他對照表
+     1. 常數        LEVELS（關卡）、CODE（虛擬碼）、CODE_DOC（每行
+                    一句中文說明，索引和 CODE 對應）、其他對照表
      2. 狀態        var S = { steps, cur, mode, score, ... }
      3. 資料層      buildSteps(input) → 回傳步驟陣列
      4. 畫面層      paintXxx()：只讀 S.steps[S.cur]，畫自己那塊

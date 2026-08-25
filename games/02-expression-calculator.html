@@ -231,6 +231,23 @@
         </div>
 
       </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（玩到哪亮到哪）</h3>
+          <span class="panel-note">兩階段 · O(n)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all">
+          <summary>整份程式逐行中文說明</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
       <div class="block">
         <h3>這個遊戲跑的程式（完整版）</h3>
         <p>上面兩個階段各自就是一段十幾行的程式。你按「下一步」時畫面走到哪，對應的就是哪一行：</p>
@@ -663,6 +680,45 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     {s:"((2+3)*4-6)/2", n:"巢狀"}
   ];
 
+  var CODE = [
+    "階段一 toPostfix(tokens):",
+    "    stack ← 空堆疊, out ← 空串列",
+    "    for t in tokens:",
+    "        if t 是數字 → 直接放進 out",
+    "        if t 是 ( → push 進 stack",
+    "        if t 是 ) → 一路 pop 到 ( 為止，丟掉 (",
+    "        if t 是運算子:",
+    "            while 頂端該先算（優先級較高，或同級左結合）→ pop 到 out",
+    "            push t",
+    "    讀完後，把 stack 剩下的全部倒進 out",
+    "階段二 evalPostfix(out):",
+    "    vstack ← 空堆疊",
+    "    for t in out:",
+    "        if t 是數字 → push 進 vstack",
+    "        else → pop 出 b、再 pop 出 a，push「a t b」的結果",
+    "    答案 = vstack 最後剩下的唯一元素"
+  ];
+
+  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "階段一的入口：把人看的中序 token 串翻譯成電腦好算的後序式。這一趟只重排符號，完全不做算術。",
+    "準備兩樣工具：stack 專門存「已經出現、但還沒輪到」的運算子，out 存翻譯好的後序輸出。",
+    "由左往右一次看一個 token，整串只掃一遍，所以是 O(n)。",
+    "數字不用等任何人，它在後序式裡的相對位置不會變，直接放進輸出。",
+    "左括號像一道牆，先壓進堆疊；牆上面的帳沒結清之前，牆下面的運算子一律不准彈出。",
+    "右括號代表括號內的帳可以結清了：一路彈出到碰見 (，再把這對括號丟掉——後序式裡不需要括號。",
+    "剩下的情況就是運算子（+ − * / ^），它不能直接進堆疊，要先跟頂端比優先級。",
+    "頂端優先級較高、或同級且目前運算子是左結合，代表「該它先算」——先彈到輸出。^ 的右結合就是在這個條件被特別放過的。",
+    "把目前的運算子壓進堆疊排隊，等它的右運算元到齊再說。",
+    "整串讀完後，把堆疊剩下的運算子依序倒進輸出。忘了這一步，最後幾個運算子會憑空消失。",
+    "階段二的入口：拿到後序式，從左讀到右一次算完，完全不用管優先級和括號——順序在階段一已經決定好了。",
+    "換一個堆疊 vstack，這次裡面裝的是數字（算到一半的結果）。",
+    "一樣由左往右掃一遍後序式，永不回頭。",
+    "數字先壓進堆疊，等之後某個運算子來取用它。",
+    "遇到運算子就取最近的兩個數字來算：先彈出的是右運算元 b，後彈出的才是左運算元 a——順序寫反，減法和除法就全錯了。",
+    "掃完後堆疊剛好剩一個元素，它就是答案；剩太多或太少都代表式子不合法。"
+  ];
+
   var $ = function(id){ return document.getElementById(id); };
   var fmt = function(n){
     if(!isFinite(n)) return "∞";
@@ -695,18 +751,18 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
   /* ---------- 資料層：兩個階段一次跑完 ---------- */
   function buildSteps(tokens){
     var out = [], stack = [], st = [];
-    var snap = function(ti, msg, cls, title){
+    var snap = function(ti, msg, cls, title, line){
       st.push({phase:"convert", ti:ti, stack:stack.slice(), out:out.slice(),
-               vstack:[], msg:msg, cls:cls||"", title:title||""});
+               vstack:[], msg:msg, cls:cls||"", title:title||"", line:line||0});
     };
 
-    snap(-1, "準備一個空的堆疊（裝運算子）和一個空的輸出串列。", "", "階段一開始");
+    snap(-1, "準備一個空的堆疊（裝運算子）和一個空的輸出串列。", "", "階段一開始", 2);
 
     for(var i=0;i<tokens.length;i++){
       var tk = tokens[i];
       if(tk.t === "num"){
         out.push(tk.v);
-        snap(i, "數字不用等任何人，它在後序式裡的相對位置不會變。", "good", "數字 " + tk.v + " → 直接輸出");
+        snap(i, "數字不用等任何人，它在後序式裡的相對位置不會變。", "good", "數字 " + tk.v + " → 直接輸出", 4);
       } else if(tk.t === "op"){
         while(stack.length){
           var top = stack[stack.length-1];
@@ -718,25 +774,25 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
           snap(i, higher
             ? "頂端的 <b>" + top + "</b> 優先級比 <b>" + tk.v + "</b> 高，該它先算 —— 先彈出到輸出。"
             : "<b>" + top + "</b> 和 <b>" + tk.v + "</b> 同級且左結合，先來的先算 —— 彈出 " + top + "。",
-            "pop", "彈出 " + top);
+            "pop", "彈出 " + top, 8);
         }
         stack.push(tk.v);
-        snap(i, "它還在等自己的右運算元，先壓進堆疊排隊。", "", "運算子 " + tk.v + " → push");
+        snap(i, "它還在等自己的右運算元，先壓進堆疊排隊。", "", "運算子 " + tk.v + " → push", 9);
       } else if(tk.t === "lp"){
         stack.push("(");
-        snap(i, "它像一道牆 —— 牆上面的運算子沒結案前，牆下面的一律不准彈出。", "", "左括號 ( → push");
+        snap(i, "它像一道牆 —— 牆上面的運算子沒結案前，牆下面的一律不准彈出。", "", "左括號 ( → push", 5);
       } else {
         var moved = false;
         while(stack.length && stack[stack.length-1] !== "("){
           var p = stack.pop(); out.push(p);
-          snap(i, "括號裡的帳現在可以結清了，一路彈出到碰見 <b>(</b> 為止。", "pop", "彈出 " + p);
+          snap(i, "括號裡的帳現在可以結清了，一路彈出到碰見 <b>(</b> 為止。", "pop", "彈出 " + p, 6);
           moved = true;
         }
         if(!stack.length) throw new Error("括號不配對：右括號 ) 多了");
         stack.pop();
         snap(i, moved
           ? "碰到牆 <b>(</b> 了，把它丟掉 —— 括號在後序式裡不需要存在。"
-          : "空括號，直接把 <b>(</b> 丟掉。", "good", "這對括號完成");
+          : "空括號，直接把 <b>(</b> 丟掉。", "good", "這對括號完成", 6);
       }
     }
     while(stack.length){
@@ -744,24 +800,24 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
       if(q === "(") throw new Error("括號不配對：左括號 ( 沒有關起來");
       out.push(q);
       snap(tokens.length, "式子讀完了，把堆疊剩下的倒出來。忘記這一步，最後幾個運算子會憑空消失。",
-           "pop", "收尾：倒出 " + q);
+           "pop", "收尾：倒出 " + q, 10);
     }
     snap(tokens.length, "後序式已經<b>沒有任何括號</b>，也不再需要優先級規則。接著開始求值。",
-         "good", "階段一完成");
+         "good", "階段一完成", 10);
 
     /* ----- 階段二：求值 ----- */
     var post = out.slice(), vs = [];
-    var vsnap = function(pi, msg, cls, title){
+    var vsnap = function(pi, msg, cls, title, line){
       st.push({phase:"eval", ti:pi, stack:[], out:post, vstack:vs.slice(),
-               msg:msg, cls:cls||"", title:title||""});
+               msg:msg, cls:cls||"", title:title||"", line:line||0});
     };
 
-    vsnap(-1, "換一個堆疊 —— 這次裡面裝的是<b>數字</b>，而且從左讀到右永不回頭。", "", "階段二開始");
+    vsnap(-1, "換一個堆疊 —— 這次裡面裝的是<b>數字</b>，而且從左讀到右永不回頭。", "", "階段二開始", 12);
     for(var m=0;m<post.length;m++){
       var t = post[m];
       if(!(t in PREC)){
         vs.push(parseFloat(t));
-        vsnap(m, "後序式裡的數字一律直接壓入。", "", "數字 " + t + " → push");
+        vsnap(m, "後序式裡的數字一律直接壓入。", "", "數字 " + t + " → push", 14);
       } else {
         if(vs.length < 2) throw new Error("式子不合法：運算子 " + t + " 找不到兩個運算元");
         var b = vs.pop(), a = vs.pop(), r;
@@ -773,7 +829,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
         vs.push(r);
         vsnap(m, "先彈出的是<b>右</b>運算元 " + fmt(b) + "，後彈出的才是<b>左</b>運算元 " + fmt(a) +
                  " —— 順序寫反，減法和除法就錯了。",
-              "pop", fmt(a) + " " + t + " " + fmt(b) + " = " + fmt(r));
+              "pop", fmt(a) + " " + t + " " + fmt(b) + " = " + fmt(r), 15);
       }
     }
     if(vs.length !== 1)
@@ -785,7 +841,48 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     last.title = "答案是 " + fmt(vs[0]);
     last.msg = "堆疊只剩最後一個元素，它就是答案。<b>「算完剛好剩一個」</b>本身就是一個很好用的合法性檢查。";
     last.cls = "good";
+    last.line = 16;
     return st;
+  }
+
+  /* ---------- 畫面層：演算法面板 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = steps[cur] ? (steps[cur].line || 0) : 0;
+    var lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。";
+    }
   }
 
   /* ---------- 畫面 ---------- */
@@ -858,6 +955,8 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     $("sayTitle").textContent = s.title || "";
     $("sayText").innerHTML = s.msg;
 
+    paintAlgo();
+
     $("answer").textContent = s.done ? "= " + fmt(s.result) : "";
     $("sDepth").textContent = "深度 " + items.length;
     $("sDepth2").textContent = items.length;
@@ -884,6 +983,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     $("btnPrev").disabled = true;
     $("progBar").style.width = "0%";
     $("stepCount").textContent = "0 / 0";
+    paintAlgo();
   }
 
   /* ---------- 控制 ---------- */
@@ -949,6 +1049,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     if(e.key === "ArrowLeft"){ e.preventDefault(); stepBack(); }
   });
 
+  renderAlgo();
   rebuild();
 })();
 </script>

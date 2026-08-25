@@ -216,6 +216,22 @@
               <span class="txt" style="font-size:12.5px"><b>呼叫次數 ≠ 深度。</b>左邊那棵子樹算完就被彈掉了，右邊才開始 —— 兩邊不會同時存在。</span>
             </div>
           </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">演算法（玩到哪亮到哪）</h3>
+              <span class="panel-note" id="algoNote"></span>
+            </div>
+            <ol class="algo" id="algo"></ol>
+            <div class="algo-doc idle" id="algoDoc">
+              <span class="ln" id="algoDocLn">—</span>
+              <span id="algoDocTxt">按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+            </div>
+            <details class="algo-all">
+              <summary>整份程式逐行中文說明</summary>
+              <ol id="algoAll"></ol>
+            </details>
+          </div>
         </div>
 
       </div>
@@ -660,6 +676,65 @@ long long fact(int n) {
       hint:'<code>hanoi(n) = hanoi(n-1) + 搬一片 + hanoi(n-1)</code>，<b>基底：n = 0 時什麼都不做直接 return</b>'}
   };
 
+  /* ---------- 三組虛擬碼與逐行中文說明（索引一一對應） ---------- */
+  var CODES = {
+    fact: {
+      name: "fact(n)",
+      code: [
+        "fact(n):",
+        "    if n ≤ 1:",
+        "        return 1",
+        "    r ← fact(n-1)",
+        "    return n × r"
+      ],
+      doc: [
+        "進入 fact(n)。每呼叫一次，系統就在呼叫堆疊推入（push）一個新 frame，裡面裝著這一層自己的 n —— 所以每層的 n 不會互相蓋掉。",
+        "先檢查基底條件：n 已經小到 1 以下了嗎？寫遞迴永遠先寫這一行，少了它就會一直 push、永遠不 pop，直到 Stack Overflow。",
+        "命中基底：1! 就是 1，直接回傳，不再往下呼叫。這是整趟遞迴第一個真正算出來的答案，frame 隨著 return 被彈出（pop）。",
+        "還不到基底 → 把問題交給更小的 fact(n-1)。這一層卡在這裡等答案，堆疊往上多壓一層 —— 呼叫就是往下推一層。",
+        "下面那層算完回來了：拿它的答案 r 乘上自己的 n，再回傳給更下面那層。frame 跟著 pop —— 回傳就是往上彈一層，答案由下而上逐層算出來。"
+      ]
+    },
+    fib: {
+      name: "fib(n)",
+      code: [
+        "fib(n):",
+        "    if n < 2:",
+        "        return n",
+        "    a ← fib(n-1)",
+        "    b ← fib(n-2)",
+        "    return a + b"
+      ],
+      doc: [
+        "進入 fib(n)，push 一個新 frame。注意：費氏每層會呼叫自己兩次，所以「總呼叫次數」會爆炸，但深度不會。",
+        "先檢查基底條件：n 小於 2 就不用再拆了，可以直接給答案。",
+        "命中基底：fib(0) = 0、fib(1) = 1，直接回傳並 pop。整棵遞迴樹的所有答案都是從這裡發源，再一路往上加出來的。",
+        "先往下算左邊的 fib(n-1)。這棵子樹會整個跑完、frame 全部 pop 光，才輪得到下一行 —— 兩棵子樹不會同時待在堆疊上。",
+        "左邊完全結束後，再往下算右邊的 fib(n-2)。這就是深度最多只有 n 的原因：堆疊上永遠只有「目前這一條路」。",
+        "左右兩個答案都拿到了，相加後回傳，這層 frame pop 掉，把結果交給下面還在等的那一層。"
+      ]
+    },
+    hanoi: {
+      name: "hanoi(n, a→c)",
+      code: [
+        "hanoi(n, a→c, 中繼 b):",
+        "    if n = 0: return",
+        "    hanoi(n-1, a→b, 中繼 c)",
+        "    搬盤子 n：a → c",
+        "    hanoi(n-1, b→c, 中繼 a)",
+        "    return"
+      ],
+      doc: [
+        "進入 hanoi(n)：任務是把 n 個盤子從 a 搬到 c，b 當中繼柱。一樣先 push 一個 frame，記下這一層的 n 和三根柱子的角色。",
+        "基底條件：沒有盤子要搬就直接 return。注意這種「空呼叫」也佔了一個 frame —— push 完馬上 pop，所以呼叫次數比搬盤次數多。",
+        "第一步：先把上面 n-1 個盤子搬去中繼柱 —— 往下遞迴，堆疊繼續往上長。這一層卡在這裡，等整趟搬完才醒來。",
+        "第二步：真正搬盤子的只有這一行！把最大的第 n 號盤從 a 直接搬到 c —— 此時 c 一定放得下，不會大壓小。",
+        "第三步：再遞迴一次，把中繼柱上那 n-1 個搬到 c 蓋上。兩次遞迴中間夾一個動作，這就是河內塔獨特的堆疊形狀。",
+        "這一層的三步全部做完，return → pop，回到下面那一層，換它繼續做自己剩下的步驟。"
+      ]
+    }
+  };
+
   var mode = "fact";
   var steps = [], cur = 0, timer = null, playing = false;
 
@@ -670,45 +745,45 @@ long long fact(int n) {
 
     if(m === "fact"){
       (function fact(k){
-        emit("call", {fn:"fact(" + k + ")", st:"要算 " + k + "!"});
+        emit("call", {fn:"fact(" + k + ")", st:"要算 " + k + "!", line:1});
         if(k <= 1){
-          emit("ret", {v:1, why:"基底條件 n ≤ 1 → 直接回傳 1，不再往下呼叫"});
+          emit("ret", {v:1, why:"基底條件 n ≤ 1 → 直接回傳 1，不再往下呼叫", line:3});
           return 1;
         }
-        emit("status", {st:"卡住了：要等 fact(" + (k-1) + ") 的答案才能乘 " + k});
+        emit("status", {st:"卡住了：要等 fact(" + (k-1) + ") 的答案才能乘 " + k, line:4});
         var r = k * fact(k-1);
-        emit("ret", {v:r, why:"拿到 fact(" + (k-1) + ") = " + (r/k) + " → " + k + " × " + (r/k) + " = " + r});
+        emit("ret", {v:r, why:"拿到 fact(" + (k-1) + ") = " + (r/k) + " → " + k + " × " + (r/k) + " = " + r, line:5});
         return r;
       })(n);
     } else if(m === "fib"){
       (function fib(k){
-        emit("call", {fn:"fib(" + k + ")", st:"要算 fib(" + k + ")"});
+        emit("call", {fn:"fib(" + k + ")", st:"要算 fib(" + k + ")", line:1});
         if(k < 2){
-          emit("ret", {v:k, why:"基底條件 n < 2 → 回傳 " + k});
+          emit("ret", {v:k, why:"基底條件 n < 2 → 回傳 " + k, line:3});
           return k;
         }
-        emit("status", {st:"先去算左邊的 fib(" + (k-1) + ")"});
+        emit("status", {st:"先去算左邊的 fib(" + (k-1) + ")", line:4});
         var a = fib(k-1);
-        emit("status", {st:"左邊 fib(" + (k-1) + ") = " + a + "，換算右邊 fib(" + (k-2) + ")"});
+        emit("status", {st:"左邊 fib(" + (k-1) + ") = " + a + "，換算右邊 fib(" + (k-2) + ")", line:5});
         var b = fib(k-2);
-        emit("ret", {v:a+b, why:a + " + " + b + " = " + (a+b)});
+        emit("ret", {v:a+b, why:a + " + " + b + " = " + (a+b), line:6});
         return a + b;
       })(n);
     } else {
       (function hanoi(k, a, c, b){
         emit("call", {fn:"hanoi(" + k + ", " + a + "→" + c + ")",
-                      st:"把 " + k + " 個盤子從 " + a + " 搬到 " + c});
+                      st:"把 " + k + " 個盤子從 " + a + " 搬到 " + c, line:1});
         if(k === 0){
-          emit("ret", {v:"—", why:"沒有盤子要搬，直接 return（但它仍然佔了一個 frame）"});
+          emit("ret", {v:"—", why:"沒有盤子要搬，直接 return（但它仍然佔了一個 frame）", line:2});
           return;
         }
-        emit("status", {st:"第一步：上面 " + (k-1) + " 個先搬到中繼柱 " + b});
+        emit("status", {st:"第一步：上面 " + (k-1) + " 個先搬到中繼柱 " + b, line:3});
         hanoi(k-1, a, b, c);
         emit("move", {text:"盤子 " + k + "：" + a + " → " + c,
-                      st:"第二步：把最大的盤子 " + k + " 搬到 " + c});
-        emit("status", {st:"第三步：中繼柱 " + b + " 那疊 " + (k-1) + " 個再搬到 " + c});
+                      st:"第二步：把最大的盤子 " + k + " 搬到 " + c, line:4});
+        emit("status", {st:"第三步：中繼柱 " + b + " 那疊 " + (k-1) + " 個再搬到 " + c, line:5});
         hanoi(k-1, b, c, a);
-        emit("ret", {v:"完成", why:k + " 個盤子已全部搬到 " + c});
+        emit("ret", {v:"完成", why:k + " 個盤子已全部搬到 " + c, line:6});
       })(n, "A", "C", "B");
     }
     return ev;
@@ -719,12 +794,14 @@ long long fact(int n) {
     var ev = recordEvents(m, n);
     var st = [], frames = [], out = [];
     var calls = 0, maxDepth = 0, result = null;
+    var curLine = 0;
 
     var snap = function(title, msg, cls, flag){
       st.push({
         frames: frames.map(function(f){ return {fn:f.fn, st:f.st, mark:f.mark}; }),
         out: out.slice(), title:title, msg:msg, cls:cls || "",
-        calls:calls, maxDepth:maxDepth, depth:frames.length, flag:flag || null
+        calls:calls, maxDepth:maxDepth, depth:frames.length, flag:flag || null,
+        line: curLine
       });
     };
 
@@ -732,6 +809,7 @@ long long fact(int n) {
 
     ev.forEach(function(e){
       var f;
+      curLine = e.line || 0;
       if(e.t === "call"){
         frames.push({fn:e.fn, st:e.st, mark:"newborn"});
         calls++;
@@ -843,6 +921,53 @@ long long fact(int n) {
     $("stepCount").textContent = cur + " / " + total;
     $("btnPrev").disabled = (cur === 0);
     $("btnNext").disabled = (cur >= total);
+
+    paintAlgo();
+  }
+
+  /* ---------- 演算法面板：虛擬碼逐行高亮與說明 ---------- */
+  function renderAlgo(){
+    var code = CODES[mode].code, doc = CODES[mode].doc;
+    $("algoNote").textContent = CODES[mode].name;
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < code.length; i++){
+      var li = document.createElement("li");
+      li.textContent = code[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < code.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = code[j].trim();
+      var d = document.createElement("span");
+      d.className = "doc"; d.textContent = doc[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(d);
+      all.appendChild(row);
+    }
+  }
+
+  function paintAlgo(){
+    var s = steps[cur];
+    var line = (s && s.line) ? s.line : 0;
+    var doc = CODES[mode].doc;
+    var lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= doc.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = doc[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。";
+    }
   }
 
   /* ---------- 控制 ---------- */
@@ -850,6 +975,7 @@ long long fact(int n) {
     stopRun();
     steps = buildSteps(mode, parseInt($("nVal").value, 10));
     cur = 0;
+    renderAlgo();
     render();
   }
 

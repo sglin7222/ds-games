@@ -251,6 +251,22 @@
               <span class="txt" style="font-size:12.5px">每個元素<b>最多 push 一次、pop 一次</b>，所以總操作永遠 ≤ 2n。這就是 O(n) 的證明。</span>
             </div>
           </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">演算法（玩到哪亮到哪）</h3>
+              <span class="panel-note" id="algoNote">O(n)</span>
+            </div>
+            <ol class="algo" id="algo"></ol>
+            <div class="algo-doc idle" id="algoDoc">
+              <span class="ln" id="algoDocLn">—</span>
+              <span id="algoDocTxt">按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+            </div>
+            <details class="algo-all">
+              <summary>整份程式逐行中文說明</summary>
+              <ol id="algoAll"></ol>
+            </details>
+          </div>
         </div>
 
       </div>
@@ -708,6 +724,57 @@ area  = h[j] * width</pre>
     ]
   };
 
+  /* ---------- 演算法面板：兩組虛擬碼與逐行中文說明 ---------- */
+  var CODE_HIST = [
+    "function 最大矩形(h):",
+    "    h 尾端補一根高度 0 的哨兵",
+    "    stack ← 空堆疊；best ← 0",
+    "    for i in 0 .. h 的長度-1:",
+    "        while stack 不空 且 h[頂端] >= h[i]:",
+    "            top ← stack.pop()",
+    "            左界 ← 頂端下面那根 + 1（堆疊空則 0）",
+    "            面積 ← h[top] × (i − 左界)",
+    "            best ← max(best, 面積)",
+    "        stack.push(i)",
+    "    return best"
+  ];
+  var CODE_DOC_HIST = [
+    "函式入口：收到柱子高度陣列 h，目標是找出柱狀圖裡能畫出的最大矩形面積。",
+    "哨兵技巧：補一根比誰都矮的假柱子，逼堆疊在掃描結束前把所有柱子都結算掉，就不用另外寫收尾程式。",
+    "堆疊存「還沒定案、正在等右邊界」的柱子索引（存索引不存高度）；best 記錄目前看過的最大面積。",
+    "由左往右，一次看一根柱子（最後一輪看的是哨兵）。",
+    "頂端比現在這根高（或一樣高）→ 它等到右邊界了，馬上結算；一路彈到頂端比自己矮為止。",
+    "把頂端那根彈出來，它就是這次矩形的高度。",
+    "左邊界免費拿到：彈出後露出的頂端，正好是左邊第一個比它矮的柱子，往右一格就是左界。",
+    "寬度 = i − 左界（右界是現在這根的左邊一格），面積 = 高 × 寬。",
+    "跟目前紀錄比一比，比較大就更新 best。",
+    "該結算的都結算完了，換自己進堆疊排隊，等右邊出現更矮的柱子。",
+    "掃描結束（哨兵保證堆疊已清空），best 就是答案。"
+  ];
+
+  var CODE_TEMP = [
+    "function 每日溫度(t):",
+    "    ans 全部先填 0；stack ← 空堆疊",
+    "    for i in 0 .. t 的長度-1:",
+    "        while stack 不空 且 t[頂端] < t[i]:",
+    "            j ← stack.pop()",
+    "            ans[j] ← i − j",
+    "        stack.push(i)",
+    "    return ans"
+  ];
+  var CODE_DOC_TEMP = [
+    "函式入口：收到每天的氣溫陣列 t，要回答每一天「還要等幾天才會更暖」。",
+    "答案先全部填 0（預設「之後都不會更暖」）；堆疊存「還在等更暖那天」的日子索引。",
+    "由左往右，一天一天看。",
+    "今天比頂端那天暖 → 頂端等到了！馬上結算；一路彈到頂端不比今天冷為止。",
+    "把等到的那天 j 從堆疊彈出來，它的答案現在可以定案了。",
+    "回填答案：第 j 天等了 i − j 天，今天就是它一直在等的那一天。",
+    "換今天進堆疊排隊，跟裡面的日子一起等更暖的未來。",
+    "掃描結束；還留在堆疊裡的日子再也等不到更暖的，答案維持預設的 0。"
+  ];
+
+  var ALGO_IDLE = "按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。";
+
   var $ = function(id){ return document.getElementById(id); };
 
   var mode = "hist", data = [];
@@ -718,10 +785,10 @@ area  = h[j] * width</pre>
     var h = a.concat([0]);              // 哨兵
     var stack = [], st = [];
     var best = 0, bestRect = null, ops = 0;
-    var snap = function(i, title, msg, cls, rect){
+    var snap = function(i, title, msg, cls, rect, line){
       st.push({i:i, stack:stack.slice(), title:title, msg:msg, cls:cls||"", rect:rect||null,
                best:best, bestRect: bestRect ? {l:bestRect.l,r:bestRect.r,h:bestRect.h,area:bestRect.area} : null,
-               ops:ops, ans:null});
+               ops:ops, ans:null, line:line||0});
     };
 
     snap(-1, "準備一個空堆疊",
@@ -743,18 +810,19 @@ area  = h[j] * width</pre>
           (sentinel ? "<b>哨兵 0</b>" : "柱子 " + i + "（高 " + h[i] + "）") +
           " 比頂端矮 —— 它就是柱子 " + top + " 的右邊界。左界 " + left + "、右界 " + (i-1) +
           "，寬 " + width + "。<b>左界是從堆疊裡它下面那根免費拿到的。</b>",
-          isNew ? "good" : "pop", rect);
+          isNew ? "good" : "pop", rect, isNew ? 9 : 8);
       }
       if(!sentinel){
         stack.push(i); ops++;
         snap(i, "柱子 " + i + "（高 " + h[i] + "）→ push",
-          "它比頂端高，右邊界還不知道 —— 壓入堆疊，等右邊出現更矮的才結算。", "");
+          "它比頂端高，右邊界還不知道 —— 壓入堆疊，等右邊出現更矮的才結算。", "", null, 10);
       } else {
         var s = st[st.length-1];
         s.title = "掃描結束，最大面積 = " + best;
         s.msg = "哨兵把堆疊清空了。全程共 <b>" + ops + "</b> 次 push/pop，而 2n = " +
                 (2*a.length) + " —— 每根柱子剛好各進出一次，這就是 O(n) 的證明。";
         s.cls = "good";
+        s.line = 11;
         s.done = true;
       }
     }
@@ -767,9 +835,9 @@ area  = h[j] * width</pre>
     var ans = [], ops = 0, fresh = -1, i;
     for(i=0;i<a.length;i++) ans.push(null);
 
-    var snap = function(i, title, msg, cls){
+    var snap = function(i, title, msg, cls, line){
       st.push({i:i, stack:stack.slice(), title:title, msg:msg, cls:cls||"", rect:null,
-               best:0, bestRect:null, ops:ops, ans:ans.slice(), fresh:fresh});
+               best:0, bestRect:null, ops:ops, ans:ans.slice(), fresh:fresh, line:line||0});
     };
 
     snap(-1, "準備一個空堆疊",
@@ -783,18 +851,18 @@ area  = h[j] * width</pre>
         fresh = j;
         snap(i, "第 " + j + " 天等到了！答案 = " + (i-j) + " 天",
           "第 " + i + " 天 <b>" + a[i] + "°</b> 比第 " + j + " 天 <b>" + a[j] +
-          "°</b> 暖 —— 它就是第 " + j + " 天在等的那一天。天數 = " + i + " − " + j + "。", "good");
+          "°</b> 暖 —— 它就是第 " + j + " 天在等的那一天。天數 = " + i + " − " + j + "。", "good", 6);
       }
       fresh = -1;
       stack.push(i); ops++;
       snap(i, "第 " + i + " 天 " + a[i] + "° → push",
-        "沒有比頂端暖，代表堆疊裡的日子都還沒等到 —— 自己也壓進去一起等。", "");
+        "沒有比頂端暖，代表堆疊裡的日子都還沒等到 —— 自己也壓進去一起等。", "", 7);
     }
     for(var k=0;k<ans.length;k++) if(ans[k] === null) ans[k] = 0;
     fresh = -1;
     snap(a.length, "掃完了",
       "還留在堆疊裡的 <b>" + stack.length + "</b> 天，之後再也沒有更暖的日子 → 答案填 0。全程共 <b>" +
-      ops + "</b> 次 push/pop，而 2n = " + (2*a.length) + "。", "good");
+      ops + "</b> 次 push/pop，而 2n = " + (2*a.length) + "。", "good", 8);
     var last = st[st.length-1];
     last.ans = ans.slice();
     last.done = true;
@@ -894,11 +962,59 @@ area  = h[j] * width</pre>
       : (s.ans ? s.ans.filter(function(v){ return v !== null; }).length : 0);
     $("chartNote").textContent = isHist ? ("n = " + data.length + " + 哨兵") : ("n = " + data.length);
 
+    paintAlgo(s.line || 0);
+
     var total = steps.length - 1;
     $("progBar").style.width = (total > 0 ? cur/total*100 : 0) + "%";
     $("stepCount").textContent = cur + " / " + total;
     $("btnPrev").disabled = (cur === 0);
     $("btnNext").disabled = (cur >= total);
+  }
+
+  /* ---------- 演算法面板 ---------- */
+  function curCode(){ return (mode === "hist") ? CODE_HIST : CODE_TEMP; }
+  function curCodeDoc(){ return (mode === "hist") ? CODE_DOC_HIST : CODE_DOC_TEMP; }
+
+  function renderAlgo(){
+    var CODE = curCode(), DOC = curCodeDoc();
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+    paintAlgo(0);
+  }
+
+  function paintAlgo(line){
+    var DOC = curCodeDoc();
+    var lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = ALGO_IDLE;
+    }
   }
 
   function mkRect(r, scale, isBest){
@@ -949,6 +1065,7 @@ area  = h[j] * width</pre>
       $("btnRun").disabled = true;
       $("btnNext").disabled = true;
       $("btnPrev").disabled = true;
+      paintAlgo(0);
     }
     paintChips();
   }
@@ -963,6 +1080,7 @@ area  = h[j] * width</pre>
     $("chartLabel").textContent = (m === "hist") ? "柱狀圖" : "每日溫度";
     $("monoNote").textContent = (m === "hist") ? "遞增" : "遞減";
     $("data").value = PRESETS[m][0][0];
+    renderAlgo();
     rebuild();
   }
 

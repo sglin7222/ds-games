@@ -225,6 +225,22 @@
           </div>
         </div>
 
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">演算法（自動示範時亮到哪）</h3>
+            <span class="panel-note">遞迴 5 行</span>
+          </div>
+          <ol class="algo" id="algo"></ol>
+          <div class="algo-doc idle" id="algoDoc">
+            <span class="ln" id="algoDocLn">—</span>
+            <span id="algoDocTxt">切到「自動示範」，看每一步對應哪一行程式。</span>
+          </div>
+          <details class="algo-all">
+            <summary>整份程式逐行中文說明</summary>
+            <ol id="algoAll"></ol>
+          </details>
+        </div>
+
       </div>
 
       <div class="callout" data-k="key">
@@ -568,6 +584,67 @@ nextMove(towers, n):              <i># 虛擬碼</i>
   var moves = 0, picked = null, solved = false;
   var log = [];
   var autoTimer = null, autoQueue = [];
+  var autoStep = 0, autoTotal = 0;
+
+  /* ---------- 演算法面板：虛擬碼與逐行說明 ---------- */
+  var CODE = [
+    "hanoi(n, a→c, b 當中繼):",
+    "    if n == 0 → return",
+    "    hanoi(n-1, a→b, c 當中繼)",
+    "    把第 n 號盤從 a 搬到 c",
+    "    hanoi(n-1, b→c, a 當中繼)"
+  ];
+
+  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "函式入口：任務是「把 n 片盤子從 a 柱搬到 c 柱，b 柱借來當中繼」。整個解法就這一個函式，一路呼叫更小的自己。",
+    "基底條件：n 是 0 代表沒有盤子要搬，什麼都不用做，直接返回。遞迴每層都變小，最後一定停在這裡。",
+    "第一步：先把上面 n−1 片搬去中繼柱（這一趟換 c 當中繼）。最大盤上面清空了，它才搬得動。",
+    "第二步：最大的第 n 號盤從 a 直接搬到 c。整份程式裡真正搬盤子的只有這一行，其他行都是在「拆任務」。",
+    "第三步：把剛剛寄放在中繼柱的 n−1 片整疊搬到 c，蓋在最大盤上面（這一趟換 a 當中繼）。搬完就大功告成。"
+  ];
+
+  var IDLE_DOC = "切到「自動示範」，看每一步對應哪一行程式。";
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  /* 亮某一行（line 從 1 起算；0 或超出範圍 = 回到 idle） */
+  function hilite(line){
+    var lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = IDLE_DOC;
+    }
+  }
 
   /* ---------- 規則：唯一能改動盤子的入口 ---------- */
   function tryMove(from, to){
@@ -763,20 +840,38 @@ nextMove(towers, n):              <i># 虛擬碼</i>
     if(autoTimer){ stopAuto(); return; }
     reset();
     autoQueue = solve(n, 0, 2, 1, []);
+    // 標記每一步屬於最外層遞迴的哪一行：
+    // 前 2^(n-1)-1 步 = 第 3 行（把 n-1 疊清去中繼柱 B）
+    // 正中間那一步   = 第 4 行（最大盤 A → C）
+    // 之後每一步     = 第 5 行（把 n-1 疊從 B 搬回 C）
+    var mid = Math.pow(2, n - 1) - 1;
+    for(var i = 0; i < autoQueue.length; i++){
+      autoQueue[i].push(i < mid ? 3 : (i === mid ? 4 : 5));
+    }
+    autoStep = 0;
+    autoTotal = autoQueue.length;
     $("btnAuto").textContent = "❚❚ 停止";
+    hilite(1);
     say("ok", "自動示範：遞迴算出來的最佳解",
-        "共 <b>" + autoQueue.length + "</b> 步。注意<b>最小的盤子每兩步就動一次</b>，而且一直往同一個方向繞。");
+        "共 <b>" + autoTotal + "</b> 步。下方<b>演算法</b>面板會亮出每一步是哪一行程式在搬；也注意<b>最小的盤子每兩步就動一次</b>，一直往同一個方向繞。");
     var delay = Math.max(90, 1100 - parseInt($("spd").value, 10) * 11);
     autoTimer = setInterval(function(){
       if(!autoQueue.length){ stopAuto(); checkWin(0,0,2); return; }
       var m = autoQueue.shift();
       tryMove(m[0], m[1]);
+      autoStep++;
+      hilite(m[3]);
+      var phase = (m[3] === 3) ? "現在在<b>第一階段</b>：先把上面 " + (n-1) + " 片清到中繼柱 B（它自己又是一個小河內塔）。"
+                : (m[3] === 4) ? "<b>第二階段</b>：最大盤直達目標柱 —— 前面的每一步都是為了這一步。"
+                : "<b>第三階段</b>：把寄放在 B 的 " + (n-1) + " 片整疊搬到 C 蓋上（又是一個小河內塔）。";
+      say("ok", "盤子 " + m[2] + "：" + NAMES[m[0]] + " → " + NAMES[m[1]],
+          "第 <b>" + autoStep + " / " + autoTotal + "</b> 步，對應演算法面板的<b>第 " + m[3] + " 行</b>。" + phase);
       render();
       if(towers[2].length === n){ stopAuto(); checkWin(0,0,2); }
     }, delay);
   }
   function stopAuto(){
-    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; hilite(0); }
     $("btnAuto").textContent = "▶ 自動示範";
   }
 
@@ -789,6 +884,7 @@ nextMove(towers, n):              <i># 虛擬碼</i>
     moves = 0; picked = null; solved = false; log = [];
     say("start", "點一根柱子，拿起最上面的盤子",
         "目標是把 <b>" + n + "</b> 片全部搬到右柱，最少要 <b>" + (Math.pow(2,n)-1) + "</b> 步。");
+    hilite(0);
     render();
   }
 
@@ -801,6 +897,7 @@ nextMove(towers, n):              <i># 虛擬碼</i>
   $("btnHint").addEventListener("click", hint);
   $("btnAuto").addEventListener("click", toggleAuto);
 
+  renderAlgo();
   reset();
 })();
 </script>

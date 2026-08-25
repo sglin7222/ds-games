@@ -194,6 +194,14 @@
               <span class="panel-note">O(R×C)</span>
             </div>
             <ol class="algo" id="algo"></ol>
+            <div class="algo-doc idle" id="algoDoc">
+              <span class="ln" id="algoDocLn">—</span>
+              <span id="algoDocTxt">開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+            </div>
+            <details class="algo-all">
+              <summary>整份程式逐行中文說明</summary>
+              <ol id="algoAll"></ol>
+            </details>
           </div>
 
         </div>
@@ -554,6 +562,19 @@ floodFill(image, 1, 1, 2)
     "            nb 上色 + 放進 frontier"
   ];
 
+  /* 每一行程式的中文說明，索引和 CODE 一一對應。
+     佇列（波紋）和堆疊（蛇形）共用同一份程式，只差第 5 行的取法。 */
+  var CODE_DOC = [
+    "先記住點擊那一格「原本」的顏色 old。之後判斷「跟起點同一區」全靠跟 old 比對。",
+    "基底防護：新顏色和 old 一樣就直接收工。不然「上色」等於沒改，每一格永遠符合條件、反覆被塞回容器 —— 無限迴圈直到記憶體爆掉。",
+    "容器裡放進起點，並立刻把它塗成新色。「上色」本身就是「已走訪」的標記，所以這一題不需要額外的 seen 集合。",
+    "這裡沒有終點可以停 —— 容器空了，代表整個連通區域都走遍了，這時才自然結束。",
+    "取出一格來處理：佇列從最前面拿（波紋同心圓擴散），堆疊從最後面拿（蛇形爬行）。取法不同，但最後填到的格子一模一樣。",
+    "把 cur 的鄰居一格一格檢查（預設上下左右 4 方向；勾了斜角就是 8 方向，顏色會從縫隙漏出去）。",
+    "只有「還是原本顏色」的鄰居才算同一區。已經塗過新色的格子不再等於 old，自然不會被重複處理。",
+    "入列的當下就上色。要是等取出來才上色，同一格會被不同鄰居重複塞進容器好幾次，容器爆大、速度變慢。"
+  ];
+
   var $ = function(id){ return document.getElementById(id); };
 
   var grid = [];
@@ -752,10 +773,35 @@ floodFill(image, 1, 1, 2)
       li.textContent = t;
       ol.appendChild(li);
     });
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
   }
   function hilite(line){
     var lis = $("algo").children;
     for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    var rows = $("algoAll").children;
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。";
+    }
   }
 
   function setAlgo(q){
