@@ -394,6 +394,10 @@ select{padding:5px 9px;font:inherit;font-size:13px;color:var(--ink);
   color:var(--ink);font-weight:700}
 .algo li.is-now::before{opacity:1;color:var(--accent)}
 
+/* 全寬演算法面板（放在遊戲區正下方，不塞側欄） */
+.algo-panel{margin-top:14px}
+.algo-panel .algo{font-size:13px}
+
 /* 目前執行行的中文說明（跟著逐步高亮更新） */
 .algo-doc{display:flex;gap:9px;align-items:baseline;margin-top:8px;padding:9px 12px;
   background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;

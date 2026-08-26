@@ -191,22 +191,6 @@
 
           <div class="panel">
             <div class="panel-head">
-              <h3 class="panel-title">演算法</h3>
-              <span class="panel-note">O(n·k)</span>
-            </div>
-            <ol class="algo" id="algo"></ol>
-            <div class="algo-doc idle" id="algoDoc">
-              <span class="ln" id="algoDocLn">—</span>
-              <span id="algoDocTxt">開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。</span>
-            </div>
-            <details class="algo-all">
-              <summary>整份程式逐行中文說明</summary>
-              <ol id="algoAll"></ol>
-            </details>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head">
               <h3 class="panel-title">歷程</h3>
               <span class="panel-note" id="logNote"></span>
             </div>
@@ -214,6 +198,22 @@
           </div>
 
         </div>
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O(n·k)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">開始播放後，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
       </div>
       <div class="block">
         <h3>這個遊戲跑的程式（完整版）</h3>
@@ -568,24 +568,24 @@ n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
   "use strict";
 
   var CODE = [
-    "queue ← [1..n]",
-    "while queue 長度 > 1:",
-    "    重複 k−1 次:",
-    "        enqueue(dequeue())",
-    "    out ← dequeue()",
-    "    記錄 out 出局",
-    "return dequeue()"
+    "queue<int> q;",
+    "for (int i = 1; i <= n; i++) q.push(i);",
+    "while (q.size() > 1) {",
+    "    for (int i = 0; i < k - 1; i++) { q.push(q.front()); q.pop(); }",
+    "    q.pop();",
+    "}",
+    "return q.front();"
   ];
 
-  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
   var CODE_DOC = [
-    "把 1 到 n 號依序放進佇列。排隊順序就是圈上的報數順序 —— 「圍成一圈」在程式裡其實就是「排成一列」。",
-    "只要佇列裡還有兩個人以上，遊戲就繼續。等到只剩一個人，他就是生還者。",
-    "前 k−1 聲報數都是安全的，所以先讓 k−1 個人依序輪過去。",
-    "隊頭的人報數但沒數到 k：把他 dequeue 出來，馬上 enqueue 回隊尾等下一輪。這一出一進，就等於他在圈子裡「被跳過、輪到下一個」。",
-    "第 k 聲：隊頭的人 dequeue 出來之後不放回去 —— 他就這樣從隊伍裡消失了，完全不需要額外的「刪除」動作。",
-    "把出局的人記下來。演算法本身不需要這一行，純粹是為了畫面能把他標成灰色。",
-    "佇列只剩最後一個人，他就是活到最後的生還者，回傳他的編號。"
+    "準備一個空的「佇列」，取名叫 q。佇列就像排隊買票的隊伍：先來的人排前面、先被叫到，新來的人只能排到最後面（這叫「先進先出」）。角括號裡的 int 是說隊伍裡裝的是整數 —— 也就是每個人的編號。",
+    "這是一個「for 迴圈」：讓 i 從 1 開始數，每做完一次就加 1，一直做到 n 為止。每一輪做的事是 q.push(i)：push（推入）＝把 i 號放到隊伍最後面。跑完這行，1 到 n 號就照順序排好隊了 —— 「圍成一圈」在程式裡其實就是「排成一列」。",
+    "「while 迴圈」＝只要括號裡的條件還成立，就把大括號裡的動作一直重複做。q.size() 是隊伍目前的人數；條件是「人數超過 1」—— 也就是一直淘汰下去，直到只剩最後一個人才停。",
+    "報數的前 k−1 聲都是安全的，所以重複 k−1 次這組動作：q.front()＝看隊伍最前面的人是誰，q.push(…)＝把他排到隊伍最後面，q.pop()＝把最前面那個位子清掉。一出一進，就等於「排頭報了個安全的數，走到隊尾重新排」—— 跟在圈子裡輪過一個人是同一件事。",
+    "第 k 聲：pop＝把隊伍最前面的人拿掉，而且這次「不放回去」—— 他就這樣從隊伍裡消失了，這就是出局。你看，出局完全不需要額外的「刪除」動作。",
+    "這個大括號 } 是 while 迴圈的結尾。程式會自動跳回第 3 行再檢查一次人數：還超過一人，就再玩一輪報數；只剩一人，就往下走到第 7 行。",
+    "能走到這裡，表示隊伍只剩一個人。q.front()＝看隊伍最前面（也是唯一）那個人的編號，return＝把這個編號當成答案交出去 —— 他就是活到最後的生還者。"
   ];
 
   var $ = function(id){ return document.getElementById(id); };
@@ -787,7 +787,7 @@ n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "開始播放後，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
     }
   }
 
@@ -810,7 +810,7 @@ n 個人圍成一圈，從 1 號開始報數，數到 k 的人出局，
     $("btnStep").disabled = false;
     say("start", n + " 個人圍成一圈，數到 " + k + " 的人出局",
         "你押 <b>" + guess + "</b> 號會活下來。按「單步」看每一次 dequeue 發生什麼事。");
-    hilite(1);
+    hilite(2);
     render();
   }
 

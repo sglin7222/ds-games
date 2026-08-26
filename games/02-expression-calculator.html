@@ -232,18 +232,18 @@
 
       </div>
 
-      <div class="panel">
+      <div class="panel algo-panel">
         <div class="panel-head">
-          <h3 class="panel-title">演算法（玩到哪亮到哪）</h3>
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
           <span class="panel-note">兩階段 · O(n)</span>
         </div>
         <ol class="algo" id="algo"></ol>
         <div class="algo-doc idle" id="algoDoc">
           <span class="ln" id="algoDocLn">—</span>
-          <span id="algoDocTxt">按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
         </div>
-        <details class="algo-all">
-          <summary>整份程式逐行中文說明</summary>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
           <ol id="algoAll"></ol>
         </details>
       </div>
@@ -681,42 +681,64 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
   ];
 
   var CODE = [
-    "階段一 toPostfix(tokens):",
-    "    stack ← 空堆疊, out ← 空串列",
-    "    for t in tokens:",
-    "        if t 是數字 → 直接放進 out",
-    "        if t 是 ( → push 進 stack",
-    "        if t 是 ) → 一路 pop 到 ( 為止，丟掉 (",
-    "        if t 是運算子:",
-    "            while 頂端該先算（優先級較高，或同級左結合）→ pop 到 out",
-    "            push t",
-    "    讀完後，把 stack 剩下的全部倒進 out",
-    "階段二 evalPostfix(out):",
-    "    vstack ← 空堆疊",
-    "    for t in out:",
-    "        if t 是數字 → push 進 vstack",
-    "        else → pop 出 b、再 pop 出 a，push「a t b」的結果",
-    "    答案 = vstack 最後剩下的唯一元素"
+    "vector<string> toPostfix(vector<string> tokens) {",
+    "    vector<string> out;  stack<char> st;",
+    "    for (string t : tokens) {",
+    "        if (isNumber(t)) out.push_back(t);",
+    "        else if (t == \"(\") st.push('(');",
+    "        else if (t == \")\") {",
+    "            while (st.top() != '(') { out.push_back(string(1, st.top())); st.pop(); }",
+    "            st.pop();",
+    "        } else {",
+    "            while (shouldPopFirst(st, t[0])) { out.push_back(string(1, st.top())); st.pop(); }",
+    "            st.push(t[0]);",
+    "        }",
+    "    }",
+    "    while (!st.empty()) { out.push_back(string(1, st.top())); st.pop(); }",
+    "    return out;",
+    "}",
+    "",
+    "double evalPostfix(vector<string> post) {",
+    "    stack<double> st;",
+    "    for (string t : post) {",
+    "        if (isNumber(t)) { st.push(stod(t)); continue; }",
+    "        double b = st.top(); st.pop();",
+    "        double a = st.top(); st.pop();",
+    "        st.push(apply(a, b, t[0]));",
+    "    }",
+    "    return st.top();",
+    "}"
   ];
 
-  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應；空行的說明留空 */
   var CODE_DOC = [
-    "階段一的入口：把人看的中序 token 串翻譯成電腦好算的後序式。這一趟只重排符號，完全不做算術。",
-    "準備兩樣工具：stack 專門存「已經出現、但還沒輪到」的運算子，out 存翻譯好的後序輸出。",
-    "由左往右一次看一個 token，整串只掃一遍，所以是 O(n)。",
-    "數字不用等任何人，它在後序式裡的相對位置不會變，直接放進輸出。",
-    "左括號像一道牆，先壓進堆疊；牆上面的帳沒結清之前，牆下面的運算子一律不准彈出。",
-    "右括號代表括號內的帳可以結清了：一路彈出到碰見 (，再把這對括號丟掉——後序式裡不需要括號。",
-    "剩下的情況就是運算子（+ − * / ^），它不能直接進堆疊，要先跟頂端比優先級。",
-    "頂端優先級較高、或同級且目前運算子是左結合，代表「該它先算」——先彈到輸出。^ 的右結合就是在這個條件被特別放過的。",
-    "把目前的運算子壓進堆疊排隊，等它的右運算元到齊再說。",
-    "整串讀完後，把堆疊剩下的運算子依序倒進輸出。忘了這一步，最後幾個運算子會憑空消失。",
-    "階段二的入口：拿到後序式，從左讀到右一次算完，完全不用管優先級和括號——順序在階段一已經決定好了。",
-    "換一個堆疊 vstack，這次裡面裝的是數字（算到一半的結果）。",
-    "一樣由左往右掃一遍後序式，永不回頭。",
-    "數字先壓進堆疊，等之後某個運算子來取用它。",
-    "遇到運算子就取最近的兩個數字來算：先彈出的是右運算元 b，後彈出的才是左運算元 a——順序寫反，減法和除法就全錯了。",
-    "掃完後堆疊剛好剩一個元素，它就是答案；剩太多或太少都代表式子不合法。"
+    "第一台「小機器」（程式裡叫函式）的開頭，名字叫 toPostfix，負責翻譯：把人看的中序算式變成電腦好算的後序排法。你把切好的一排符號（tokens）丟給它，它做完會交回一排翻譯好的符號。vector<string> 就是「一排格子，每格裝一小段文字」的意思。",
+    "先準備兩樣工具：out 是一排空格子，翻譯好的符號會依序放進去；st 是一個空的「堆疊」，專門暫放「已經出現、但還沒輪到」的運算符號。堆疊就像疊盤子——新盤子只能放在最上面，要拿也只能拿最上面那一個。",
+    "「for 迴圈」的意思是：把 tokens 從頭到尾、一次拿一個符號出來看，拿出來的那個暫時叫做 t。下面第 4～12 行的判斷，會對每一個符號重複做一遍。",
+    "先問：t 是數字嗎？是的話直接放進輸出 out 的最尾巴（push_back＝加到那排格子的尾端）。數字不用等任何人，它在後序式裡的相對位置不會變。",
+    "再問：t 是左括號嗎？是的話把它放到堆疊最上面（push＝放上去）。它像一道牆：牆拆掉之前，壓在牆下面的運算符號一律不准被拿出來。",
+    "再問：t 是右括號嗎？是的話代表括號裡的帳可以結清了，去做第 7、8 行。",
+    "「while 迴圈」＝條件成立就一直重複做。只要堆疊最上面（top）還不是左括號，就把最上面的運算符號搬到輸出：先抄進 out（string(1,…) 只是把單一個字元變成文字格式），再把它從堆疊拿走（pop＝拿走最上面那個）。一路搬，搬到撞見 ( 那道牆才停。",
+    "撞到牆了，把這個左括號從堆疊丟掉。它的任務完成了，而且後序式裡根本不需要括號。",
+    "上面都不是的話，t 只剩一種可能：運算符號（+ − * / ^ 其中一個），接著做第 10、11 行。",
+    "t[0]＝取這個符號的第一個字。shouldPopFirst 是一台判斷小機器：堆疊最上面那個符號如果「該比現在這個先算」——它的優先級比較高，或兩個同級而且現在這個是左結合——就回答「要」，我們就把它搬去輸出。^ 是右結合，會被這個條件放過，所以 2^3^2 的答案才會是 512 而不是 64。",
+    "該先走的都送走之後，把現在這個運算符號放到堆疊最上面排隊，等它右邊的數字到齊再說。",
+    "運算符號的處理到這裡結束（這個 } 只是標記「上面那一段到此為止」）。",
+    "一個符號處理完了，自動回到第 3 行拿下一個，直到整串看完為止。",
+    "整串讀完後的收尾：只要堆疊還不是空的（empty＝空的），就把剩下的運算符號一個一個搬到輸出。忘了這一步，最後幾個符號會憑空消失。",
+    "return＝這台機器工作結束、交出成果。out 裡現在裝的就是翻譯完成的後序式：沒有括號，也不再需要「先乘除後加減」的規則。",
+    "第一台機器（翻譯）到此結束。",
+    "",
+    "第二台小機器的開頭，名字叫 evalPostfix，負責計算：把剛翻譯好的後序式（post）丟給它，它會算出最終答案。double 的意思是「一個可以帶小數點的數字」——這台機器最後交出的就是這種數字。",
+    "再準備一個空堆疊。這次裡面裝的不是符號，而是數字（算到一半的結果）。一樣像疊盤子：新算出來的數字放最上面，要拿也從最上面拿。",
+    "一樣用 for 迴圈，把後序式從左到右一次看一個符號，永遠不用回頭。",
+    "遇到數字：先把文字轉成真正的數字（stod 就是做這個轉換的小機器），放到堆疊最上面。continue＝這個符號處理完了，直接跳回第 20 行看下一個，下面三行這次就不做。",
+    "走到這裡代表 t 是運算符號。把堆疊最上面的數字拿出來，取名叫 b——注意，先拿出來的是「右邊」的數字。",
+    "再拿一個，取名叫 a——後拿出來的才是「左邊」的數字。這兩行順序寫反的話，10−3 會被算成 3−10，減法和除法全部出錯。",
+    "把 a、b 和運算符號 t[0] 交給 apply 這台計算小機器（例如算出 a＋b），再把結果放回堆疊最上面，讓之後的運算可以繼續拿它來用。",
+    "回到第 20 行看下一個符號，直到後序式全部吃完。",
+    "全部算完時堆疊剛好只剩一個數字，它就是最後的答案——return 把它回報出去。剩太多或太少，都代表原本的式子不合法。",
+    "第二台機器（計算）到此結束。整台計算機＝翻譯、計算兩台小機器的接力。"
   ];
 
   var $ = function(id){ return document.getElementById(id); };
@@ -774,10 +796,10 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
           snap(i, higher
             ? "頂端的 <b>" + top + "</b> 優先級比 <b>" + tk.v + "</b> 高，該它先算 —— 先彈出到輸出。"
             : "<b>" + top + "</b> 和 <b>" + tk.v + "</b> 同級且左結合，先來的先算 —— 彈出 " + top + "。",
-            "pop", "彈出 " + top, 8);
+            "pop", "彈出 " + top, 10);
         }
         stack.push(tk.v);
-        snap(i, "它還在等自己的右運算元，先壓進堆疊排隊。", "", "運算子 " + tk.v + " → push", 9);
+        snap(i, "它還在等自己的右運算元，先壓進堆疊排隊。", "", "運算子 " + tk.v + " → push", 11);
       } else if(tk.t === "lp"){
         stack.push("(");
         snap(i, "它像一道牆 —— 牆上面的運算子沒結案前，牆下面的一律不准彈出。", "", "左括號 ( → push", 5);
@@ -785,14 +807,14 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
         var moved = false;
         while(stack.length && stack[stack.length-1] !== "("){
           var p = stack.pop(); out.push(p);
-          snap(i, "括號裡的帳現在可以結清了，一路彈出到碰見 <b>(</b> 為止。", "pop", "彈出 " + p, 6);
+          snap(i, "括號裡的帳現在可以結清了，一路彈出到碰見 <b>(</b> 為止。", "pop", "彈出 " + p, 7);
           moved = true;
         }
         if(!stack.length) throw new Error("括號不配對：右括號 ) 多了");
         stack.pop();
         snap(i, moved
           ? "碰到牆 <b>(</b> 了，把它丟掉 —— 括號在後序式裡不需要存在。"
-          : "空括號，直接把 <b>(</b> 丟掉。", "good", "這對括號完成", 6);
+          : "空括號，直接把 <b>(</b> 丟掉。", "good", "這對括號完成", 8);
       }
     }
     while(stack.length){
@@ -800,10 +822,10 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
       if(q === "(") throw new Error("括號不配對：左括號 ( 沒有關起來");
       out.push(q);
       snap(tokens.length, "式子讀完了，把堆疊剩下的倒出來。忘記這一步，最後幾個運算子會憑空消失。",
-           "pop", "收尾：倒出 " + q, 10);
+           "pop", "收尾：倒出 " + q, 14);
     }
     snap(tokens.length, "後序式已經<b>沒有任何括號</b>，也不再需要優先級規則。接著開始求值。",
-         "good", "階段一完成", 10);
+         "good", "階段一完成", 15);
 
     /* ----- 階段二：求值 ----- */
     var post = out.slice(), vs = [];
@@ -812,12 +834,12 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
                msg:msg, cls:cls||"", title:title||"", line:line||0});
     };
 
-    vsnap(-1, "換一個堆疊 —— 這次裡面裝的是<b>數字</b>，而且從左讀到右永不回頭。", "", "階段二開始", 12);
+    vsnap(-1, "換一個堆疊 —— 這次裡面裝的是<b>數字</b>，而且從左讀到右永不回頭。", "", "階段二開始", 19);
     for(var m=0;m<post.length;m++){
       var t = post[m];
       if(!(t in PREC)){
         vs.push(parseFloat(t));
-        vsnap(m, "後序式裡的數字一律直接壓入。", "", "數字 " + t + " → push", 14);
+        vsnap(m, "後序式裡的數字一律直接壓入。", "", "數字 " + t + " → push", 21);
       } else {
         if(vs.length < 2) throw new Error("式子不合法：運算子 " + t + " 找不到兩個運算元");
         var b = vs.pop(), a = vs.pop(), r;
@@ -829,7 +851,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
         vs.push(r);
         vsnap(m, "先彈出的是<b>右</b>運算元 " + fmt(b) + "，後彈出的才是<b>左</b>運算元 " + fmt(a) +
                  " —— 順序寫反，減法和除法就錯了。",
-              "pop", fmt(a) + " " + t + " " + fmt(b) + " = " + fmt(r), 15);
+              "pop", fmt(a) + " " + t + " " + fmt(b) + " = " + fmt(r), 24);
       }
     }
     if(vs.length !== 1)
@@ -841,7 +863,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     last.title = "答案是 " + fmt(vs[0]);
     last.msg = "堆疊只剩最後一個元素，它就是答案。<b>「算完剛好剩一個」</b>本身就是一個很好用的合法性檢查。";
     last.cls = "good";
-    last.line = 16;
+    last.line = 26;
     return st;
   }
 
@@ -851,7 +873,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     ol.innerHTML = "";
     for(var i=0;i<CODE.length;i++){
       var li = document.createElement("li");
-      li.textContent = CODE[i];
+      li.textContent = CODE[i] || " ";   /* 空行照建，補一個空白字元撐住行高 */
       ol.appendChild(li);
     }
     var all = $("algoAll");
@@ -861,7 +883,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
       var no = document.createElement("span");
       no.className = "no"; no.textContent = j+1;
       var src = document.createElement("span");
-      src.className = "src"; src.textContent = CODE[j].trim();
+      src.className = "src"; src.textContent = CODE[j].trim() || " ";
       var doc = document.createElement("span");
       doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
       row.appendChild(no); row.appendChild(src); row.appendChild(doc);
@@ -881,7 +903,7 @@ double evalPostfix(const vector&lt;string&gt;&amp; tokens) {
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
     }
   }
 

@@ -19,9 +19,12 @@
      .controls / .progress    播放控制與進度條
      .stats / .stat           統計格
      .say / .say-*            說明面板（data-k 決定顏色）
-     .algo                    逐行高亮的虛擬碼
-     .algo-doc / .algo-all    目前行中文說明框 + 整份逐行說明摺疊清單
-                              （CODE 配 CODE_DOC 陣列，寫法照 01 關）
+     .algo                    逐行高亮的 C/C++ 程式
+     .algo-doc / .algo-all    目前行白話說明框 + 整份逐行說明清單（預設展開）
+     .algo-panel              全寬演算法面板：放在 .game 關閉之後，
+                              不要塞進 .game-side 窄欄
+                              （CODE 配 CODE_DOC 陣列，寫法照 01 關；
+                              說明對象是完全沒學過程式的人）
      .log                     操作歷程
      .quiz / .opt / .score    闖關計分
      .panel / .block / .callout / .tablewrap / pre.code / .arch

@@ -188,23 +188,23 @@
             </div>
           </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h3 class="panel-title">演算法</h3>
-              <span class="panel-note">O(R×C)</span>
-            </div>
-            <ol class="algo" id="algo"></ol>
-            <div class="algo-doc idle" id="algoDoc">
-              <span class="ln" id="algoDocLn">—</span>
-              <span id="algoDocTxt">開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。</span>
-            </div>
-            <details class="algo-all">
-              <summary>整份程式逐行中文說明</summary>
-              <ol id="algoAll"></ol>
-            </details>
-          </div>
-
         </div>
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O(R×C)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">開始播放後，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
       </div>
       <div class="block">
         <h3>這個遊戲跑的程式（完整版）</h3>
@@ -552,27 +552,29 @@ floodFill(image, 1, 1, 2)
                 "#10b981","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#a16207"];
 
   var CODE = [
-    "old ← image[起點]",
-    "if old == 新色: return   ← 少這行會無限迴圈",
-    "frontier ← [起點]，起點上色",
-    "while frontier 不是空的:",
-    "    cur ← 取出一格",
-    "    for nb in cur 的鄰居:",
-    "        if nb == old:",
-    "            nb 上色 + 放進 frontier"
+    "int old = image[sr][sc];",
+    "if (old == newColor) return;",
+    "deque<Point> dq = {{sr,sc}}; image[sr][sc] = newColor;",
+    "while (!dq.empty()) {",
+    "    Point cur = dq.front(); dq.pop_front();  // BFS 波紋從前面取 / DFS 蛇形從後面取",
+    "    for (Point nb : neighbors(cur))",
+    "        if (image[nb.r][nb.c] == old) {",
+    "            image[nb.r][nb.c] = newColor; dq.push_back(nb); }",
+    "}"
   ];
 
-  /* 每一行程式的中文說明，索引和 CODE 一一對應。
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應。
      佇列（波紋）和堆疊（蛇形）共用同一份程式，只差第 5 行的取法。 */
   var CODE_DOC = [
-    "先記住點擊那一格「原本」的顏色 old。之後判斷「跟起點同一區」全靠跟 old 比對。",
-    "基底防護：新顏色和 old 一樣就直接收工。不然「上色」等於沒改，每一格永遠符合條件、反覆被塞回容器 —— 無限迴圈直到記憶體爆掉。",
-    "容器裡放進起點，並立刻把它塗成新色。「上色」本身就是「已走訪」的標記，所以這一題不需要額外的 seen 集合。",
-    "這裡沒有終點可以停 —— 容器空了，代表整個連通區域都走遍了，這時才自然結束。",
-    "取出一格來處理：佇列從最前面拿（波紋同心圓擴散），堆疊從最後面拿（蛇形爬行）。取法不同，但最後填到的格子一模一樣。",
-    "把 cur 的鄰居一格一格檢查（預設上下左右 4 方向；勾了斜角就是 8 方向，顏色會從縫隙漏出去）。",
-    "只有「還是原本顏色」的鄰居才算同一區。已經塗過新色的格子不再等於 old，自然不會被重複處理。",
-    "入列的當下就上色。要是等取出來才上色，同一格會被不同鄰居重複塞進容器好幾次，容器爆大、速度變慢。"
+    "先把你點的那一格（image[sr][sc]，第 sr 列、第 sc 行，就像棋盤座標）「原本」的顏色記下來，取名叫 old。之後判斷「哪些格子跟起點同一區」，全靠跟 old 比對顏色。開頭的 int 是說顏色在這裡用一個整數編號來記。",
+    "安全檢查：如果要塗的新顏色 newColor 跟 old 一模一樣，return＝立刻收工、什麼都不做。不然的話「上色」等於沒改，每一格永遠符合「顏色跟 old 相同」的條件，會被反覆塞回容器 —— 程式陷入無限迴圈，直到記憶體爆掉。",
+    "一行做兩件事：先準備一個叫 dq 的「雙端佇列」（deque，一排頭尾都能放、能拿的隊伍），把起點座標放進去；接著馬上把起點塗成新顏色。塗了色，它就不再等於 old —— 「上色」本身就是「這格處理過了」的印章，所以這一題不需要另外準備一份蓋章名單（seen）。",
+    "「while 迴圈」＝只要條件成立就一直重複做。empty＝空的，驚嘆號 ! 唸作「不是」。這裡沒有「終點」可以停 —— 一直做到 dq 空了，代表整片相連的同色區域都走遍了，才自然結束。",
+    "從 dq 拿一格出來處理，叫它 cur。front＋pop_front＝從隊伍最前面拿：先放的先處理（像排隊，先來先服務），顏色會像水波紋一圈一圈往外散（BFS）。切成堆疊模式時改用 back＋pop_back：從最後面拿，最晚放的先處理（像疊盤子拿最上面），顏色就像蛇沿著一條線鑽（DFS）。兩種拿法，最後填到的格子一模一樣。",
+    "把 cur 的鄰居格一個一個輪流看，正在看的那格暫時叫 nb。預設看上、下、左、右 4 個方向；勾了斜角就變 8 個方向 —— 顏色會從斜角的縫隙漏出去。",
+    "「顏色相同才擴散」的判斷：nb 現在的顏色（image[nb.r][nb.c]）還等於 old，它才算同一區、才值得處理。已經塗過新色的格子不再等於 old，自然不會被重複處理 —— 這就是第 3 行說的「上色即印章」。",
+    "通過檢查的鄰居馬上做兩件事：先塗成新顏色（趁放進去的當下就塗！要是等拿出來才塗，同一格會被不同鄰居重複塞進 dq 好幾次，容器爆大、速度變慢）；再 push_back＝把 nb 排到 dq 最後面，等著輪到它去看它自己的鄰居。行尾的 } 表示這個 if 到此結束。",
+    "這個大括號 } 是 while 迴圈的結尾：程式自動跳回第 4 行，再檢查一次 dq 空了沒 —— 還有格子就繼續拿下一格，空了就結束，整片區域填色完成。"
   ];
 
   var $ = function(id){ return document.getElementById(id); };
@@ -800,7 +802,7 @@ floodFill(image, 1, 1, 2)
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "開始播放後，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
     }
   }
 

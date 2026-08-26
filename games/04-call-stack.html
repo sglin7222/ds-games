@@ -217,27 +217,28 @@
             </div>
           </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h3 class="panel-title">演算法（玩到哪亮到哪）</h3>
-              <span class="panel-note" id="algoNote"></span>
-            </div>
-            <ol class="algo" id="algo"></ol>
-            <div class="algo-doc idle" id="algoDoc">
-              <span class="ln" id="algoDocLn">—</span>
-              <span id="algoDocTxt">按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。</span>
-            </div>
-            <details class="algo-all">
-              <summary>整份程式逐行中文說明</summary>
-              <ol id="algoAll"></ol>
-            </details>
-          </div>
         </div>
 
       </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note" id="algoNote"></span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
       <div class="block">
         <h3>這個遊戲跑的程式（完整版）</h3>
-        <p>上面每一次 PUSH／POP，就是這三個函式的某一行在執行。<b>注意每個函式的第一行都是基底條件</b> —— 階乘在 n ≤ 1 時直接回傳 1、費氏在 n ＜ 2 時直接回傳 n、河內塔在 n = 0 時什麼都不做。遊戲裡指標走到「基底條件」那一步，對應的就是這一行；<b>少了它就是無限 push，直到 Stack Overflow</b>。</p>
+        <p>上面每一次 PUSH／POP，就是這三個函式的某一行在執行。<b>注意每個函式的第一行都是基底條件</b> —— 階乘在 n ≤ 1 時直接回傳 1、費氏在 n ≤ 1 時直接回傳 n、河內塔在 n = 0 時什麼都不做。遊戲裡指標走到「基底條件」那一步，對應的就是這一行；<b>少了它就是無限 push，直到 Stack Overflow</b>。</p>
                 <pre class="code"><i>// 階乘：一條直線的遞迴</i>
 long long fact(int n) {
     <b>if (n &lt;= 1) return 1;</b>              <i>// 基底條件 —— 沒有它就 stack overflow</i>
@@ -246,7 +247,7 @@ long long fact(int n) {
 
 <i>// 費氏：一次呼叫兩次 → 呼叫次數爆炸</i>
 long long fib(int n) {
-    <b>if (n &lt; 2) return n;</b>               <i>// 基底條件</i>
+    <b>if (n &lt;= 1) return n;</b>              <i>// 基底條件</i>
     return fib(n - 1) + fib(n - 2);    <i>// fib(n-1) 完全跑完並 pop 掉，才輪到 fib(n-2)</i>
 }
 
@@ -671,66 +672,66 @@ long long fact(int n) {
     fact:  {max:9, def:5, label:"n =",
       hint:'<code>fact(n) = n × fact(n-1)</code>，<b>基底：n ≤ 1 時直接回傳 1</b>　每層只呼叫一次 → 堆疊像一條直線'},
     fib:   {max:8, def:6, label:"n =",
-      hint:'<code>fib(n) = fib(n-1) + fib(n-2)</code>，<b>基底：n ＜ 2 時直接回傳 n</b>　注意「總呼叫次數」怎麼爆炸'},
+      hint:'<code>fib(n) = fib(n-1) + fib(n-2)</code>，<b>基底：n ≤ 1 時直接回傳 n</b>　注意「總呼叫次數」怎麼爆炸'},
     hanoi: {max:4, def:3, label:"盤子數 =",
       hint:'<code>hanoi(n) = hanoi(n-1) + 搬一片 + hanoi(n-1)</code>，<b>基底：n = 0 時什麼都不做直接 return</b>'}
   };
 
-  /* ---------- 三組虛擬碼與逐行中文說明（索引一一對應） ---------- */
+  /* ---------- 三組 C++ 程式與逐行白話說明（索引一一對應） ---------- */
   var CODES = {
     fact: {
       name: "fact(n)",
       code: [
-        "fact(n):",
-        "    if n ≤ 1:",
-        "        return 1",
-        "    r ← fact(n-1)",
-        "    return n × r"
+        "long long fact(int n) {",
+        "    if (n <= 1) return 1;",
+        "    long long r = fact(n - 1);",
+        "    return n * r;",
+        "}"
       ],
       doc: [
-        "進入 fact(n)。每呼叫一次，系統就在呼叫堆疊推入（push）一個新 frame，裡面裝著這一層自己的 n —— 所以每層的 n 不會互相蓋掉。",
-        "先檢查基底條件：n 已經小到 1 以下了嗎？寫遞迴永遠先寫這一行，少了它就會一直 push、永遠不 pop，直到 Stack Overflow。",
-        "命中基底：1! 就是 1，直接回傳，不再往下呼叫。這是整趟遞迴第一個真正算出來的答案，frame 隨著 return 被彈出（pop）。",
-        "還不到基底 → 把問題交給更小的 fact(n-1)。這一層卡在這裡等答案，堆疊往上多壓一層 —— 呼叫就是往下推一層。",
-        "下面那層算完回來了：拿它的答案 r 乘上自己的 n，再回傳給更下面那層。frame 跟著 pop —— 回傳就是往上彈一層，答案由下而上逐層算出來。"
+        "「算階乘」機器的開頭。函式就像一台小機器：丟一個整數 n 進去（int 就是整數），它會吐回 n! 的答案（long long 是「裝得下很大數字」的盒子）。每「呼叫」它一次＝每開一台新機器，電腦就在看不見的「呼叫堆疊」上疊一張便條，記下這台機器自己的 n、以及算完要回到哪裡——所以每層的 n 不會互相蓋掉。",
+        "基底條件（if 是「如果」）：如果 n 已經小到 1 以下，就不用再開新機器了，答案直接就是 1。return（回傳）＝把答案交回給上一層，這台機器關機，它那張便條也跟著撕掉。少了這一行，機器會無限開下去、便條疊到滿出來——這就是 Stack Overflow。",
+        "遞迴發生在這裡：機器裡再開一台一模一樣的小機器，只是丟進去的數字小 1（fact(n-1)）。這一行會「卡住」等答案——這層的便條留在堆疊上，寫著「做到一半，等下面算完」。等小機器把答案交回來，就存進取名叫 r 的盒子。",
+        "小機器的答案 r 到手了：用自己的 n 乘上 r 就是 n! 的答案，再 return 交回給上一層。這台機器關機、便條撕掉——答案就這樣從最深那層一路往上傳。",
+        "整台機器的說明書到此結束（這個大括號 } 只是標記「函式到這裡為止」）。"
       ]
     },
     fib: {
       name: "fib(n)",
       code: [
-        "fib(n):",
-        "    if n < 2:",
-        "        return n",
-        "    a ← fib(n-1)",
-        "    b ← fib(n-2)",
-        "    return a + b"
+        "long long fib(int n) {",
+        "    if (n <= 1) return n;",
+        "    long long a = fib(n - 1);",
+        "    long long b = fib(n - 2);",
+        "    return a + b;",
+        "}"
       ],
       doc: [
-        "進入 fib(n)，push 一個新 frame。注意：費氏每層會呼叫自己兩次，所以「總呼叫次數」會爆炸，但深度不會。",
-        "先檢查基底條件：n 小於 2 就不用再拆了，可以直接給答案。",
-        "命中基底：fib(0) = 0、fib(1) = 1，直接回傳並 pop。整棵遞迴樹的所有答案都是從這裡發源，再一路往上加出來的。",
-        "先往下算左邊的 fib(n-1)。這棵子樹會整個跑完、frame 全部 pop 光，才輪得到下一行 —— 兩棵子樹不會同時待在堆疊上。",
-        "左邊完全結束後，再往下算右邊的 fib(n-2)。這就是深度最多只有 n 的原因：堆疊上永遠只有「目前這一條路」。",
-        "左右兩個答案都拿到了，相加後回傳，這層 frame pop 掉，把結果交給下面還在等的那一層。"
+        "「算費氏數」機器的開頭：丟整數 n 進去，吐回費氏數列的第 n 項。每開一台機器（每呼叫一次），呼叫堆疊上就多疊一張「做到一半的便條」。費氏的特別之處：每台機器裡會再開「兩台」小機器，所以開機總次數會爆炸——但便條同一時間疊的高度不會。",
+        "基底條件：n 是 0 或 1 時不用再開新機器，答案就是 n 自己（fib(0)=0、fib(1)=1），直接 return 把答案交回給上一層。整棵遞迴樹的所有答案，最後全是從這裡發源、一路往上加出來的。",
+        "先開第一台小機器算 fib(n-1)，這一行卡住等答案。那台小機器裡還會再開更小的……一路開到基底為止；要等這一整串全部算完、它們的便條全部撕光，才輪得到下一行。答案存進盒子 a。",
+        "第一台完全結束後，才開第二台小機器算 fib(n-2)，答案存進盒子 b。兩台永遠不會同時在跑——所以便條疊最高就只有 n 張。這就是「呼叫次數爆炸、深度卻不變」的原因。",
+        "兩個答案都到手了：a + b 就是這一層的答案，return 交回給下面還在等的那一層，這張便條撕掉。",
+        "函式到此結束（大括號 } 只是「到這裡為止」的標記）。"
       ]
     },
     hanoi: {
       name: "hanoi(n, a→c)",
       code: [
-        "hanoi(n, a→c, 中繼 b):",
-        "    if n = 0: return",
-        "    hanoi(n-1, a→b, 中繼 c)",
-        "    搬盤子 n：a → c",
-        "    hanoi(n-1, b→c, 中繼 a)",
-        "    return"
+        "void hanoi(int n, char a, char c, char b) {",
+        "    if (n == 0) return;",
+        "    hanoi(n - 1, a, b, c);",
+        "    printf(\"盤子 %d: %c → %c\\n\", n, a, c);",
+        "    hanoi(n - 1, b, c, a);",
+        "}"
       ],
       doc: [
-        "進入 hanoi(n)：任務是把 n 個盤子從 a 搬到 c，b 當中繼柱。一樣先 push 一個 frame，記下這一層的 n 和三根柱子的角色。",
-        "基底條件：沒有盤子要搬就直接 return。注意這種「空呼叫」也佔了一個 frame —— push 完馬上 pop，所以呼叫次數比搬盤次數多。",
-        "第一步：先把上面 n-1 個盤子搬去中繼柱 —— 往下遞迴，堆疊繼續往上長。這一層卡在這裡，等整趟搬完才醒來。",
-        "第二步：真正搬盤子的只有這一行！把最大的第 n 號盤從 a 直接搬到 c —— 此時 c 一定放得下，不會大壓小。",
-        "第三步：再遞迴一次，把中繼柱上那 n-1 個搬到 c 蓋上。兩次遞迴中間夾一個動作，這就是河內塔獨特的堆疊形狀。",
-        "這一層的三步全部做完，return → pop，回到下面那一層，換它繼續做自己剩下的步驟。"
+        "「搬盤子」機器的開頭：任務是把 n 個盤子從柱子 a 搬到柱子 c，b 當中繼（char 是「一個字元」，這裡拿來裝柱子的名字；void 表示這台機器不吐答案、只做動作）。每開一台就疊一張便條，記下這一層的 n 和三根柱子各自的角色。",
+        "基底條件：n 等於 0（== 是「等於嗎」的比較）代表沒有盤子要搬，直接 return 關機。注意這種「什麼都不做」的空機器也佔了一張便條——開了馬上關，所以呼叫次數會比實際搬盤次數多。",
+        "第一步：開一台小機器，把上面 n-1 個盤子先從 a 搬到中繼柱 b（借 c 當中繼）。這一層卡在這裡等，便條寫著「做到一半」——要等這一整趟全部搬完才醒來。",
+        "第二步：真正搬盤子的只有這一行！printf ＝把字印到螢幕上，這裡印出「第 n 號盤：a → c」。此時第 n 號盤上面已被清空、c 柱也放得下它——不可能發生大盤壓小盤。",
+        "第三步：再開一台小機器，把剛剛暫放在中繼柱 b 的 n-1 個盤子搬到 c 蓋上（這次換 a 當中繼）。兩次遞迴中間夾一個動作——這就是河內塔獨特的節奏。",
+        "三步全部做完，機器在這裡自動結束（效果等於 return）：便條撕掉、回到下面那一層，換它繼續做自己剩下的步驟。"
       ]
     }
   };
@@ -747,26 +748,26 @@ long long fact(int n) {
       (function fact(k){
         emit("call", {fn:"fact(" + k + ")", st:"要算 " + k + "!", line:1});
         if(k <= 1){
-          emit("ret", {v:1, why:"基底條件 n ≤ 1 → 直接回傳 1，不再往下呼叫", line:3});
+          emit("ret", {v:1, why:"基底條件 n ≤ 1 → 直接回傳 1，不再往下呼叫", line:2});
           return 1;
         }
-        emit("status", {st:"卡住了：要等 fact(" + (k-1) + ") 的答案才能乘 " + k, line:4});
+        emit("status", {st:"卡住了：要等 fact(" + (k-1) + ") 的答案才能乘 " + k, line:3});
         var r = k * fact(k-1);
-        emit("ret", {v:r, why:"拿到 fact(" + (k-1) + ") = " + (r/k) + " → " + k + " × " + (r/k) + " = " + r, line:5});
+        emit("ret", {v:r, why:"拿到 fact(" + (k-1) + ") = " + (r/k) + " → " + k + " × " + (r/k) + " = " + r, line:4});
         return r;
       })(n);
     } else if(m === "fib"){
       (function fib(k){
         emit("call", {fn:"fib(" + k + ")", st:"要算 fib(" + k + ")", line:1});
         if(k < 2){
-          emit("ret", {v:k, why:"基底條件 n < 2 → 回傳 " + k, line:3});
+          emit("ret", {v:k, why:"基底條件 n ≤ 1 → 回傳 " + k, line:2});
           return k;
         }
-        emit("status", {st:"先去算左邊的 fib(" + (k-1) + ")", line:4});
+        emit("status", {st:"先去算左邊的 fib(" + (k-1) + ")", line:3});
         var a = fib(k-1);
-        emit("status", {st:"左邊 fib(" + (k-1) + ") = " + a + "，換算右邊 fib(" + (k-2) + ")", line:5});
+        emit("status", {st:"左邊 fib(" + (k-1) + ") = " + a + "，換算右邊 fib(" + (k-2) + ")", line:4});
         var b = fib(k-2);
-        emit("ret", {v:a+b, why:a + " + " + b + " = " + (a+b), line:6});
+        emit("ret", {v:a+b, why:a + " + " + b + " = " + (a+b), line:5});
         return a + b;
       })(n);
     } else {
@@ -966,7 +967,7 @@ long long fact(int n) {
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
     }
   }
 

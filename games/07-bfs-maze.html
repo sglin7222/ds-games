@@ -217,23 +217,23 @@
             </div>
           </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h3 class="panel-title">演算法</h3>
-              <span class="panel-note">O(V+E)</span>
-            </div>
-            <ol class="algo" id="algo"></ol>
-            <div class="algo-doc idle" id="algoDoc">
-              <span class="ln" id="algoDocLn">—</span>
-              <span id="algoDocTxt">開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。</span>
-            </div>
-            <details class="algo-all">
-              <summary>整份程式逐行中文說明</summary>
-              <ol id="algoAll"></ol>
-            </details>
-          </div>
-
         </div>
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O(V+E)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">開始播放後，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
       </div>
       <div class="block">
         <h3>這個遊戲跑的程式（完整版）</h3>
@@ -575,25 +575,27 @@ S = 起點，E = 終點，# = 牆，. = 可走
   var DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
 
   var CODE = [
-    "frontier ← [起點]",
-    "while frontier 不是空的:",
-    "    cur ← 取出一格",
-    "    if cur 是終點: 收工",
-    "    for nb in cur 的四個鄰居:",
-    "        if 可走 and 沒 seen 過:",
-    "            seen、parent、放進 frontier"
+    "deque<Node> dq = {start};",
+    "while (!dq.empty()) {",
+    "    Node cur = dq.front(); dq.pop_front();  // BFS 從前面取 / DFS 從後面取",
+    "    if (cur == goal) break;",
+    "    for (Node nb : neighbors(cur))",
+    "        if (canWalk(nb) && !seen[nb]) {",
+    "            seen[nb] = true; parent[nb] = cur; dq.push_back(nb); }",
+    "}"
   ];
 
-  /* 每一行程式的中文說明，索引和 CODE 一一對應。
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應。
      佇列（BFS）和堆疊（DFS）共用同一份程式，只差第 3 行的取法。 */
   var CODE_DOC = [
-    "準備「待處理」容器 frontier，一開始只放起點。裡面裝的是「已經知道可以走、但還沒去展開鄰居」的格子。",
-    "只要容器裡還有格子就繼續搜。容器空了還沒碰到終點，代表終點被牆圍死，這張圖無解。",
-    "整份程式唯一有差別的一行：佇列從最前面拿（先進先出 → BFS 一圈一圈擴散），堆疊從最後面拿（後進先出 → DFS 一路鑽到底）。",
-    "取出的格子正好是終點 → 搜尋結束，沿著 parent 一路回溯就能畫出路徑。BFS 在這裡停下時，這條路保證是最短的。",
-    "不是終點，就把 cur 上下左右四個鄰居一格一格拿出來檢查。",
-    "三關都要過：沒出界、不是牆、也沒被排過隊（seen）。少了 seen 檢查，程式會在原地來回繞圈永遠跑不完。",
-    "放進容器的當下就標記 seen（晚了會被重複入列），順便記下「它是從 cur 走過來的」—— 之後才有辦法回溯出路徑。"
+    "準備一個叫 dq 的「雙端佇列」（deque），一開始只放起點 start。雙端佇列就是一排隊伍，特別的是頭尾兩端都能放、也都能拿 —— 所以同一份程式，從前面拿就是「排隊」（佇列），從後面拿就是「疊盤子」（堆疊）。Node 代表迷宮的一格，記著它在棋盤上第幾列、第幾行。這個容器裝的是「知道可以走、但還沒去看鄰居」的格子。",
+    "「while 迴圈」＝只要條件成立，就把裡面的動作一直重複做。empty＝空的，前面的驚嘆號 ! 唸作「不是」。整句：只要 dq 裡還有等著處理的格子，就繼續搜。要是格子用完了還沒碰到終點，代表終點被牆圍死，怎麼走都到不了。",
+    "整份程式唯一分出 BFS／DFS 的一行。front＝隊伍最前面那格、pop_front＝把它拿掉：從前面拿，先放進去的先處理（像排隊，先來先服務），這是 BFS，會一圈一圈往外擴散。切成 DFS 時改用 back 和 pop_back：從最後面拿，最晚放的先處理（像疊盤子，永遠拿最上面那個），就變成一路鑽到底。",
+    "檢查剛拿出來的 cur 是不是終點 goal（== 唸作「等於嗎」）。是的話 break＝立刻跳出迴圈，搜尋結束。BFS 走到這裡時，這條路保證是最短的；DFS 找得到路，但那條路不一定最短。",
+    "還不是終點，就把 cur 上、下、左、右四個鄰居格一個一個輪流看，正在看的那格暫時叫 nb。第 6、7 行的檢查會對每個鄰居各做一次。",
+    "兩個條件都要成立才放行（&& 唸作「而且」）：canWalk(nb)＝這格沒出界、也不是牆，真的能走；!seen[nb]＝這格還沒被蓋過章。seen 就像入場蓋章：蓋過章的格子不再排第二次隊，不然程式會在原地來回繞圈，永遠停不下來。",
+    "一口氣做三件事：先幫 nb 蓋章（趁放進去的當下就蓋，晚了同一格會被不同鄰居重複塞進隊伍）；再記下「nb 是從 cur 走過來的」（之後從終點沿著這個紀錄往回走，就能畫出整條路徑）；最後 push_back＝把 nb 排到 dq 的最後面。行尾的 } 表示這個 if 的範圍到此結束。",
+    "這個大括號 } 是 while 迴圈的結尾：程式自動跳回第 2 行，再看一次 dq 還有沒有格子 —— 有就再拿一格出來處理，一直重複到碰到終點（第 4 行）或格子用完為止。"
   ];
 
   var $ = function(id){ return document.getElementById(id); };
@@ -898,7 +900,7 @@ S = 起點，E = 終點，# = 牆，. = 可走
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "開始播放後，這裡會解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "開始播放後，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
     }
   }
 

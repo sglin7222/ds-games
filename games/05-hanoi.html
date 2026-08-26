@@ -225,22 +225,22 @@
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <h3 class="panel-title">演算法（自動示範時亮到哪）</h3>
-            <span class="panel-note">遞迴 5 行</span>
-          </div>
-          <ol class="algo" id="algo"></ol>
-          <div class="algo-doc idle" id="algoDoc">
-            <span class="ln" id="algoDocLn">—</span>
-            <span id="algoDocTxt">切到「自動示範」，看每一步對應哪一行程式。</span>
-          </div>
-          <details class="algo-all">
-            <summary>整份程式逐行中文說明</summary>
-            <ol id="algoAll"></ol>
-          </details>
-        </div>
+      </div>
 
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C）——自動示範時亮到哪</h3>
+          <span class="panel-note">遞迴 5 行</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">切到「自動示範」，看每一步對應哪一行程式。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
       </div>
 
       <div class="callout" data-k="key">
@@ -586,22 +586,24 @@ nextMove(towers, n):              <i># 虛擬碼</i>
   var autoTimer = null, autoQueue = [];
   var autoStep = 0, autoTotal = 0;
 
-  /* ---------- 演算法面板：虛擬碼與逐行說明 ---------- */
+  /* ---------- 演算法面板：C 程式與逐行白話說明 ---------- */
   var CODE = [
-    "hanoi(n, a→c, b 當中繼):",
-    "    if n == 0 → return",
-    "    hanoi(n-1, a→b, c 當中繼)",
-    "    把第 n 號盤從 a 搬到 c",
-    "    hanoi(n-1, b→c, a 當中繼)"
+    "void hanoi(int n, char a, char c, char b) {",
+    "    if (n == 0) return;",
+    "    hanoi(n - 1, a, b, c);",
+    "    printf(\"盤 %d：%c → %c\", n, a, c);",
+    "    hanoi(n - 1, b, c, a);",
+    "}"
   ];
 
-  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
   var CODE_DOC = [
-    "函式入口：任務是「把 n 片盤子從 a 柱搬到 c 柱，b 柱借來當中繼」。整個解法就這一個函式，一路呼叫更小的自己。",
-    "基底條件：n 是 0 代表沒有盤子要搬，什麼都不用做，直接返回。遞迴每層都變小，最後一定停在這裡。",
-    "第一步：先把上面 n−1 片搬去中繼柱（這一趟換 c 當中繼）。最大盤上面清空了，它才搬得動。",
-    "第二步：最大的第 n 號盤從 a 直接搬到 c。整份程式裡真正搬盤子的只有這一行，其他行都是在「拆任務」。",
-    "第三步：把剛剛寄放在中繼柱的 n−1 片整疊搬到 c，蓋在最大盤上面（這一趟換 a 當中繼）。搬完就大功告成。"
+    "這是「搬塔機器」的開頭。函式就像一台小機器，括號裡是你交給它的資料：n＝要搬幾片盤子；a＝起點柱、c＝終點柱、b＝中繼柱（中途借放用）。int 是「整數」、char 是「一個字」（柱子的名字，像 'A'）；void 的意思是這台機器做完事就好，不用回報答案。",
+    "煞車（基底條件）：n 是 0 代表已經沒有盤子可搬，「return」＝什麼都不做、直接收工。等一下每開一台新機器，n 都會少 1，所以最後一定會停在這一行——這就是遞迴不會無限開下去的原因。",
+    "遞迴＝在機器裡再開一台一模一樣的小機器：請它先把上面 n−1 片從 a 搬去 b（這一趟的終點變成 b，換 c 當中繼）。目的是把最大那片上面清空，它才搬得動。這行只是在「安排工作」，還沒真的碰到盤子。",
+    "printf＝把一行字印到螢幕上；在這裡它就代表「真正動手搬一片盤子」：第 n 號（最大的）那片從 a 直接搬到 c。整份程式裡真的動手搬盤子的只有這一行，其他行都只是在安排工作。%d、%c 是留空的格子，會被後面的 n、a、c 依序填進去。",
+    "再開一台小機器：把剛剛寄放在 b 的 n−1 片整疊從 b 搬到 c，蓋在最大盤上面（這一趟換 a 當中繼）。這台機器做完，整座塔就搬完了。",
+    "整台搬塔機器到此結束（這個大括號 } 只是標記「機器的內容到這裡為止」）。"
   ];
 
   var IDLE_DOC = "切到「自動示範」，看每一步對應哪一行程式。";

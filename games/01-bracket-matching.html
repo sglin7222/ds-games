@@ -224,22 +224,6 @@
 
           <div class="panel">
             <div class="panel-head">
-              <h3 class="panel-title">演算法</h3>
-              <span class="panel-note">O(n)</span>
-            </div>
-            <ol class="algo" id="algo"></ol>
-            <div class="algo-doc idle" id="algoDoc">
-              <span class="ln" id="algoDocLn">—</span>
-              <span id="algoDocTxt">按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。</span>
-            </div>
-            <details class="algo-all">
-              <summary>整份程式逐行中文說明</summary>
-              <ol id="algoAll"></ol>
-            </details>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head">
               <h3 class="panel-title">歷程</h3>
               <span class="panel-note" id="logNote"></span>
             </div>
@@ -247,6 +231,22 @@
           </div>
         </div>
 
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O(n)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
       </div>
       <div class="block">
         <h3>這個遊戲跑的程式（完整版）</h3>
@@ -567,32 +567,36 @@ bool isBalanced(const string&amp; s) {
   ];
 
   var CODE = [
-    "function check(s):",
-    "    stack ← 空堆疊",
-    "    for c in s:",
-    "        if c 是左括號:",
-    "            stack.push(c)",
-    "        else if c 是右括號:",
-    "            if stack 為空 → 失敗",
-    "            top ← stack.pop()",
-    "            if 不成對(top, c) → 失敗",
-    "    if stack 不為空 → 失敗",
-    "    return 成功"
+    "bool check(const string& s) {",
+    "    stack<char> st;",
+    "    for (char c : s) {",
+    "        if (c == '(' || c == '[' || c == '{') {",
+    "            st.push(c);",
+    "        } else if (c == ')' || c == ']' || c == '}') {",
+    "            if (st.empty()) return false;",
+    "            char top = st.top(); st.pop();",
+    "            if (!isPair(top, c)) return false;",
+    "        }",
+    "    }",
+    "    return st.empty();",
+    "}"
   ];
 
-  /* 每一行程式的中文說明，索引和 CODE 一一對應 */
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
   var CODE_DOC = [
-    "函式入口：收到要檢查的字串 s，接下來的每一步都在回答「s 的括號合法嗎」。",
-    "準備一個空堆疊。它專門存「已經出現、但還沒配對到另一半」的左括號。",
-    "由左往右，一次看一個字元 c。不是括號的字元會直接跳過這一圈。",
-    "判斷 c 是不是左括號（( [ { 其中之一）。",
-    "是左括號 → 推進堆疊。它得先排隊，等之後出現同種的右括號來配對。",
-    "判斷 c 是不是右括號（) ] } 其中之一）。",
-    "遇到右括號但堆疊是空的 → 沒有任何左括號在等它，這個右括號是多出來的，直接判定失敗。",
-    "彈出堆疊頂端的左括號 top。右括號永遠只能和「最近一個還沒配對」的左括號配對，這就是用堆疊的原因。",
-    "top 和 c 不是同一種括號（例如 ( 配 ]）→ 括號交錯了，判定失敗。",
-    "整串掃完後堆疊還有東西 → 有左括號一直沒等到另一半，判定失敗。",
-    "能走到這裡代表每個括號都成對結案 → 回報成功。"
+    "這是「檢查機器」的開頭。函式就像一台小機器：把要檢查的那串文字（取名叫 s）丟進去，它最後會吐出一個答案——合法或不合法（bool 就是「只有是／否兩種答案」的意思）。",
+    "準備一個空的「堆疊」，取名叫 st。堆疊就像疊盤子：新盤子只能放在最上面，要拿也只能拿最上面那一個。等一下所有「還沒配到對的左括號」都會暫放在這裡。",
+    "「for 迴圈」的意思是：把字串從頭到尾、一次拿一個字出來看，拿出來的那個字暫時叫做 c。下面第 4～10 行的動作，會對每一個字都重複做一遍。",
+    "第一個判斷：c 是不是左括號（ ( 或 [ 或 { ）？是的話就做第 5 行；不是就跳去第 6 行繼續判斷。",
+    "push（推入）＝把 c 放到堆疊的最上面。這個左括號還在等它的右半邊出現，先讓它上去排隊。",
+    "第二個判斷：c 是不是右括號（ ) 或 ] 或 } ）？是的話做第 7～9 行；如果連右括號都不是（例如英文字母），那它跟配對無關，什麼都不做，直接回第 3 行看下一個字。",
+    "empty（空的）＝堆疊裡一個左括號都沒有。明明沒有人在等配對，卻冒出一個右括號，表示它是多出來的。「return false」＝立刻讓整台機器停下來，回報「不合法」。",
+    "top＝看一眼堆疊最上面的左括號是誰、把它記下來；pop（彈出）＝把它從堆疊拿走。右括號永遠只能跟「最近放進去、還沒配對」的那個左括號配對——這正是要用堆疊的原因。",
+    "比對剛拿出來的左括號和現在這個右括號是不是同一種（ ( 要配 )、[ 要配 ] ）。不是同一種，代表括號交錯了（像 ( [ ) ] 這樣），立刻回報「不合法」。",
+    "右括號的處理到這裡結束（這個大括號 } 只是標記「上面那一段到此為止」）。",
+    "一個字處理完了，自動回到第 3 行拿下一個字，直到整串文字看完為止。",
+    "整串看完後的總驗收：堆疊空了＝每個左括號都成功配對，回報「合法」；堆疊還有剩＝有左括號一直等不到右半邊，回報「不合法」。",
+    "整台檢查機器到此結束。"
   ];
 
   var BADGE = {start:"START", push:"PUSH", pop:"POP", skip:"SKIP", error:"ERROR", done:"DONE"};
@@ -645,7 +649,7 @@ bool isBalanced(const string&amp; s) {
           broke = true; break;
         }
       } else {
-        steps.push({kind:"skip", i:i, ch:c, stackBefore:before, stackAfter:before, line:3,
+        steps.push({kind:"skip", i:i, ch:c, stackBefore:before, stackAfter:before, line:6,
           title:"略過 " + c,
           msg:"<b>" + esc(c) + "</b> 不是括號，對配對沒有影響，直接看下一格。"});
       }
@@ -653,11 +657,11 @@ bool isBalanced(const string&amp; s) {
 
     if(!broke){
       if(stack.length > 0){
-        steps.push({kind:"error", i:s.length, stackBefore:snap(stack), stackAfter:snap(stack), line:10, why:"leftover",
+        steps.push({kind:"error", i:s.length, stackBefore:snap(stack), stackAfter:snap(stack), line:12, why:"leftover",
           title:"還有沒關掉的左括號",
           msg:"字串掃完了，但堆疊裡還剩 " + stack.length + " 個左括號沒有被關掉 —— 不合法。"});
       } else {
-        steps.push({kind:"done", i:s.length, stackBefore:[], stackAfter:[], line:11,
+        steps.push({kind:"done", i:s.length, stackBefore:[], stackAfter:[], line:12,
           title:"全部配對成功",
           msg:"掃到結尾，堆疊剛好清空 —— 每個左括號都找到了正確的另一半，括號完全匹配。"});
       }
@@ -824,7 +828,7 @@ bool isBalanced(const string&amp; s) {
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "按「下一步」，這裡會解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
     }
   }
 
