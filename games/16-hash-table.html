@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>雜湊表大碰撞 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式（只寫本關獨有的視覺） ============ */
+.custom{display:flex;gap:6px;flex:0 1 320px}
+.custom input{flex:1}
+
+/* 左右並排的兩張表 */
+.ht-duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.ht-duo{grid-template-columns:1fr}}
+.ht-col{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;
+  padding:8px 10px;min-width:0}
+.ht-col-head{display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:6px;gap:8px}
+.ht-col-head b{font-size:13px}
+.ht-col-head span{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);
+  letter-spacing:.08em;white-space:nowrap}
+
+/* 一列 = 一個桶 */
+.hrow{display:flex;align-items:center;gap:7px;min-height:30px;padding:1px 5px;
+  border-radius:6px;transition:background var(--dur)}
+.hrow.is-home{background:var(--accent-soft);outline:1.5px solid var(--accent)}
+.hrow.is-bad{background:var(--alarm-soft);outline:1.5px dashed var(--alarm)}
+.hidx{flex:0 0 18px;text-align:right;font-family:var(--font-mono);font-size:11px;
+  color:var(--ink-faint)}
+.hrow.is-home .hidx{color:var(--accent);font-weight:700}
+.hrow.is-bad .hidx{color:var(--alarm);font-weight:700}
+
+/* 鏈結法：往右長出鏈條 */
+.hchain{display:flex;align-items:center;gap:4px;overflow-x:auto;min-width:0;flex:1;
+  padding:2px 0}
+.hnode{flex:0 0 auto;padding:1px 8px;border-radius:6px;background:var(--surface);
+  border:1.5px solid var(--line-soft);font-family:var(--font-mono);
+  font-size:12.5px;font-weight:700;color:var(--ink)}
+.hnode.is-new{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.hnode.is-look{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.hnode.is-hit{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.harrow{flex:0 0 auto;color:var(--ink-faint);font-size:11px}
+.hempty{font-size:11px;color:var(--ink-faint)}
+
+/* 開放定址：一格一格的房間 + 探測腳印 */
+.hcell{flex:0 0 auto;min-width:56px;height:26px;padding:0 8px;display:flex;
+  align-items:center;justify-content:center;gap:2px;
+  background:var(--surface);border:1.5px solid var(--line-soft);border-radius:6px;
+  font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--ink)}
+.hcell.is-free{background:transparent;border-style:dashed;color:var(--ink-faint);
+  font-weight:400}
+.hcell.is-new{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.hcell.is-look{background:var(--accent-soft);border-color:var(--accent)}
+.hcell.is-hit{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.hcell.is-missend{background:var(--alarm-soft);border-color:var(--alarm);
+  border-style:dashed;color:var(--alarm)}
+.hcell.is-tomb{background:var(--alarm-soft);border-color:var(--alarm);
+  border-style:dashed;color:var(--alarm);font-size:12px}
+.hcell small{font-size:9px;text-decoration:line-through;margin-left:2px}
+.hfoot{flex:0 0 16px;width:16px;height:16px;border-radius:50%;background:var(--accent);
+  color:var(--surface);font-family:var(--font-mono);font-size:10px;font-weight:700;
+  display:grid;place-items:center}
+.hfoot.is-ok{background:var(--jade)}
+.hfoot.is-no{background:var(--alarm)}
+
+/* 碰撞徽章 */
+.crash{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--surface);
+  background:var(--alarm);padding:1px 7px;border-radius:999px;letter-spacing:.05em;
+  animation:crashpop .45s ease}
+@keyframes crashpop{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+
+/* 載入因子劇場 */
+.lf-meter{position:relative;height:8px;background:var(--sunken);border-radius:999px}
+.lf-fill{display:block;height:100%;border-radius:999px;background:var(--jade);
+  width:0;transition:width var(--dur)}
+.lf-fill.is-hot{background:var(--alarm)}
+.lf-mark{position:absolute;left:70%;top:-3px;height:14px;width:2px;
+  background:var(--alarm);border-radius:1px;opacity:.7}
+.lf-cap{font-size:10.5px;color:var(--ink-faint);font-family:var(--font-mono)}
+#curve{width:100%;height:auto;background:var(--sunken);border-radius:8px;display:block}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">16 · 雜湊表</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 16 · Hash Table</p>
+    <h1>雜湊表大碰撞</h1>
+    <p class="lede">同一個格子擠進兩筆資料怎麼辦？左邊「鏈結法」把撞在一起的人串成鏈，右邊「開放定址法」讓他佔隔壁的空房。同一串資料同時餵給兩邊，看兩種哲學怎麼各自收場——再看載入因子怎麼把兩邊都拖垮。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>雜湊表 Hash Table</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>平均 O(1)・最壞 O(n)</b></div>
+      <div class="fact"><span>空間</span><b>O(n + m)</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列、取餘數 %</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上有<b>兩張表</b>，各有 7 個編號 0～6 的格子（桶）。每筆資料先經過「雜湊函式」<code>key % 7</code>（除以 7 取餘數）算出該住第幾格——像郵差按姓氏筆畫把信分進 7 個信箱。兩家人被分到同一個信箱，就是<b>碰撞</b>：左表把他們串成鏈，右表讓後到的往下找空房。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>，或自己輸入操作序列（<code>+10</code> 插入、<code>?10</code> 查找、<code>-10</code> 刪除、<code>!</code> 擴桶）。</li>
+            <li>按 <b>下一步</b>：先看雜湊值怎麼算，再看兩張表各自怎麼反應。</li>
+            <li>碰撞發生時該格會標<b>「碰撞!」</b>，右表的探測路徑會留下編號腳印 ①②③。</li>
+            <li>盯著右側欄的 <b>α 載入因子</b>：超過紅線 0.7，右表的腳印會開始一長串。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你算：這個 key 會落在哪一格？會不會碰撞？最後住哪？查找要看幾格？</li>
+            <li>答對得分，<b>連續答對</b>額外加分；答錯立刻說明正確答案和理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>雜湊函式在做什麼</b> —— 把任意大的 key 壓進 0～m-1 的格子編號；為什麼取餘數 <code>%</code>、為什麼桶數挑質數。</li>
+            <li><b>碰撞為什麼必然發生</b> —— 格子比可能的 key 少，總有兩家人分到同一個信箱（鴿籠原理）。</li>
+            <li><b>兩種解法的哲學</b> —— 鏈結法「往外掛鏈子」vs 開放定址「往下擠房間」，同一串資料並排比較。</li>
+            <li><b>開放定址的刪除陷阱</b> —— 直接清空會讓後面的探測斷路，必須放墓碑 🪦。本頁會演這個反例。</li>
+            <li><b>載入因子 α = n/m</b> —— 為什麼 α 一過 0.7 開放定址明顯變慢，以及 rehash 怎麼救回來。</li>
+            <li><b>為什麼平均 O(1)、最壞 O(n)</b> —— 「雜湊表永遠 O(1)」是誤解，第 03 段拆給你看。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩<b>「大塞車」</b>看兩邊怎麼處理碰撞，再玩<b>「刪除陷阱」</b>看墓碑為什麼非放不可，最後玩<b>「塞爆再擴桶」</b>看 α 曲線飆高與 rehash。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">同一串資料，同時餵給兩張表 → 看兩種碰撞解法各自怎麼收場。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="80"
+            placeholder="+10 +17 ?17 -10 !（+插入 ?查找 -刪除 !擴桶）" aria-label="自訂操作序列">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">兩張雜湊表・同一串資料</h3>
+            <span class="panel-note" id="duoNote"></span>
+          </div>
+
+          <div class="ht-duo">
+            <div class="ht-col">
+              <div class="ht-col-head"><b>鏈結法 Chaining</b><span id="chainNote">m = 7</span></div>
+              <div id="chainT"></div>
+            </div>
+            <div class="ht-col">
+              <div class="ht-col-head"><b>開放定址 Linear Probing</b><span id="openNote">m = 7</span></div>
+              <div id="openT"></div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">載入因子劇場</h3>
+              <span class="panel-note">α = n ÷ m</span>
+            </div>
+            <div class="stats">
+              <div class="stat"><span class="k">n 筆數</span><span class="v" id="stN">0</span></div>
+              <div class="stat"><span class="k">m 桶數</span><span class="v" id="stM">7</span></div>
+              <div class="stat" id="stAlphaBox"><span class="k">α 載入因子</span><span class="v" id="stAlpha">0.00</span></div>
+            </div>
+            <div class="lf-meter"><i class="lf-fill" id="meterFill"></i><span class="lf-mark"></span></div>
+            <div class="lf-cap">紅色直線 = 0.7 警戒線</div>
+            <div class="stats">
+              <div class="stat"><span class="k">鏈結法平均</span><span class="v" id="stCAvg">1.0</span></div>
+              <div class="stat" data-k="hot"><span class="k">開放定址平均</span><span class="v" id="stOAvg">1.0</span></div>
+              <div class="stat"><span class="k">本步看了</span><span class="v" id="stCost">—</span></div>
+            </div>
+            <svg id="curve" viewBox="0 0 260 100" aria-label="平均探測次數對載入因子的曲線"></svg>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++ 鏈結法）——玩到哪，亮到哪</h3>
+          <span class="panel-note">平均 O(1)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，鏈結法雜湊表的本體就是這樣——插入、查找、刪除，外加 α 超標時自動擴桶：</p>
+                <pre class="code">#include &lt;vector&gt;
+#include &lt;list&gt;
+using namespace std;
+
+int nextPrime(int x) {                       <i>// 找 ≥ x 的第一個質數</i>
+    for (;; ++x) {
+        bool p = x &gt; 1;
+        for (int d = 2; d * d &lt;= x; ++d) if (x % d == 0) p = false;
+        if (p) return x;
+    }
+}
+
+struct HashTable {
+    int n = 0;                               <i>// 目前存了幾筆</i>
+    vector&lt;list&lt;int&gt;&gt; b;                     <i>// m 個桶，每桶掛一條鏈</i>
+    HashTable(int m = 7) : b(m) {}
+
+    int H(int key) const { return key % (int)b.size(); }  <i>// 雜湊函式</i>
+
+    bool find(int key) const {
+        for (int x : b[H(key)])              <i>// 只翻自己那一桶的鏈</i>
+            if (x == key) return true;
+        return false;
+    }
+    void insert(int key) {
+        if (find(key)) return;               <i>// 已存在就不重複放</i>
+        b[H(key)].push_front(key);
+        if (++n &gt; 0.7 * b.size()) rehash();  <i>// α 超過 0.7 → 擴桶</i>
+    }
+    void erase(int key) {
+        b[H(key)].remove(key);               <i>// 把節點從鏈上摘掉</i>
+        --n;                                 <i>//（假設 key 原本存在）</i>
+    }
+    void rehash() {                          <i>// 桶數翻倍取質數，全部重新安家</i>
+        vector&lt;list&lt;int&gt;&gt; old = move(b);
+        b.assign(nextPrime(2 * (int)old.size()), {});
+        for (auto&amp; chain : old)
+            for (int x : chain) b[H(x)].push_front(x);   <i>// 用「新的 m」重算</i>
+    }
+};</pre>
+        <p>核心不到二十行。遊戲頁面多出來的幾百行，全是為了「讓碰撞看得見」——包括右邊那張本體程式裡根本不存在的開放定址表（它的版本在第 03 段）。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「為什麼要雜湊」走到「碰撞怎麼收拾」，每個設計為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>我們想要一個櫃子：<b>放東西、找東西、刪東西，三件事都幾乎瞬間完成</b>——不管櫃子裡已經有幾萬筆。先看看手上已有的工具差在哪：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>操作</th><th class="mono">未排序陣列</th><th class="mono">排序陣列</th><th class="mono" style="color:var(--jade)">雜湊表</th></tr></thead>
+            <tbody>
+              <tr><td><b>查找</b> key 在不在</td><td class="mono">O(n) 逐格翻</td><td class="mono">O(log n) 二分</td><td class="mono" style="color:var(--jade);font-weight:700">平均 O(1)</td></tr>
+              <tr><td><b>插入</b>一筆</td><td class="mono">O(1) 塞尾巴</td><td class="mono">O(n) 要挪位</td><td class="mono" style="color:var(--jade);font-weight:700">平均 O(1)</td></tr>
+              <tr><td><b>刪除</b>一筆</td><td class="mono">O(n) 先找到</td><td class="mono">O(n) 要補洞</td><td class="mono" style="color:var(--jade);font-weight:700">平均 O(1)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>三個 O(1) 不是免費的：代價是<b>碰撞</b>，以及本頁要演的所有麻煩。</p>
+      </div>
+
+      <div class="block">
+        <h3>雜湊函式：按姓氏筆畫分信箱</h3>
+        <p>雜湊函式就是一台「分信機」：任何 key 丟進去，吐出一個 0～m-1 的格子編號。本頁用最簡單的一種——<b>取餘數</b>：<code>h(key) = key % m</code>（key 除以 m，看餘數是多少）。餘數一定落在 0 到 m-1 之間，剛好對應 m 個信箱，一個都不會超出。</p>
+        <p>key 是字串怎麼辦？先把它<b>變成數字</b>再取餘數。本頁示範最陽春的做法：把每個字元的內碼加總——<code>"cat"</code> 是 c(99) + a(97) + t(116) = 312，再 312 % 7 = 4，住第 4 格。（這個做法有個大缺點，「常見誤解」那一段會踢爆它。）</p>
+        <h4>為什麼桶數 m 要挑質數（7、11、17…）？</h4>
+        <p>現實資料常常「有規律」：都是偶數、都是 10 的倍數、都差固定間隔。如果 m = 8 而 key 是 8、16、24、32——全部 % 8 都等於 0，<b>整批資料擠進同一格</b>，雜湊表直接退化。質數跟絕大多數間隔「無公因數」，規律資料也能被打散。所以本頁用 m = 7，rehash 之後翻倍取質數變 17。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">好的雜湊函式只求一件事：<b>把 key 儘量均勻地撒進 m 個格子</b>。撒得越勻，每格越淺，三個 O(1) 才成立。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：「用 key 直接當陣列索引不就好了？」</h3>
+        <p>如果 key 是 0～99 的小整數，確實可以：開一個 100 格的陣列，<code>a[key]</code> 一步到位——這叫直接定址，它才是真正「永遠 O(1)」的東西。但它馬上撞牆：</p>
+        <ul class="bullets no">
+          <li><b>key 可能很大</b> —— 身分證字號、手機號碼是 10 位數，你要開一百億格的陣列來存三筆資料嗎？</li>
+          <li><b>key 可能不是數字</b> —— 字串 <code>"cat"</code> 沒辦法直接當索引。</li>
+        </ul>
+        <p>所以只好<b>壓縮</b>：用雜湊函式把「巨大的 key 世界」硬塞進「小小的 m 格」。而只要格子比可能的 key 少——8 隻鴿子飛進 7 個籠子，一定有一籠擠兩隻——<b>碰撞不是意外，是數學上必然發生的宿命</b>（鴿籠原理）。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">雜湊表的設計核心從來不是「避免碰撞」（辦不到），而是<b>「碰撞發生時怎麼收拾」</b>。收拾的兩大門派，就是畫面上左右那兩張表。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：兩大門派怎麼收拾碰撞</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th></th><th>鏈結法 Chaining（左表）</th><th>開放定址 Open Addressing（右表）</th></tr></thead>
+            <tbody>
+              <tr><td><b>哲學</b></td><td>不搶位子——同格的人串成一條鏈，往「格子外面」長</td><td>不掛鏈子——被佔就看下一格，往「表的裡面」擠（線性探測）</td></tr>
+              <tr><td><b>額外記憶體</b></td><td>每個節點多一根指標</td><td>零——全部住在同一個陣列裡，快取友善</td></tr>
+              <tr><td><b>刪除</b></td><td>把節點摘掉就好，超簡單</td><td><b>陷阱！</b>直接清空會弄斷別人的探測路，要放墓碑 🪦</td></tr>
+              <tr><td><b>表滿了（α &gt; 1）</b></td><td>還能塞，只是鏈越來越長</td><td>塞不下——α 最多到 1，而且 0.7 就開始痛苦</td></tr>
+              <tr><td><b>怕什麼</b></td><td>爛雜湊函式讓某條鏈獨長</td><td>連續佔用「結塊」（primary clustering）：塊越大越容易被撞、撞了塊又更大</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">遊戲把兩張表並排、餵同一串資料，就是要讓你親眼看到：<b>同一次碰撞，兩種哲學走出完全不同的後續</b>——尤其查找成本，常常一邊 1 格、另一邊 4 格。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <p>三種操作，兩張表各自的動作：</p>
+        <ol class="steps">
+          <li><b>插入 key</b> —— 先算 <code>h = key % m</code>。鏈結法：掛到第 h 格鏈條最前面（就算撞了也只是鏈長 +1）。開放定址：第 h 格空的就住下；被佔就看 h+1、h+2……（到尾端繞回 0），遇到的第一個空格或墓碑就是新家。</li>
+          <li><b>查找 key</b> —— 一樣先算 h。鏈結法：只翻第 h 格那條鏈，逐節點比對。開放定址：從第 h 格沿路探測，看到 key 就是找到；<b>看到「從沒住過人的空格」才能說不存在</b>——墓碑不算空格，必須跨過去繼續走。</li>
+          <li><b>刪除 key</b> —— 鏈結法：找到節點、從鏈上摘掉，結束。開放定址：找到之後<b>不能清空</b>，改放墓碑 🪦（標記「這裡曾有人住，查找請繼續往下」）。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">開放定址查找的停止條件是「<b>真正的空格</b>」，不是「走過 key 該在的那格」。忘了這件事（或把墓碑當空格），被擠到後面的資料就永遠找不到了。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>刪除陷阱：為什麼非放墓碑不可（反例實演）</h3>
+        <p>用「刪除陷阱」關卡的資料走一次。10、17、24 全部 % 7 = 3，開放定址下依序住進 3、4、5 格。現在<b>刪掉 17</b>：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>做法</th><th>刪 17 之後查 24 會發生什麼</th><th>結果</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>直接清空第 4 格</b></td>
+                <td class="mono">24 % 7 = 3 → 看第 3 格（是 10）→ 看第 4 格（空的！）→ 停</td>
+                <td style="color:var(--alarm);font-weight:700">回報「不存在」——但 24 明明就住在第 5 格！</td>
+              </tr>
+              <tr>
+                <td><b>放墓碑 🪦</b></td>
+                <td class="mono">看第 3 格（10）→ 第 4 格（墓碑，不能停）→ 第 5 格（24 ✓）</td>
+                <td style="color:var(--jade);font-weight:700">正確找到</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>探測路徑就像一串腳印：<b>空格 = 路的盡頭</b>。24 當初是「踩著第 4 格被佔」才被擠去第 5 格的；把第 4 格清空，等於把路從中間挖斷。墓碑的意思是「此路不斷，繼續走」。墓碑會在下次 rehash 時整批清掉；進階實作還會讓插入直接重複利用墓碑的位子（本頁的模擬就是這樣做的）。</p>
+      </div>
+
+      <div class="block">
+        <h3>載入因子 α 與 rehash</h3>
+        <p><b>α = n ÷ m</b>（資料筆數 ÷ 桶數），白話就是「表有多滿」。它直接決定平均要看幾格：</p>
+        <ul class="bullets">
+          <li><b>鏈結法</b> —— 平均鏈長就是 α，成功查找平均約看 <b>1 + α/2</b> 個節點。α = 2 也只是平均每鏈兩節，慢得很溫和。</li>
+          <li><b>開放定址（線性探測）</b> —— 成功查找平均約 <b>(1 + 1/(1−α)) / 2</b> 格。注意分母的 1−α：α = 0.5 時約 1.5 格，α = 0.7 約 2.2 格，α = 0.9 直接 5.5 格——<b>不是慢慢變差，是斷崖式惡化</b>。遊戲側欄的曲線畫的就是這兩條公式。</li>
+        </ul>
+        <p>所以工程上訂一條警戒線（本頁 0.7；<code>std::unordered_map</code> 預設 1.0）：α 一超標就 <b>rehash</b>——桶數翻倍再取最近的質數（7 → 17），然後<b>每一筆資料用新的 m 重算雜湊值、重新安家</b>。搬一次全家是 O(n)，但因為每次都翻倍，攤平到每次插入平均還是 O(1)——跟動態陣列（vector）翻倍擴容是同一招。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：把 10、17、24 塞進 m = 7</h3>
+        <p>考試在紙上追蹤雜湊表，就是畫這張表。三個 key 除以 7 餘數都是 3——最擁擠的情況：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th class="mono">key</th><th class="mono">h = key % 7</th><th>鏈結法（第 3 格的鏈）</th><th>開放定址</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td class="mono">10</td><td class="mono">3</td><td class="mono">[10]</td><td class="mono">第 3 格空 → 住 3</td></tr>
+              <tr><td class="mono">2</td><td class="mono">17</td><td class="mono">3</td><td class="mono" style="color:var(--accent)">碰撞！[17→10]</td><td class="mono" style="color:var(--accent)">3 被佔 → 探 4 → 住 4</td></tr>
+              <tr><td class="mono">3</td><td class="mono">24</td><td class="mono">3</td><td class="mono" style="color:var(--accent)">碰撞！[24→17→10]</td><td class="mono" style="color:var(--accent)">探 3、4 都被佔 → 住 5</td></tr>
+              <tr><td class="mono">4</td><td class="mono">查 24</td><td class="mono">3</td><td style="color:var(--jade)">鏈第 1 節就是 24 → 看 1 節</td><td style="color:var(--jade)">探 3(10)、4(17)、5(24) → 看 3 格</td></tr>
+              <tr><td class="mono">5</td><td class="mono">查 31</td><td class="mono">3</td><td style="color:var(--alarm)">整條鏈 3 節翻完 → 不存在</td><td style="color:var(--alarm)">探 3、4、5、6(空) → 看 4 格才確定不存在</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>同樣的碰撞，兩邊付的代價不一樣——這就是「大塞車」關卡在演的事。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>平均 O(1)</b> —— 成立的前提有兩個：<b>雜湊函式撒得夠勻</b> ＋ <b>α 壓得夠低</b>（靠 rehash 維持）。這時每格平均只有常數筆資料，插查刪都只碰自己那一格附近。</li>
+          <li><b>最壞 O(n)</b> —— 全部 key 撞進同一格：鏈結法退化成一條 n 節長鏈，開放定址退化成連續 n 格的大結塊，查一次要翻整張表。爛雜湊函式或惡意構造的輸入就能做到。</li>
+          <li><b>空間 O(n + m)</b> —— n 筆資料本體，加上 m 個桶的骨架（包括空桶）。</li>
+          <li><b>rehash 攤銷 O(1)</b> —— 單次 rehash 搬全家 O(n)，但翻倍策略讓它平均到每次插入只剩常數。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「雜湊表永遠 O(1)」</b> —— 錯。O(1) 是<b>平均</b>且<b>有條件的</b>（好雜湊＋低 α）。最壞 O(n)，而且 rehash 那一下是實打實的 O(n)。對延遲敏感的系統（遊戲引擎、交易系統）會特別提防這兩點。</li>
+          <li><b>「發生碰撞代表雜湊函式寫爛了」</b> —— 錯。只要格子比 key 的可能值少，碰撞就必然存在；好函式只是讓碰撞「均勻地少」，不是零。</li>
+          <li><b>「開放定址刪除＝把那格清空」</b> —— 錯，這是本頁演過的反例：清空會弄斷後面所有人的探測路，明明存在的 key 會被回報不存在。要放墓碑。</li>
+          <li><b>「字串雜湊用字元加總就好」</b> —— 差勁。<code>"cat"</code> 和 <code>"act"</code> 字元相同、只是順序不同，加總完全一樣 → 保證碰撞（「字串信箱」關卡演的就是這個）。實務用多項式雜湊：<code>h = h·31 + c</code>，讓「順序」也參與運算。</li>
+          <li><b>「α 到 1 之前都沒事」</b> —— 對鏈結法勉強成立，對開放定址大錯：0.7 之後平均探測次數沿著 1/(1−α) 起飛，側欄那條橘色曲線就是證據。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>開放定址版程式（右表跑的就是這個）</h3>
+        <p>三種格子狀態是關鍵：<b>空</b>（從沒人住）、<b>有人</b>、<b>墓碑</b>（住過但被刪了）：</p>
+                <pre class="code">struct OpenAddr {
+    enum State { EMPTY, USED, TOMB };            <i>// 空 / 有人 / 墓碑</i>
+    vector&lt;int&gt;   key;
+    vector&lt;State&gt; st;
+    OpenAddr(int m = 7) : key(m), st(m, EMPTY) {}
+    int m() const { return (int)key.size(); }
+
+    void insert(int k) {
+        int i = k % m();
+        while (st[i] == USED) i = (i + 1) % m(); <i>// 被佔就往下一格（墓碑可直接重用）</i>
+        key[i] = k; st[i] = USED;
+    }
+    bool find(int k) const {
+        int i = k % m();
+        while (st[i] != EMPTY) {                 <i>// 墓碑不能停，只有真空格能停！</i>
+            if (st[i] == USED &amp;&amp; key[i] == k) return true;
+            i = (i + 1) % m();
+        }
+        return false;
+    }
+    void erase(int k) {
+        int i = k % m();
+        while (st[i] != EMPTY) {
+            if (st[i] == USED &amp;&amp; key[i] == k) { st[i] = TOMB; return; }  <i>// 放墓碑</i>
+            i = (i + 1) % m();
+        }
+    }
+};</pre>
+        <h4>你天天在用它：std::unordered_map 背後就是這件事</h4>
+                <pre class="code">#include &lt;unordered_map&gt;
+unordered_map&lt;string, int&gt; phone;
+
+phone["小明"] = 5551234;      <i>// 插入：背後就是 hash("小明") % 桶數 → 找桶</i>
+phone.count("小明");          <i>// 查找：平均 O(1)</i>
+phone.erase("小明");          <i>// 刪除</i>
+
+phone.load_factor();          <i>// 就是本頁的 α</i>
+phone.max_load_factor();      <i>// 預設 1.0，α 超過就自動 rehash</i>
+phone.bucket_count();         <i>// 桶數 m（GCC 的實作用質數：13, 29, 59, …）</i></pre>
+        <p>GCC 的 <code>unordered_map</code> 用的正是<b>鏈結法＋質數桶數</b>——你在左表看到的每一件事，都在你每次寫 <code>map[key]</code> 時真實發生。</p>
+      </div>
+
+    </div>
+  </section>
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>使用者按「下一步」之前，整段過程已經全部算好了。特別的是這一關<b>一份輸入要同時餵兩個模擬器</b>——鏈結法和開放定址在 <code>buildSteps</code> 裡肩並肩往前走，每一步都把兩張表各拍一張快照。</p>
+        <div class="arch">
+          <div class="node" data-k="in">操作序列 <small>+10 +17 ?17 -10 !</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(ops) <small>兩個模擬器同步跑完整串操作</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格 = 兩張表當下的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <h4>為什麼這樣設計</h4>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 「倒退一次線性探測」或「還原一次 rehash」的反向邏輯根本不用寫。</li>
+          <li><b>兩張表天然同步</b> —— 同一個 step 物件裡同時有 chain 和 open 兩份快照，左右畫面永遠對得上，不會一邊快一邊慢。</li>
+          <li><b>演算法與畫面分離</b> —— <code>buildSteps</code> 裡沒有半行畫面程式碼，它就是純粹的雜湊表模擬器。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步存兩張表的完整快照，記憶體 <b>O(步數 × m)</b>。教學規模（十幾個操作、m ≤ 17）毫無問題，真實工程不會這樣寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>資料層</b></td>
+                <td class="mono">buildSteps(ops)<br>keyInfo / nextPrime</td>
+                <td>唯一真正跑演算法的地方。輸入操作序列，同步模擬兩張表，輸出步驟陣列；字串 key 在 keyInfo 先變數字。</td>
+              </tr>
+              <tr>
+                <td><b>狀態</b></td>
+                <td class="mono">S</td>
+                <td>一個物件裝所有狀態：操作序列、目前第幾步、模式、分數。全站只有這一份。</td>
+              </tr>
+              <tr>
+                <td><b>畫面層</b></td>
+                <td class="mono">paintTables / paintStats<br>paintAlgo / paintSay / paintLog</td>
+                <td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊（兩張表、α 儀表與曲線、程式高亮、說明、歷程），彼此不互相呼叫。</td>
+              </tr>
+              <tr>
+                <td><b>導覽</b></td>
+                <td class="mono">goto / next / prev<br>startPlay / stopPlay</td>
+                <td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td>
+              </tr>
+              <tr>
+                <td><b>闖關</b></td>
+                <td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td>
+                <td>題目在 buildSteps 時就綁在 step 上（<code>step.quiz</code>），這裡只負責出題、對答案、計分。</td>
+              </tr>
+              <tr>
+                <td><b>載入</b></td>
+                <td class="mono">parseOps / loadOps<br>loadLevel / setMode</td>
+                <td>把「+10 ?10 -10 !」這種文字翻成操作陣列，換題目、換模式，重建 steps 並歸零。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintTables<small>左右兩張表</small></div>
+            <div class="node">paintStats<small>α 儀表＋曲線</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// hash / cins / probe / oins / cwalk / chit / cmiss / oprobe /</i>
+          <i>// ohit / omiss / cdel / tomb / rewarn / reins / redone / done …</i>
+          <i>// → 決定徽章文字、顏色、兩張表上的標記方式</i>
+  <b>key</b>:    <i>// 這一步在處理的 key（顯示用字串）</i>
+  <b>h</b>:      <i>// 雜湊出來的家：key % m → 兩張表的高亮列</i>
+  <b>m</b>:      <i>// 當下桶數（rehash 後會變 17）</i>
+  <b>chain</b>:  <i>// 鏈結法整張表的快照（m 條鏈）→ 左表直接畫這個</i>
+  <b>open</b>:   <i>// 開放定址整張表的快照（含墓碑）→ 右表直接畫這個</i>
+  <b>path</b>:   <i>// 探測走過的格子順序 → 右表的編號腳印 ①②③</i>
+  <b>n, alpha</b>: <i>// 資料筆數與載入因子 → α 儀表、曲線上的游標</i>
+  <b>line</b>:   <i>// 演算法要高亮第幾行（0 = 這步不在 12 行主程式裡）</i>
+  <b>quiz</b>:   <i>// 闖關題（有就出題）：{ q 題目, opts 選項, a 正解 }</i>
+  <b>title, msg</b>: <i>// 說明面板的標題與內文</i>
+}</pre>
+        <p><code>chain</code> 和 <code>open</code> 都是<b>快照</b>不是參考——每一步都複製一份。這是「可以自由倒退、甚至倒退穿越一次 rehash」的底氣。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{tag, n, ops:"+3 ?3 -3"}</code></td><td>1 行</td></tr>
+              <tr><td>改桶數（試試 m=8 看規律資料塞爆）</td><td><code>buildSteps</code> 開頭的 <code>var m = 7</code></td><td>1 行</td></tr>
+              <tr><td>改 α 警戒線</td><td><code>buildSteps</code> 裡的 <code>0.7</code>（兩處）與畫面 <code>.lf-mark</code> 的 70%</td><td>3 行</td></tr>
+              <tr><td>改成平方探測</td><td>插入／查找的 <code>(h+c)%m</code> 改成 <code>(h+c*c)%m</code></td><td>少量</td></tr>
+              <tr><td>換字串雜湊（修掉 cat/act 碰撞）</td><td><code>keyInfo()</code> 的加總改成 <code>s = s*31 + code</code></td><td>1 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次全站生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作一個雜湊表（鏈結法），存 &lt;string, int&gt; 的鍵值對。
+
+要求：
+1. 底層用 vector&lt;list&lt;pair&lt;string,int&gt;&gt;&gt;，桶數從質數 7 開始
+2. 字串雜湊「不准」用字元加總 —— 先用 "cat" / "act" 說明為什麼
+   加總會保證碰撞，再改用多項式雜湊 h = h*31 + c
+3. 支援 insert / find / erase 三個操作
+4. 維護載入因子 α = n / 桶數；α &gt; 0.75 時自動 rehash：
+   桶數翻倍後取最近的質數，所有資料用新桶數重新安家
+5. 每個函式加註解說明平均複雜度，並回答：
+   什麼情況會退化成 O(n)？
+
+測資：
+insert("cat",1)、insert("act",2)、insert("dog",3)
+→ 印出每個 key 落在第幾桶，驗證 cat 和 act 不再同桶
+erase("cat") 後 find("act") 必須還找得到</pre>
+
+        <h4>延伸題 1：把線性探測換成平方探測</h4>
+        <pre class="code">把本頁的開放定址表改成平方探測（quadratic probing）：
+第 c 次探測看 (h + c*c) % m，而不是 (h + c) % m。
+
+用同一組資料 10, 17, 24（m = 7）手算兩種探測的落點，
+回答：
+1. 平方探測解決了線性探測的哪個毛病？（提示：結塊 clustering）
+2. 它產生了什麼新問題？（提示：兩個同家的 key 探測路徑仍然完全相同
+   —— secondary clustering；以及 m 不是質數時可能繞不完整張表）</pre>
+
+        <h4>延伸題 2：兩數之和（LeetCode 1）</h4>
+        <pre class="code">給整數陣列 nums 和目標值 target，
+找出「相加等於 target」的兩個數的索引。
+
+暴力法 O(n²)：每一對都試。
+雜湊表 O(n)：掃到 x 時，先問表裡「target - x 存在嗎？」
+存在就收工；不存在就把 x 塞進表、繼續掃。
+
+用 unordered_map&lt;int,int&gt;（值 → 索引）寫出來，
+並解釋：為什麼「邊查邊插」一遍就夠，不需要先建完整張表？</pre>
+
+        <h4>延伸題 3：設計雜湊映射（LeetCode 706）</h4>
+        <pre class="code">不准用 unordered_map / map，自己實作 MyHashMap：
+put(key, value)、get(key)（不存在回 -1）、remove(key)。
+
+做兩個版本：
+A. 鏈結法（vector&lt;list&lt;pair&lt;int,int&gt;&gt;&gt;）
+B. 開放定址＋墓碑（本頁右表的做法）
+
+寫完後互相測試同一串操作，回答：
+1. remove 之後再 get，版本 B 少了墓碑會錯在哪一種情況？
+2. 兩個版本各在什麼場景下比較快？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 16 雜湊表大碰撞</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+  var LEVELS = [
+    {tag:"1·9·12·6",  n:"暖身：零碰撞",        ops:"+1 +9 +12 +6 ?9 ?4"},
+    {tag:"10·17·24",  n:"大塞車：全撞第 3 格", ops:"+10 +17 +24 ?24 ?10 ?31"},
+    {tag:"cat·act",   n:"字串信箱：同分陷阱",  ops:"+cat +dog +act ?act"},
+    {tag:"刪17查24",  n:"刪除陷阱：墓碑",      ops:"+10 +17 +24 -17 ?24"},
+    {tag:"α 劇場",    n:"塞爆再擴桶 rehash",   ops:"+5 +12 +19 +8 +15 +22 ! ?22"},
+    {tag:"魔王",      n:"混合技全部來",        ops:"+cat +10 +17 +24 ?17 -10 ?24 +dog +act ?act"}
+  ];
+
+  var CODE = [
+    "struct HashTable {",
+    "    vector<list<int>> b{7};",
+    "    int H(int key) { return key % 7; }",
+    "    void insert(int key) {",
+    "        b[H(key)].push_front(key);",
+    "    }",
+    "    bool find(int key) {",
+    "        for (int x : b[H(key)])",
+    "            if (x == key) return true;",
+    "        return false;",
+    "    }",
+    "};"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "宣告一個叫 HashTable 的「收納櫃」。struct 的意思是：把資料（那排桶子）和動作（插入、查找）包在一起，變成一個可以整組使用的東西。",
+    "準備桶子。vector 是「一排格子」，list 是「可以一直串下去的鏈條」——所以這行讀作：7 個格子，每格掛一條鏈。被雜湊分到同一格的資料，全都串在那條鏈上，永遠不怕沒地方放。",
+    "H 就是雜湊函式（分信機）。key % 7 讀作「key 除以 7 取餘數」：不管 key 多大，餘數一定是 0～6，剛好對應 7 個桶子的編號——像按姓氏筆畫把信分進 7 個信箱。",
+    "insert（插入）：把一筆資料收進表裡的動作，從這行開始。",
+    "先用 H(key) 算出該去第幾桶，push_front 再把它掛到那條鏈的「最前面」。就算桶裡已經有人（碰撞），也只是鏈條多一節——鏈結法的插入不管撞不撞，都是一步完成。",
+    "insert 到此結束——對，鏈結法的插入就只有一行。",
+    "find（查找）：問「這個 key 在不在表裡？」，答案只有在／不在兩種（bool 就是這個意思）。",
+    "一樣先算出它「應該」住第幾桶，然後把那條鏈上的節點一個一個拿出來看（for ... : ... 就是逐一檢查）。注意：只翻這一桶，其他 6 桶完全不用碰——這就是雜湊表快的原因。",
+    "拿出來的節點剛好等於要找的 key → 找到了，立刻回報 true（在）。",
+    "整條鏈翻完都沒有 → 確定不在，回報 false。鏈越長這裡越慢——所以要用 rehash 控制載入因子，讓每條鏈都很短。",
+    "find 到此結束。",
+    "整個收納櫃宣告結束（這個分號初學者最常忘）。"
+  ];
+
+  var BADGE = {start:"START", hash:"HASH", cins:"CHAIN", probe:"PROBE", oins:"OPEN",
+    cwalk:"WALK", chit:"HIT", cmiss:"MISS", oprobe:"PROBE", ohit:"HIT", omiss:"MISS",
+    cdel:"DEL", tomb:"TOMB", rewarn:"α!", reins:"MOVE", redone:"OK", done:"DONE", full:"FULL"};
+  var K2SAY = {start:"start", hash:"hot", cins:"push", probe:"hot", oins:"push",
+    cwalk:"hot", chit:"ok", cmiss:"no", oprobe:"hot", ohit:"ok", omiss:"no",
+    cdel:"pop", tomb:"error", rewarn:"error", reins:"push", redone:"done",
+    done:"done", full:"error"};
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+  var fmtA = function(a){ return a.toFixed(2); };
+  var fmt1 = function(a){ return a.toFixed(1); };
+
+  function isPrime(v){
+    if(v < 2) return false;
+    for(var d=2; d*d<=v; d++) if(v % d === 0) return false;
+    return true;
+  }
+  function nextPrime(x){ while(!isPrime(x)) x++; return x; }
+
+  /* key 是字串就先把字元內碼加總變數字 */
+  function keyInfo(k){
+    if(/^\d+$/.test(k)) return {disp:k, num:parseInt(k,10), isStr:false};
+    var s = 0, parts = [], i;
+    for(i=0;i<k.length;i++){ s += k.charCodeAt(i); parts.push(k[i]+"("+k.charCodeAt(i)+")"); }
+    return {disp:k, num:s, isStr:true, calc:parts.join(" + ")+" = "+s};
+  }
+
+  /* "+10 ?10 -10 !" → [{t:"i",k:"10"}, ...]；看不懂回傳 null */
+  function parseOps(str){
+    var toks = str.trim().split(/[\s,，、]+/).filter(function(t){return t.length>0;});
+    if(!toks.length) return null;
+    if(toks.length > 14) toks = toks.slice(0,14);
+    var ops = [], i, tok, p, k, t;
+    for(i=0;i<toks.length;i++){
+      tok = toks[i];
+      if(tok === "!" || tok === "！"){ ops.push({t:"r"}); continue; }
+      p = tok.charAt(0); k = tok;
+      if(p==="+"||p==="?"||p==="？"||p==="-"||p==="－"){ k = tok.slice(1); } else { p = "+"; }
+      t = (p==="?"||p==="？") ? "f" : (p==="-"||p==="－") ? "d" : "i";
+      k = k.slice(0,6);
+      if(!/^[A-Za-z0-9]+$/.test(k)) return null;
+      ops.push({t:t, k:k, ki:keyInfo(k)});
+    }
+    return ops;
+  }
+
+  /* ---------- 2. 狀態 ---------- */
+  var S = {
+    opsStr:"", steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:-1,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* ---------- 闖關選項產生器 ---------- */
+  function bucketOpts(correct, alts, m){
+    var set = [correct], i, v;
+    for(i=0;i<alts.length && set.length<4;i++){
+      v = ((alts[i] % m) + m) % m;
+      if(set.indexOf(v) < 0) set.push(v);
+    }
+    for(v=0; v<m && set.length<4; v++) if(set.indexOf(v) < 0) set.push(v);
+    set.sort(function(a,b){return a-b;});
+    return set.map(function(x){ return {t:"第 "+x+" 格", sub:"", v:x}; });
+  }
+  function numOpts(correct, unit){
+    var set = [correct], cands = [correct+1, correct-1, correct+2, correct+3], i;
+    for(i=0;i<cands.length && set.length<4;i++)
+      if(cands[i] >= 0 && set.indexOf(cands[i]) < 0) set.push(cands[i]);
+    set.sort(function(a,b){return a-b;});
+    return set.map(function(x){ return {t:x+" "+unit, sub:"", v:x}; });
+  }
+
+  /* ---------- 3. 資料層：兩個模擬器同步跑完整串操作 ---------- */
+  function buildSteps(ops){
+    var m = 7, chain = [], open = [], items = [], n = 0, steps = [], i, oi;
+    for(i=0;i<m;i++){ chain.push([]); open.push(null); }
+
+    function snapC(){ return chain.map(function(a){ return a.slice(); }); }
+    function snapO(){ return open.map(function(c){ return c ? {k:c.k, num:c.num, tomb:!!c.tomb} : null; }); }
+    function put(st){
+      st.m = m; st.chain = snapC(); st.open = snapO(); st.n = n; st.alpha = n/m;
+      steps.push(st);
+    }
+
+    put({kind:"start", line:2, title:"準備 "+m+" 個桶子（m = "+m+"，質數）",
+      msg:"左右兩張表各有 "+m+" 個編號 0～"+(m-1)+" 的格子。挑質數是為了把有規律的資料也撒得均勻。接下來同一串操作會同時餵給兩邊。"});
+
+    function hashMsg(ki, h){
+      return ki.isStr
+        ? "字串不能直接除，先把每個字元的內碼加總：<b>"+esc(ki.calc)+"</b>。再取餘數：<b>"+ki.num+" % "+m+" = "+h+"</b> —— 兩張表都去看第 "+h+" 格。"
+        : "<b>"+ki.num+" % "+m+" = "+h+"</b>（"+ki.num+" 除以 "+m+" 的餘數）。餘數一定落在 0～"+(m-1)+"，所以永遠不會指到不存在的格子 —— 兩張表都去看第 "+h+" 格。";
+    }
+
+    function doInsert(ki, h){
+      /* 鏈結法 */
+      var col = chain[h].length > 0;
+      chain[h].unshift(ki.disp);
+      n++;
+      put({kind:"cins", key:ki.disp, h:h, collide:col, crashC:(col?h:-1), line:5,
+        title: col ? "碰撞！鏈結法：掛上鏈子" : "鏈結法：第 "+h+" 格空著，直接入住",
+        msg: col
+          ? "第 "+h+" 格已經有 "+(chain[h].length-1)+" 筆資料 —— 兩家人被分到同一個信箱，這就是<b>碰撞</b>。鏈結法不搶位子：把 <b>"+esc(ki.disp)+"</b> 掛到這格鏈條的最前面，鏈長變 "+chain[h].length+"。就算再撞十次也只是鏈條變長。"
+          : "第 "+h+" 格還沒有人，<b>"+esc(ki.disp)+"</b> 成為這條鏈的第一節。",
+        quiz:{q:"接下來把 <b>"+esc(ki.disp)+"</b> 放進第 "+h+" 格 —— 鏈結法這邊會發生<b>碰撞</b>嗎？（看左表第 "+h+" 格）",
+          opts:[{t:"會碰撞", sub:"那格已有人", v:"y"}, {t:"不會碰撞", sub:"那格還空著", v:"n"}],
+          a: col ? "y" : "n"}});
+
+      /* 開放定址：線性探測（墓碑可重複利用） */
+      var path = [], placed = -1, c, idx, cell;
+      for(c=0;c<m;c++){
+        idx = (h+c) % m; path.push(idx); cell = open[idx];
+        if(!cell || cell.tomb){ placed = idx; break; }
+        put({kind:"probe", key:ki.disp, h:h, path:path.slice(), at:idx,
+          crashO:(c===0 ? h : -1), line:5,
+          title:"開放定址：第 "+idx+" 格被 "+esc(cell.k)+" 佔住，往下一格",
+          msg:"第 "+idx+" 格已經住著 <b>"+esc(cell.k)+"</b>"+
+            (c===0 ? " —— <b>碰撞！</b>開放定址不掛鏈子，改用<b>線性探測</b>：往下一格找空房" : "，這裡也滿了")+
+            "。留下腳印 "+(c+1)+"，繼續看第 "+((idx+1)%m)+" 格。"});
+      }
+      if(placed < 0){
+        n--; chain[h].shift();
+        put({kind:"full", key:ki.disp, h:h, path:path.slice(), at:h, line:5,
+          title:"表滿了！塞不進去",
+          msg:"開放定址繞了一整圈都沒有空格 —— α 已經是 1，這張表塞不下了。真實實作會在早得多的時候（α ≈ 0.7）就 rehash 擴桶。這筆插入取消。"});
+        return;
+      }
+      var wasTomb = !!(open[placed] && open[placed].tomb);
+      open[placed] = {k:ki.disp, num:ki.num, tomb:false};
+      var warn = (n/m > 0.7)
+        ? " <b>⚠ 載入因子 α = "+n+"/"+m+" ≈ "+fmtA(n/m)+"，超過 0.7 警戒線</b> —— 右表的探測腳印會越來越長，看側欄曲線，該擴桶了。" : "";
+      var os = {kind:"oins", key:ki.disp, h:h, path:path.slice(), placed:placed,
+        probes:path.length, line:5,
+        title: path.length > 1
+          ? "開放定址：繞了 "+path.length+" 格，住進第 "+placed+" 格"
+          : "開放定址：第 "+placed+" 格空著，直接入住",
+        msg:(path.length > 1
+          ? "<b>"+esc(ki.disp)+"</b> 的家（第 "+h+" 格）被佔了，沿路探測 "+path.length+" 格才找到"+(wasTomb ? "一塊墓碑 —— 墓碑的位子可以直接重複利用，" : "空房，")+"住進第 "+placed+" 格。它離家越遠，以後查它就要走越多步。"
+          : "<b>"+esc(ki.disp)+"</b> 一步入住自己的家 —— 沒有碰撞時，開放定址跟鏈結法一樣快。") + warn};
+      if(path.length > 1){
+        os.quiz = {q:"開放定址這邊：<b>"+esc(ki.disp)+"</b> 的家（第 "+h+" 格）被佔了。線性探測往下找，它<b>最後會住進哪一格</b>？（看右表哪些格子已有人）",
+          opts:bucketOpts(placed, [h, placed+1, placed+2], m), a:placed};
+      }
+      put(os);
+      items.push(ki);
+    }
+
+    function doFind(ki, h){
+      /* 鏈結法：逐節點翻鏈 */
+      var arr = chain[h], x, foundAt = -1;
+      for(x=0;x<arr.length;x++){
+        if(arr[x] === ki.disp){
+          foundAt = x;
+          put({kind:"chit", key:ki.disp, h:h, node:x, cost:x+1, line:9,
+            title:"鏈結法：找到了！共看 "+(x+1)+" 個節點",
+            msg:"第 "+h+" 格鏈上第 "+(x+1)+" 節就是 <b>"+esc(ki.disp)+"</b>。鏈結法查找的成本 = 在鏈上的位置，跟表的總筆數無關。",
+            quiz:{q:"鏈結法查 <b>"+esc(ki.disp)+"</b>：它在第 "+h+" 格，鏈上目前有 "+arr.length+" 個節點（從最前面逐一比對）—— 要看<b>幾個節點</b>才找得到？",
+              opts:numOpts(x+1, "個"), a:x+1}});
+          break;
+        }
+        put({kind:"cwalk", key:ki.disp, h:h, node:x, line:8,
+          title:"鏈結法：第 "+(x+1)+" 節是 "+esc(arr[x])+"，不是",
+          msg:"鏈上第 "+(x+1)+" 節是 <b>"+esc(arr[x])+"</b>，不是要找的 <b>"+esc(ki.disp)+"</b>，順著鏈條看下一節。"});
+      }
+      if(foundAt < 0){
+        put({kind:"cmiss", key:ki.disp, h:h, cost:arr.length, line:10,
+          title: arr.length ? "鏈結法：整條鏈翻完了，不存在" : "鏈結法：這格是空的，不存在",
+          msg: arr.length
+            ? "第 "+h+" 格的鏈 "+arr.length+" 節全部翻完都沒有 <b>"+esc(ki.disp)+"</b> —— 確定不在。注意：只翻了這一桶，其他桶想都不用想。"
+            : "第 "+h+" 格連鏈條都沒有 —— <b>"+esc(ki.disp)+"</b> 如果存在一定在這格，所以 0 個節點就能確定：不存在。",
+          quiz:{q:"鏈結法查 <b>"+esc(ki.disp)+"</b>：第 "+h+" 格的鏈上有 "+arr.length+" 個節點 —— 要看<b>幾個節點</b>才能確定它不存在？",
+            opts:numOpts(arr.length, "個"), a:arr.length}});
+      }
+      /* 開放定址：沿路探測 */
+      var path = [], stop = false, c, idx, cell;
+      for(c=0;c<m && !stop;c++){
+        idx = (h+c) % m; path.push(idx); cell = open[idx];
+        if(!cell){
+          stop = true;
+          put({kind:"omiss", key:ki.disp, h:h, path:path.slice(), at:idx, cost:path.length, line:10,
+            title:"開放定址：碰到真正的空格 → 不存在（看了 "+path.length+" 格）",
+            msg:"第 "+idx+" 格是<b>從來沒人住過的空格</b>。當初插入時遇到空格就會停，所以 <b>"+esc(ki.disp)+"</b> 如果在表裡，一定出現在路斷掉之前 —— 可以放心回報：不存在。共看 "+path.length+" 格。",
+            quiz:{q:"開放定址查 <b>"+esc(ki.disp)+"</b>：從第 "+h+" 格出發沿路探測（停止條件：找到它，或遇到真正的空格）—— 要看<b>幾格</b>？",
+              opts:numOpts(path.length, "格"), a:path.length}});
+        } else if(cell.tomb){
+          put({kind:"oprobe", key:ki.disp, h:h, path:path.slice(), at:idx, line:8,
+            title:"第 "+idx+" 格是墓碑 🪦 —— 不能停！",
+            msg:"墓碑＝「這裡曾經有人住，後來被刪了」。要找的 key 可能當初被這格擠到更後面，所以<b>絕對不能把墓碑當空格</b>，跨過去繼續走。"});
+        } else if(cell.k === ki.disp){
+          stop = true;
+          put({kind:"ohit", key:ki.disp, h:h, path:path.slice(), at:idx, cost:path.length, line:9,
+            title:"開放定址：找到了！共看 "+path.length+" 格",
+            msg:"第 "+idx+" 格就是 <b>"+esc(ki.disp)+"</b>。它當初被擠了多遠，現在就要走多遠 —— 碰撞的代價在查找時原封不動討回來。",
+            quiz:{q:"開放定址查 <b>"+esc(ki.disp)+"</b>：從第 "+h+" 格出發沿路探測 —— 要看<b>幾格</b>才找得到？（看右表它現在住哪）",
+              opts:numOpts(path.length, "格"), a:path.length}});
+        } else {
+          put({kind:"oprobe", key:ki.disp, h:h, path:path.slice(), at:idx, line:8,
+            title:"第 "+idx+" 格是 "+esc(cell.k)+"，不是，往下",
+            msg:"第 "+idx+" 格住的是 <b>"+esc(cell.k)+"</b>，不是要找的 <b>"+esc(ki.disp)+"</b>。留下腳印，看下一格。"});
+        }
+      }
+      if(!stop){
+        put({kind:"omiss", key:ki.disp, h:h, path:path.slice(), at:(h+m-1)%m, cost:m, line:10,
+          title:"整張表繞了一圈都沒有",
+          msg:"探測繞完整張表（"+m+" 格）都沒遇到空格也沒找到 —— 不存在。這就是雜湊表的<b>最壞情況 O(n)</b>：表太滿時，「平均 O(1)」蕩然無存。"});
+      }
+    }
+
+    function doDelete(ki, h){
+      /* 鏈結法 */
+      var arr = chain[h], pos = arr.indexOf(ki.disp);
+      if(pos >= 0){
+        arr.splice(pos, 1);
+        put({kind:"cdel", key:ki.disp, h:h, line:0,
+          title:"鏈結法：把節點摘下來，結束",
+          msg:"鏈結法的刪除毫無懸念：在第 "+h+" 格的鏈上找到 <b>"+esc(ki.disp)+"</b>，把那一節從鏈條上摘掉、前後接起來就好。不影響任何其他資料。"});
+      } else {
+        put({kind:"cmiss", key:ki.disp, h:h, cost:arr.length, line:0,
+          title:"鏈結法：要刪的東西不存在",
+          msg:"第 "+h+" 格的鏈上沒有 <b>"+esc(ki.disp)+"</b>，沒東西可刪。"});
+      }
+      /* 開放定址：先找到人，再放墓碑 */
+      var path = [], fidx = -1, c, idx, cell;
+      for(c=0;c<m;c++){
+        idx = (h+c) % m; path.push(idx); cell = open[idx];
+        if(!cell) break;
+        if(!cell.tomb && cell.k === ki.disp){ fidx = idx; break; }
+        put({kind:"oprobe", key:ki.disp, h:h, path:path.slice(), at:idx, line:0,
+          title:"開放定址：第 "+idx+" 格不是它，往下",
+          msg:"刪除前要先找到人。第 "+idx+" 格是 "+(cell.tomb ? "墓碑 🪦" : "<b>"+esc(cell.k)+"</b>")+"，繼續探測。"});
+      }
+      if(fidx >= 0){
+        open[fidx].tomb = true;
+        n--;
+        items = items.filter(function(it){ return it.disp !== ki.disp; });
+        /* 找一個會被清空害到的受害者，讓反例有名有姓 */
+        var victim = null, j = (fidx+1) % m, g;
+        for(g=0; g<m && open[j] && !victim; g++){
+          if(!open[j].tomb && (open[j].num % m) !== j) victim = open[j].k;
+          j = (j+1) % m;
+        }
+        put({kind:"tomb", key:ki.disp, h:h, path:path.slice(), at:fidx, line:0,
+          title:"開放定址：不能清空，要放墓碑 🪦",
+          msg:"找到了，<b>"+esc(ki.disp)+"</b> 在第 "+fidx+" 格。<b>直接清空可以嗎？不行！</b>"+
+            (victim
+              ? "像 <b>"+esc(victim)+"</b> 當初就是被這一帶擠到後面的：查它時探測路徑會經過第 "+fidx+" 格，一看到空格就會停 —— 明明在表裡卻回報「不存在」。"
+              : "被擠到後面的資料，查找時走到這裡看到空格就會停 —— 明明存在卻找不到。")+
+            "所以只放<b>墓碑</b>：「這裡曾有人住，查找請繼續往下走」。墓碑會在下次 rehash 時整批清掉。",
+          quiz:{q:"開放定址找到 <b>"+esc(ki.disp)+"</b> 住在第 "+fidx+" 格 —— 刪除時這一格該怎麼處理？",
+            opts:[{t:"直接清空", sub:"變回空格", v:"clear"},
+                  {t:"放墓碑標記", sub:"tombstone", v:"tomb"},
+                  {t:"後面整串往前搬", sub:"shift", v:"shift"}],
+            a:"tomb"}});
+      } else {
+        put({kind:"omiss", key:ki.disp, h:h, path:path.slice(), at:path[path.length-1], cost:path.length, line:0,
+          title:"開放定址：要刪的東西不存在",
+          msg:"探測到空格都沒遇到 <b>"+esc(ki.disp)+"</b>，沒東西可刪。"});
+      }
+    }
+
+    function doRehash(){
+      put({kind:"rewarn", line:0,
+        title:"載入因子 α = "+fmtA(n/m)+"，該擴桶了",
+        msg:"表太滿：α = n ÷ m = "+n+" ÷ "+m+" ≈ "+fmtA(n/m)+"。開放定址的探測串越來越長（看曲線右端有多陡）。解法：<b>rehash</b> —— 桶數翻倍後取最近的質數（"+m+" → "+nextPrime(2*m)+"），然後<b>每一筆資料都用新桶數重算雜湊值、重新安家</b>。"});
+      var oldM = m;
+      m = nextPrime(2*m);
+      chain = []; open = [];
+      for(i=0;i<m;i++){ chain.push([]); open.push(null); }
+      var list = items.slice(), t, it, h2, col, path, placed, c2, idx2;
+      for(t=0;t<list.length;t++){
+        it = list[t];
+        h2 = it.num % m;
+        col = chain[h2].length > 0;
+        chain[h2].unshift(it.disp);
+        path = []; placed = -1;
+        for(c2=0;c2<m;c2++){
+          idx2 = (h2+c2) % m; path.push(idx2);
+          if(!open[idx2]){ placed = idx2; break; }
+        }
+        open[placed] = {k:it.disp, num:it.num, tomb:false};
+        put({kind:"reins", key:it.disp, h:h2, path:path.slice(), placed:placed, line:3,
+          title:"重新安家："+it.disp+" → 第 "+h2+" 格"+(placed !== h2 ? "（被擠到 "+placed+"）" : ""),
+          msg:"用<b>新的 m</b> 重算：<b>"+it.num+" % "+m+" = "+h2+"</b>。"+
+            (col ? "新表偶爾還是會撞（沒有函式能保證零碰撞），但機率小多了。" : "在寬敞的新表裡有自己的位子。")+
+            "注意：舊表的墓碑不會被搬過來 —— rehash 順便大掃除。"});
+      }
+      put({kind:"redone", line:0,
+        title:"rehash 完成：α 降回 "+fmtA(n/m),
+        msg:"桶數 "+oldM+" → "+m+"，"+n+" 筆資料全部搬完。α = "+n+" ÷ "+m+" ≈ "+fmtA(n/m)+"，兩邊的查找都變短了。這一次搬家花 O(n)，但翻倍策略讓它攤到每次插入平均仍是 O(1) —— 跟動態陣列翻倍是同一招。"});
+    }
+
+    for(oi=0; oi<ops.length; oi++){
+      var op = ops[oi];
+      if(op.t === "r"){ doRehash(); continue; }
+      var ki = op.ki, h = ki.num % m;
+      var verb = op.t === "i" ? "插入" : op.t === "f" ? "查找" : "刪除";
+      var hs = {kind:"hash", key:ki.disp, h:h, line:3,
+        title:"計算雜湊值："+verb+" "+ki.disp+" → 第 "+h+" 格",
+        msg:hashMsg(ki, h)};
+      if(op.t === "i"){
+        hs.quiz = {q: ki.isStr
+            ? "插入字串 <b>"+esc(ki.disp)+"</b>：先把字元內碼加總 "+esc(ki.calc)+"，再 <b>"+ki.num+" % "+m+"</b> —— 它會被分到哪個信箱？"
+            : "插入 <b>"+ki.num+"</b>：<b>"+ki.num+" % "+m+"</b>（除以 "+m+" 取餘數）= ？ —— 它會被分到哪個信箱？",
+          opts:bucketOpts(h, [h+1, h+3, ki.num % 10], m), a:h};
+      }
+      put(hs);
+      if(op.t === "i") doInsert(ki, h);
+      else if(op.t === "f") doFind(ki, h);
+      else doDelete(ki, h);
+    }
+
+    put({kind:"done", line:0, title:"這一關演完了",
+      msg:"表裡現在有 "+n+" 筆資料，α ≈ "+fmtA(n/m)+"。回顧兩種哲學：鏈結法遇撞「往外掛」，開放定址遇撞「往下擠」—— 掛鏈換指標記憶體，擠格換探測時間。切到闖關模式再玩一次，或自己輸入操作序列。"});
+    return steps;
+  }
+  /* ---------- 4. 畫面層：左右兩張表 ---------- */
+  function paintTables(){
+    var st = S.steps[S.cur], r, out, nodes, x, cls, cell, ord, foot, rowCls;
+    var chainKinds = {hash:1, cins:1, cwalk:1, chit:1, cmiss:1, cdel:1};
+
+    /* 左：鏈結法 */
+    out = "";
+    for(r=0; r<st.m; r++){
+      rowCls = "hrow";
+      if(chainKinds[st.kind] && r === st.h) rowCls += (st.kind === "cmiss" ? " is-bad" : " is-home");
+      out += '<div class="'+rowCls+'"><span class="hidx">'+r+'</span><div class="hchain">';
+      nodes = st.chain[r];
+      if(!nodes.length){
+        out += '<span class="hempty">∅</span>';
+      } else {
+        for(x=0; x<nodes.length; x++){
+          if(x > 0) out += '<span class="harrow">→</span>';
+          cls = "hnode";
+          if(r === st.h){
+            if(st.kind === "cins" && x === 0) cls += " is-new";
+            else if(st.kind === "cwalk" && x === st.node) cls += " is-look";
+            else if(st.kind === "chit" && x === st.node) cls += " is-hit";
+          }
+          out += '<span class="'+cls+'">'+esc(nodes[x])+'</span>';
+        }
+      }
+      if(st.crashC === r) out += '<span class="crash">碰撞!</span>';
+      out += '</div></div>';
+    }
+    $("chainT").innerHTML = out;
+    $("chainNote").textContent = "m = " + st.m;
+
+    /* 右：開放定址 */
+    out = "";
+    for(r=0; r<st.m; r++){
+      rowCls = "hrow";
+      if(st.kind === "hash" && r === st.h) rowCls += " is-home";
+      cell = st.open[r];
+      cls = "hcell";
+      var body;
+      if(!cell){ cls += " is-free"; body = "·"; }
+      else if(cell.tomb){ cls += " is-tomb"; body = "🪦<small>"+esc(cell.k)+"</small>"; }
+      else body = esc(cell.k);
+      ord = (st.path) ? st.path.indexOf(r) : -1;
+      foot = "";
+      if(ord >= 0){
+        var fc = "hfoot", last = (ord === st.path.length-1);
+        if(last && (st.kind === "oins" || st.kind === "ohit" || st.kind === "reins")) fc += " is-ok";
+        if(last && st.kind === "omiss") fc += " is-no";
+        foot = '<span class="'+fc+'">'+(ord+1)+'</span>';
+      }
+      if(r === st.at && (st.kind === "probe" || st.kind === "oprobe")) cls += " is-look";
+      if(st.kind === "oins" && r === st.placed) cls += " is-new";
+      if(st.kind === "reins" && r === st.placed) cls += " is-new";
+      if(st.kind === "ohit" && r === st.at) cls += " is-hit";
+      if(st.kind === "omiss" && r === st.at) cls += " is-missend";
+      out += '<div class="'+rowCls+'"><span class="hidx">'+r+'</span><div class="'+cls+'">'+body+'</div>'+foot;
+      if(st.crashO === r) out += '<span class="crash">碰撞!</span>';
+      out += '</div>';
+    }
+    $("openT").innerHTML = out;
+    $("openNote").textContent = "m = " + st.m;
+    $("duoNote").textContent = "n = " + st.n + "・α = " + fmtA(st.alpha);
+  }
+
+  /* ---------- 畫面層：載入因子劇場 ---------- */
+  function paintStats(){
+    var st = S.steps[S.cur], a = st.alpha;
+    $("stN").textContent = st.n;
+    $("stM").textContent = st.m;
+    $("stAlpha").textContent = fmtA(a);
+    $("stAlphaBox").setAttribute("data-k", a > 0.7 ? "no" : "ok");
+    var fill = $("meterFill");
+    fill.style.width = Math.min(a, 1) * 100 + "%";
+    fill.classList.toggle("is-hot", a > 0.7);
+    $("stCAvg").textContent = fmt1(1 + a/2) + " 格";
+    $("stOAvg").textContent = (a < 0.99) ? fmt1((1 + 1/(1-a))/2) + " 格" : "爆表";
+    var cost = (typeof st.cost === "number") ? st.cost
+             : (typeof st.probes === "number") ? st.probes : null;
+    $("stCost").textContent = (cost === null) ? "—" : cost + " 格";
+    drawCurve(a);
+  }
+
+  function drawCurve(a){
+    var x0 = 12, x1 = 250, yMax = 6;
+    function X(t){ return x0 + (t/0.95)*(x1-x0); }
+    function Y(p){ return 92 - Math.min(p, yMax)/yMax*76; }
+    var pc = "", po = "", t;
+    for(t=0; t<=0.901; t+=0.05){
+      pc += (t < 0.01 ? "M" : "L") + X(t).toFixed(1) + " " + Y(1 + t/2).toFixed(1) + " ";
+      po += (t < 0.01 ? "M" : "L") + X(t).toFixed(1) + " " + Y((1 + 1/(1-t))/2).toFixed(1) + " ";
+    }
+    var ax = X(Math.min(a, 0.93));
+    $("curve").innerHTML =
+      '<line x1="'+X(0.7).toFixed(1)+'" y1="10" x2="'+X(0.7).toFixed(1)+'" y2="92" stroke="var(--alarm)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>' +
+      '<path d="'+pc+'" fill="none" stroke="var(--jade)" stroke-width="2"/>' +
+      '<path d="'+po+'" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
+      '<line x1="'+ax.toFixed(1)+'" y1="10" x2="'+ax.toFixed(1)+'" y2="92" stroke="var(--ink)" stroke-width="1.5" opacity=".55"/>' +
+      '<text x="'+X(0.7).toFixed(1)+'" y="8" font-size="8" fill="var(--alarm)" text-anchor="middle">0.7</text>' +
+      '<text x="14" y="16" font-size="8" fill="var(--jade)">鏈結法 1+α/2</text>' +
+      '<text x="14" y="26" font-size="8" fill="var(--accent)">開放定址 (1+1/(1−α))/2</text>' +
+      '<text x="250" y="99" font-size="8" fill="var(--ink-faint)" text-anchor="end">α →</text>' +
+      '<text x="'+ax.toFixed(1)+'" y="99" font-size="8" fill="var(--ink)" text-anchor="middle">'+fmtA(a)+'</text>';
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo"), all = $("algoAll"), i, li, row, no, src, doc;
+    ol.innerHTML = ""; all.innerHTML = "";
+    for(i=0;i<CODE.length;i++){
+      li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+      row = document.createElement("li");
+      no = document.createElement("span"); no.className = "no"; no.textContent = i+1;
+      src = document.createElement("span"); src.className = "src"; src.textContent = CODE[i].trim();
+      doc = document.createElement("span"); doc.className = "doc"; doc.textContent = CODE_DOC[i] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children, i;
+    for(i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(i=0;i<rows.length;i++) rows[i].classList.toggle("is-now", (i+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "這一步（開放定址探測、刪除或 rehash）不在左邊 12 行的鏈結法主程式裡 —— 它的程式在第 03 段。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", K2SAY[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log"), j, st, li, tag, b, tail;
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(j=1;j<=S.cur;j++){
+      st = S.steps[j];
+      li = document.createElement("li");
+      li.setAttribute("data-k", K2SAY[st.kind] || "start");
+      tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind] || "STEP";
+      b = document.createElement("b");
+      b.textContent = st.key ? st.key : "—";
+      tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "α " + fmtA(st.alpha);
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  /* ---------- 5. render ---------- */
+  function render(){
+    paintTables(); paintStats(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 6. 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 7. 闖關 ---------- */
+  function nextQuizIndex(){
+    var k;
+    for(k=S.cur+1; k<S.steps.length; k++)
+      if(S.steps[k].quiz) return k;
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關的題目出完了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadOps(S.opsStr, S.levelIdx); });
+      opts.appendChild(r);
+      var e = document.createElement("button");
+      e.className = "btn"; e.type = "button"; e.textContent = "▶ 看完整過程";
+      e.addEventListener("click", function(){ goto_(S.steps.length-1); });
+      opts.appendChild(e);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = st.quiz.q;
+    opts.innerHTML = "";
+    st.quiz.opts.forEach(function(o){
+      var b = document.createElement("button");
+      b.className = "opt"; b.type = "button";
+      b.innerHTML = esc(o.t) + (o.sub ? "<small>" + esc(o.sub) + "</small>" : "");
+      b.addEventListener("click", function(){ answerQuiz(o.v); });
+      opts.appendChild(b);
+    });
+  }
+
+  function optLabel(st, v){
+    var i;
+    for(i=0;i<st.quiz.opts.length;i++)
+      if(st.quiz.opts[i].v === v) return st.quiz.opts[i].t;
+    return String(v);
+  }
+
+  function answerQuiz(ans){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.a;
+
+    S.asked++;
+    var win = (ans === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + esc(optLabel(st, correct)) + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 8. 載入 ---------- */
+  function loadOps(opsStr, levelIdx){
+    stopPlay();
+    var ops = parseOps(opsStr);
+    if(!ops){
+      say("full", "看不懂這串指令",
+        "範例：<b>+10 +17 ?17 -10 !</b>（＋插入、?查找、-刪除、! 擴桶；key 用英數字，逗號或空白分隔）。");
+      return;
+    }
+    S.opsStr = opsStr;
+    S.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    S.steps = buildSteps(ops);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadOps(LEVELS[i].ops, i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn"), i, on;
+    for(i=0;i<btns.length;i++){
+      on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始",
+        "自己當雜湊函式：算餘數、預測碰撞、數探測腳印。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 9. 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadOps(S.opsStr, S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = $("customInput").value.trim();
+    if(v) loadOps(v, -1);
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 10. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body></html>

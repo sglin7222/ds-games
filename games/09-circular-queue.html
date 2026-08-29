@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>環形佇列排隊 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：圓環、陣列直條視圖、
+   front/rear 指標面板。 */
+.custom{display:flex;gap:6px;flex:0 1 300px}
+.custom input{flex:1}
+
+/* 圓環（SVG 本體用 class 上色，才能吃到深淺色主題變數） */
+.ringbox{display:flex;justify-content:center;padding:2px 0}
+.ringbox svg{width:min(400px,100%);height:auto}
+.ring-base{fill:none;stroke:var(--line-soft);stroke-width:1.5;stroke-dasharray:3 5}
+.ring-dir{fill:none;stroke:var(--ink-faint);stroke-width:1.5}
+.ring-dirhead{fill:var(--ink-faint)}
+.slot-c{fill:var(--sunken);stroke:var(--line);stroke-width:1.6;
+  transition:fill var(--dur),stroke var(--dur)}
+.slot-c.on{fill:var(--accent-soft);stroke:var(--accent)}
+.slot-c.hit-enq{stroke:var(--accent);stroke-width:3}
+.slot-c.hit-deq{stroke:var(--jade);stroke-width:3}
+.slot-c.hit-bad{stroke:var(--alarm);stroke-width:3;stroke-dasharray:5 4}
+.slot-idx{font-family:var(--font-mono);font-size:9px;fill:var(--ink-faint);text-anchor:middle}
+.slot-val{font-family:var(--font-mono);font-size:15px;font-weight:700;fill:var(--accent);text-anchor:middle}
+.mk-f{fill:var(--jade)}
+.mk-r{fill:var(--accent)}
+.mk-ftxt{font-family:var(--font-mono);font-size:10px;font-weight:700;fill:var(--jade);text-anchor:middle}
+.mk-rtxt{font-family:var(--font-mono);font-size:10px;font-weight:700;fill:var(--accent);text-anchor:middle}
+.c-n{font-family:var(--font-mono);font-size:9.5px;fill:var(--ink-faint);text-anchor:middle}
+.c-count{font-family:var(--font-mono);font-size:30px;font-weight:700;fill:var(--ink);text-anchor:middle}
+.c-count.zero{fill:var(--ink-faint)}
+.c-count.full{fill:var(--alarm)}
+.c-lab{font-family:var(--font-mono);font-size:10px;fill:var(--ink-faint);text-anchor:middle}
+.c-st{font-size:12px;font-weight:700;text-anchor:middle}
+.c-st.full{fill:var(--alarm)}
+.c-st.empty{fill:var(--jade)}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;
+  font-size:12.5px;color:var(--ink-soft)}
+.legend b{font-family:var(--font-mono);font-size:10px;padding:1px 7px;border-radius:4px;
+  color:var(--surface);margin-right:4px}
+.legend .lf b{background:var(--jade)}
+.legend .lr b{background:var(--accent)}
+
+/* 底層陣列直條視圖 */
+.arrcap{margin-top:6px;text-align:center;font-size:12.5px;color:var(--ink-faint)}
+.arr{display:grid;gap:6px}
+.acell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.acell .idx{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+.acell .abox{width:100%;height:42px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:16px;font-weight:700;
+  background:var(--sunken);color:var(--ink-faint);
+  border:1.5px solid var(--line-soft);border-radius:8px;
+  transition:background var(--dur),color var(--dur),border-color var(--dur),transform var(--dur)}
+.acell[data-on="1"] .abox{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.acell[data-hit="enq"] .abox{border-color:var(--accent);border-width:2px;transform:translateY(-3px);
+  box-shadow:var(--shadow-lift)}
+.acell[data-hit="deq"] .abox{border-color:var(--jade);border-width:2px;transform:translateY(-3px)}
+.acell[data-hit="bad"] .abox{background:var(--alarm-soft);border-color:var(--alarm);color:var(--alarm);
+  border-style:dashed}
+.amrow{display:grid;gap:6px;min-height:22px;margin-top:4px}
+.amk{display:flex;gap:3px;justify-content:center;align-items:flex-start}
+.amk b{font-family:var(--font-mono);font-size:9.5px;font-weight:700;
+  padding:1px 6px;border-radius:4px;color:var(--surface)}
+.amk .mf{background:var(--jade)}
+.amk .mr{background:var(--accent)}
+.loopline{height:14px;border:2px solid var(--line);border-top:0;
+  border-radius:0 0 12px 12px;margin:4px 6% 0;position:relative}
+.loopline::before{content:"";position:absolute;left:-6px;top:-7px;
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-bottom:8px solid var(--line)}
+.loopcap{text-align:center;font-family:var(--font-mono);font-size:10.5px;
+  color:var(--ink-faint);margin-top:3px}
+
+/* front / rear 指標面板附加：front==rear 指示燈 */
+.eqline{padding:8px 11px;border-radius:8px;background:var(--sunken);
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);text-align:center;
+  transition:background var(--dur),color var(--dur)}
+.eqline[data-k="empty"]{background:var(--jade-soft);color:var(--jade);font-weight:700}
+.eqline[data-k="full"]{background:var(--alarm-soft);color:var(--alarm);font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">09 · 環形佇列</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 09 · Circular Queue</p>
+    <h1>環形佇列排隊</h1>
+    <p class="lede">顧客從 rear 進場、從 front 離場，兩根指標在同一個圓環上追著跑。看清楚「滿了」和「空了」為什麼長得一模一樣、要怎麼分辨，以及 % 這個符號是怎麼把「走到底」變成「繞回去」的。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>環形佇列 Circular Queue</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>時間</span><b>每個操作 O(1)</b></div>
+      <div class="fact"><span>空間</span><b>O(N)（固定 8 格）</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列（模運算本頁會教）</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上有一個 8 格的圓環：綠色 <b>front</b> 指著「下一個要離場的人」，橘色 <b>rear</b> 指著「下一個進場的人要站的空位」。圓環下面是同一份資料的另一種長相——一條 8 格的陣列。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>從上方挑一個<b>關卡</b>（一段進場／離場的劇本），或自己輸入。</li>
+            <li>按 <b>下一步</b> 一個操作一個操作走；也可以 <b>自動播放</b>。</li>
+            <li>盯著三件事同步變化：圓環上的兩根指標、下方陣列的 F／R 標籤、演算法高亮行。</li>
+            <li><b>特別注意</b> rear 或 front 從第 7 格跳回第 0 格的那一步——那就是「環形」的全部意義。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>每個操作前先<b>不給答案</b>，由你猜：這次會成功還是失敗？指標會停在哪一格？剩幾個人？</li>
+            <li>答對得分，<b>連續答對</b>額外加分；答錯立刻告訴你正確答案和理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>佇列＝排隊（FIFO）</b> —— 先進先出：先來的顧客先被服務。enqueue 是進場排到隊尾，dequeue 是隊頭的人離場。</li>
+            <li><b>front 與 rear 各管一件事</b> —— front 指下一個離場的人、rear 指下一個空位，兩根指標都只往前走、從不後退。</li>
+            <li><b>直線陣列的「假滿」</b> —— 前面明明空出一排格子，新顧客卻進不來。環形就是為了回收這些格子而生的。</li>
+            <li><b>% 模運算</b> —— (7+1) % 8 = 0：一行數學就把陣列的尾巴接回頭，不用搬任何東西。</li>
+            <li><b>滿與空的世紀難題</b> —— front == rear 既可能是空、也可能是滿。用 count 或「犧牲一格」才分得出來。</li>
+            <li><b>複雜度 O(1)</b> —— 進場離場都是固定幾個動作；對比「離場就整排往前搬」的 O(n)。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩「暖身」和「整條填滿」「全部離場」，親眼看到<b>滿和空長得一樣</b>；再玩「繞一圈」盯住 rear 從 7 跳回 0 的瞬間；最後切闖關模式挑戰「魔王」。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 盯著 front 和 rear 在環上追逐。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="40" placeholder="自訂劇本：+ 進場、- 離場，如 ++-+-"
+                 pattern="[+\-]+" aria-label="自訂操作序列">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">環形佇列（N = 8 格）</h3>
+            <span class="panel-note" id="ringNote"></span>
+          </div>
+
+          <div class="ringbox" id="ringBox"></div>
+          <div class="legend">
+            <span class="lf"><b>F</b>front：下一個離場的人</span>
+            <span class="lr"><b>R</b>rear：下一個空位</span>
+            <span>↻ 兩根指標都只會順時針前進</span>
+          </div>
+
+          <div class="arrcap">▼ 同一份資料的另一種看法：底層其實是一條 8 格的陣列，「環」只是把 7 的下一格接回 0</div>
+          <div class="arr" id="arr"></div>
+          <div class="amrow" id="arrMarks"></div>
+          <div class="loopline" aria-hidden="true"></div>
+          <div class="loopcap">(位置 + 1) % 8 —— 第 7 格的下一格就是第 0 格</div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」，看顧客一個一個進場、離場。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">指標與人數</h3>
+              <span class="panel-note">count 是分辨滿空的關鍵</span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="ok"><div class="k">front</div><div class="v" id="vFront">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">rear</div><div class="v" id="vRear">0</div></div>
+              <div class="stat"><div class="k">count 人數</div><div class="v" id="vCount">0</div></div>
+              <div class="stat"><div class="k">空位</div><div class="v" id="vFree">8</div></div>
+            </div>
+            <div class="eqline" id="eqLine">front = rear = 0</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">enqueue / dequeue 皆 O(1)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把教學用的視覺化全部拿掉，環形佇列本體就是這樣——加上三個常見的輔助函式：</p>
+                <pre class="code">#include &lt;iostream&gt;
+using namespace std;
+
+const int N = 8;                       <i>// 排隊區固定 8 格</i>
+
+struct CircularQueue {
+    int data[N];                       <i>// 8 個格子</i>
+    int front = 0, rear = 0, count = 0;
+
+    bool enqueue(int x) {              <i>// 進場：排到隊尾</i>
+        if (count == N) return false;  <i>// 滿了，拒絕，否則會蓋掉別人</i>
+        data[rear] = x;
+        rear = (rear + 1) % N;         <i>// 走到底就繞回 0 的關鍵一行</i>
+        count++;
+        return true;
+    }
+    bool dequeue() {                   <i>// 離場：隊頭的人走掉</i>
+        if (count == 0) return false;  <i>// 空的，沒人可走</i>
+        front = (front + 1) % N;
+        count--;
+        return true;
+    }
+    int  peek()  { return data[front]; } <i>// 看看排最前面的是誰</i>
+    bool empty() { return count == 0; }
+    bool full()  { return count == N; }
+};</pre>
+        <p>不到三十行。遊戲頁面多出來的幾百行，全部都是為了「讓兩根指標的追逐看得見」——這是教學程式和生產程式的差別。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「排隊」這個需求，一路走到「為什麼非得把陣列接成環」。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>佇列（queue）就是「排隊」：新來的人排在<b>隊尾</b>（enqueue，進場），輪到的人從<b>隊頭</b>離開（dequeue，離場）。先來的先被服務——這叫<b>先進先出</b>（FIFO，First In First Out）。本關的題目是：用一條「固定 8 格的陣列」把排隊做出來，而且<b>每個動作都要一樣快</b>，不管隊伍多長。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>對 8 格佇列做的事</th><th>結果</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr><td>進 3 人，再離場 1 人</td><td style="color:var(--jade);font-weight:700">成功</td><td>離場的一定是最早進來的 1 號——先進先出</td></tr>
+              <tr><td>已有 8 人，再進 1 人</td><td style="color:var(--alarm);font-weight:700">失敗</td><td>count == N，8 格全有人，硬放會蓋掉別人</td></tr>
+              <tr><td>空佇列做 dequeue</td><td style="color:var(--alarm);font-weight:700">失敗</td><td>count == 0，沒有人可以離場</td></tr>
+              <tr><td>進 8、出 2、再進 2</td><td style="color:var(--jade);font-weight:700">成功</td><td>rear 繞回第 0、1 格，把離場者用過的格子回收再用</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：直線陣列不行</h3>
+        <p>用一條直線陣列裝排隊，有兩種天真做法，各壞在一個地方。</p>
+        <ul class="bullets no">
+          <li><b>做法一：有人離場就整排往前搬</b> —— 隊頭走一個人，後面所有人都往前挪一格。n 個人排隊就要搬 n−1 次，dequeue 變成 O(n)。收銀台每叫一個號，全店的人都要動一次，隊伍一長就慢到不能用。</li>
+          <li><b>做法二：不搬，front 往右移就好</b> —— 快是快了，但 front 走過的格子<b>永遠沒人再用</b>。進 8 個、出 5 個之後，明明只剩 3 個人，rear 卻已經頂到牆——這就是「<b>假滿</b>」：前面空了一大排，新顧客卻進不來。</li>
+        </ul>
+        <p>「假滿」長這樣（直線陣列、進 8 出 5 之後）：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">格 0</th><th class="mono">格 1</th><th class="mono">格 2</th><th class="mono">格 3</th><th class="mono">格 4</th><th class="mono">格 5</th><th class="mono">格 6</th><th class="mono">格 7</th><th>rear</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono" style="color:var(--ink-faint)">（空）</td>
+                <td class="mono" style="color:var(--ink-faint)">（空）</td>
+                <td class="mono" style="color:var(--ink-faint)">（空）</td>
+                <td class="mono" style="color:var(--ink-faint)">（空）</td>
+                <td class="mono" style="color:var(--ink-faint)">（空）</td>
+                <td class="mono">6</td><td class="mono">7</td><td class="mono">8</td>
+                <td style="color:var(--alarm);font-weight:700">8 → 出界，判「滿」</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">直線陣列浪費的不是空間本身，是「<b>front 走過的格子回收不了</b>」。要回收，就把尾巴接回頭——讓陣列變成一個<b>環</b>。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：% 就是「繞回去」的數學寫法</h3>
+        <p>想讓「第 7 格的下一格是第 0 格」，不必真的把記憶體折成圓圈——記憶體永遠是直的——一行數學就夠了：</p>
+        <pre class="code"><b>下一格 = (現在的位置 + 1) % 8</b></pre>
+        <p><code>%</code> 唸作「<b>模運算</b>」（mod），意思是「做除法、只留餘數」。<code>(7+1) % 8</code>：8 ÷ 8 = 1 餘 <b>0</b>，所以下一格是 0。而位置在 0～6 時，加 1 之後還不到 8，除以 8 商 0、餘數就是它自己——完全不受影響。只有「走到底」那一刻，% 才出手把你拉回 0。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">比喻</span>
+          <span class="txt">時鐘就是生活裡的模運算：11 點再過 3 小時，不是 14 點，是 (11+3) % 12 = <b>2</b> 點。時鐘是 %12，我們的佇列是 %8——<b>環，就是取餘數</b>。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <p>兩根指標、一個計數器，全部只往前走：</p>
+        <ol class="steps">
+          <li><b>enqueue（進場）</b> —— 先檢查 <code>count == N</code>（滿了就拒絕）→ 把人放進 rear 指的格子 → <code>rear = (rear+1) % N</code> → <code>count++</code>。</li>
+          <li><b>dequeue（離場）</b> —— 先檢查 <code>count == 0</code>（空的就拒絕）→ <code>front = (front+1) % N</code> → <code>count--</code>。格子裡的舊資料不必清，front 走過去它就「不算數」了。</li>
+          <li><b>任何時候</b> —— 隊伍裡的人就是「從 front 出發、順時針數 count 個格子」。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">順序不能反：一定要<b>先檢查滿、再放人</b>。先放再檢查，就已經把還沒離場的顧客蓋掉了。另一個常漏的是 <code>count++</code>／<code>count--</code>——忘了它，滿空判斷全盤皆錯。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>「滿」和「空」為什麼長得一樣？怎麼分辨？</h3>
+        <p>空的時候，rear 追上 front，兩根指標疊在同一格；全滿的時候，rear 繞了一整圈，<b>又</b>剛好追上 front。兩個畫面裡 <code>front == rear</code> 一模一樣——光看指標，分不出天堂和地獄。玩「整條填滿」和「全部離場」兩關，可以親眼看到這兩個長得一樣的瞬間。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>怎麼分辨</th><th>方法 A：多記一個 count（本頁採用）</th><th>方法 B：犧牲一格</th></tr></thead>
+            <tbody>
+              <tr><td><b>判「空」</b></td><td class="mono">count == 0</td><td class="mono">front == rear</td></tr>
+              <tr><td><b>判「滿」</b></td><td class="mono">count == N</td><td class="mono">(rear + 1) % N == front</td></tr>
+              <tr><td><b>能裝幾人</b></td><td>N 人（8 人，一格不浪費）</td><td>N−1 人（永遠留一格空的當緩衝，滿的時候 rear 停在 front 前一格，兩者就不會相等）</td></tr>
+              <tr><td><b>代價</b></td><td>多一個整數變數</td><td>少一格容量</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">都對</span>
+          <span class="txt">兩種解法都正確、都常見。C++ STL 沒有現成的環形佇列，面試最愛考的就是：你知不知道 front == rear 有歧義、你選哪一招破解。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次（縮小成 N = 4）</h3>
+        <p>8 格手算太累，縮成 4 格練一次。劇本：進 1、進 2、進 3、出、出、進 4、進 5。考試就是畫這張表——先蓋住右邊自己算。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th>動作</th><th class="mono">front</th><th class="mono">rear</th><th class="mono">count</th><th class="mono">格 [0 1 2 3]</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0</td><td>開店</td><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="mono" style="color:var(--ink-faint)">・ ・ ・ ・</td></tr>
+              <tr><td class="mono">1</td><td style="color:var(--accent)">進 1</td><td class="mono">0</td><td class="mono">1</td><td class="mono">1</td><td class="mono">1 ・ ・ ・</td></tr>
+              <tr><td class="mono">2</td><td style="color:var(--accent)">進 2</td><td class="mono">0</td><td class="mono">2</td><td class="mono">2</td><td class="mono">1 2 ・ ・</td></tr>
+              <tr><td class="mono">3</td><td style="color:var(--accent)">進 3</td><td class="mono">0</td><td class="mono">3</td><td class="mono">3</td><td class="mono">1 2 3 ・</td></tr>
+              <tr><td class="mono">4</td><td style="color:var(--jade)">出（1 走）</td><td class="mono">1</td><td class="mono">3</td><td class="mono">2</td><td class="mono">・ 2 3 ・</td></tr>
+              <tr><td class="mono">5</td><td style="color:var(--jade)">出（2 走）</td><td class="mono">2</td><td class="mono">3</td><td class="mono">1</td><td class="mono">・ ・ 3 ・</td></tr>
+              <tr><td class="mono">6</td><td style="color:var(--accent)">進 4</td><td class="mono">2</td><td class="mono" style="color:var(--accent);font-weight:700">0 ← 繞回！</td><td class="mono">2</td><td class="mono">・ ・ 3 4</td></tr>
+              <tr><td class="mono">7</td><td style="color:var(--accent)">進 5</td><td class="mono">2</td><td class="mono">1</td><td class="mono">3</td><td class="mono">5 ・ 3 4</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>第 6 步 rear 算 (3+1) % 4 = 0，從尾巴繞回起點；第 7 步顧客 5 站進「1 號顧客用過的第 0 格」——<b>格子回收成功</b>，這就是環形佇列存在的意義。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>enqueue O(1)</b> —— 放人、指標加一取餘、count 加一：三個固定動作，跟隊伍多長完全無關。</li>
+          <li><b>dequeue O(1)</b> —— 同樣三個固定動作。對比「搬移法」的 O(n)：一百萬人排隊時，是 3 個動作對上一百萬次搬動。</li>
+          <li><b>空間 O(N)</b> —— 開店就把 8 格劃好，有沒有人都占著。「容量固定、絕不搬移、每步一樣快」正是硬體要的確定性——鍵盤緩衝區、網卡的封包佇列、音訊緩衝區，底層全是環形佇列。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「rear 指著最後一個人」</b> —— 本頁的 rear 指著「下一個<b>空位</b>」。另一派教科書讓 rear 指最後一個人，初始值和判斷式全都不同。讀任何程式前先確認它用哪種慣例，兩派混用必出 bug。</li>
+          <li><b>「front == rear 就是空」</b> —— 不一定，也可能是全滿。要嘛看 count，要嘛用犧牲一格法保證滿的時候 front 永遠不等於 rear。</li>
+          <li><b>「dequeue 要把格子清空」</b> —— 不必。front 移走後那格自然就「不算在隊伍裡」，下次 enqueue 直接覆蓋。真的去清是多做工（本遊戲畫面上清掉，純粹是為了看得清楚）。</li>
+          <li><b>「滿了讓陣列自動變大就好」</b> —— 那是動態陣列（vector）的玩法。環形佇列的價值恰恰在容量固定、永不搬移；緩衝區寧可拒絕新資料，也不能在中斷處理中途搬記憶體。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>這個頁面最重要的一個決定是：<b>使用者按「開始」之前，整段劇本就已經全部算好了。</b></p>
+        <div class="arch">
+          <div class="node" data-k="in">操作劇本 <small>"++++--++…"（+ 進場、- 離場）</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(ops) <small>把整段劇本跑完一次</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是「8 個格子 + 三個數字」的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <h4>為什麼這樣設計</h4>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反向 enqueue」這種容易錯的東西，倒帶就是把步數減一。</li>
+          <li><b>畫面函式變單純</b> —— 給同一個 step，畫出來一定一樣，不依賴之前發生過什麼。好懂也好除錯。</li>
+          <li><b>演算法和畫面完全分離</b> —— <code>buildSteps</code> 裡沒有半行畫面程式碼，它就是第 02 段那份 C++ 的 JS 翻譯，可以單獨拿去用。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每一步都存一份 8 格快照，記憶體是 O(步數 × N)。教學規模（幾十步 × 8 格）完全沒問題，真實工程不會這樣寫——真實版本只需要當下狀態。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>資料層</b></td>
+                <td class="mono">buildSteps(ops)</td>
+                <td>唯一真正跑演算法的地方。輸入 +/- 劇本字串，輸出一整個步驟陣列。</td>
+              </tr>
+              <tr>
+                <td><b>狀態</b></td>
+                <td class="mono">S</td>
+                <td>一個物件裝所有狀態：目前劇本、第幾步、模式、分數。全站只有這一份。</td>
+              </tr>
+              <tr>
+                <td><b>畫面層</b></td>
+                <td class="mono">paintRing / paintArray<br>paintStats / paintAlgo<br>paintSay / paintLog</td>
+                <td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。</td>
+              </tr>
+              <tr>
+                <td><b>導覽</b></td>
+                <td class="mono">goto / next / prev<br>startPlay / stopPlay</td>
+                <td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td>
+              </tr>
+              <tr>
+                <td><b>闖關</b></td>
+                <td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td>
+                <td>出題、對答案、計分。它不碰演算法，只是「先不給看下一步」而已。</td>
+              </tr>
+              <tr>
+                <td><b>載入</b></td>
+                <td class="mono">loadOps / loadLevel<br>setMode</td>
+                <td>換劇本、換模式，重建 steps 並歸零。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <p>不管使用者做什麼，路徑都是同一條。這是整個程式最好記的部分：</p>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintRing<small>SVG 圓環與指標</small></div>
+            <div class="node">paintArray<small>底層陣列視圖</small></div>
+            <div class="node">paintStats<small>front/rear/count</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">重點</span>
+          <span class="txt">圓環和陣列<b>畫的是同一個 step 的同一份 data</b>，程式裡沒有任何「同步」邏輯——兩塊畫面自然一致，因為它們讀同一份快照。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <p>整個程式就靠這個物件串起來。每個欄位都是為了餵給某一塊畫面：</p>
+        <pre class="code">{
+  <b>kind</b>:  <i>// start / enq / deq / full / empty / done → 顏色、徽章、log 標籤</i>
+  <b>op</b>:    <i>// 這是劇本裡的第幾個操作</i>
+  <b>val</b>:   <i>// 這一步進場或離場的顧客編號</i>
+  <b>slot</b>:  <i>// 動作發生在第幾格 → 圓環與陣列的高亮</i>
+  <b>wrap</b>:  <i>// 這一步指標有沒有從 7 繞回 0（有就特別慶祝一下）</i>
+  <b>fB, rB, cB</b>:          <i>// 動作「前」的 front/rear/count → 闖關出題用</i>
+  <b>front, rear, count</b>:  <i>// 動作「後」的三個數字 → 指標面板直接畫</i>
+  <b>data</b>:  <i>// 動作後 8 格的完整快照 → 圓環和陣列直接畫這個</i>
+  <b>line</b>:  <i>// 演算法要高亮第幾行</i>
+  <b>title, msg</b>: <i>// 說明面板的標題與內文</i>
+}</pre>
+        <p>注意 <code>data</code> 是<b>快照</b>不是參考——每一步都複製一份新陣列。這正是「可以自由倒帶」的代價與底氣。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>把 8 格改成 12 格</td><td>JS 最上面的 <code>var N = 8</code>（圓環、陣列、% 全部自動跟著變）</td><td>1 行</td></tr>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{ops:"++-…", n:"關卡名", d:"籌碼上顯示的字"}</code></td><td>1 行</td></tr>
+              <tr><td>改成「犧牲一格」判滿法</td><td><code>buildSteps</code> 裡的兩個 if（照第 03 段的比較表換條件，count 可以整個刪掉）</td><td>3～4 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次，全部頁面生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <p>看懂之後，把下面這段丟給 Claude，讓它陪你把程式從頭寫一次：</p>
+        <pre class="code">用 C++ 實作一個固定容量的環形佇列（circular queue）。
+
+情境：
+一家小店只有 8 個排隊位置，編號 0~7 圍成一圈。
+顧客從 rear 進場、從 front 離場，兩根指標只會往前繞圈。
+
+要求：
+1. 用「陣列 + front + rear + count」實作，不要用 std::queue
+2. bool enqueue(int x)：滿了要回傳 false，絕不能覆蓋還沒離場的人
+3. bool dequeue()：空了要回傳 false
+4. 解釋 (rear + 1) % N 為什麼等於「走到底就繞回 0」
+5. 解釋為什麼 front == rear 時可能是空、也可能是滿，
+   而 count 是怎麼分辨這兩種情況的
+6. 分析 enqueue / dequeue 的時間複雜度，
+   並跟「每次離場就把整排人往前搬」的做法比較
+
+寫完後用這串操作測試：進 8 人（第 8 人進完 rear 應繞回 0、狀態應為滿）、
+再進 1 人（應失敗）、出 2 人、再進 2 人（rear 應停在 2），
+每一步都印出 front / rear / count。</pre>
+        <h4>寫完了？再挑戰這三題</h4>
+        <pre class="code">1. 改用「犧牲一格」法重寫：不准用 count，
+   判空 front == rear、判滿 (rear + 1) % N == front，
+   驗證這個版本最多只能裝 N-1 個人
+
+2. 用環形佇列做一個「最近 K 筆訊息」記錄器：
+   滿的時候不拒絕，而是自動擠掉最舊的一筆（覆蓋式寫入）。
+   想想看：這時 front 要怎麼動？
+
+3. 升級成雙端佇列 deque：兩頭都能進出。
+   front 要「往回退一格」時怎麼繞？
+   提示：(front + N - 1) % N，想想為什麼不能寫 (front - 1) % N</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 09 環形佇列排隊</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var N = 8;
+
+  /* 關卡：ops 用 + 代表進場（enqueue）、- 代表離場（dequeue）
+     d 是籌碼上顯示的短字串 */
+  var LEVELS = [
+    {ops:"+++--+--",                n:"暖身：進進出出",   d:"+++--+--"},
+    {ops:"+++++++++",               n:"整條填滿：滿的長相", d:"+×8 再 +1"},
+    {ops:"+++----",                 n:"全部離場：空的長相", d:"+++−−−−"},
+    {ops:"++++++----++++------",    n:"繞一圈：rear 追過終點", d:"進6出4進4出6"},
+    {ops:"+++++++++--+++---------", n:"魔王：尖峰時刻",   d:"23 步連環考"}
+  ];
+
+  var CODE = [
+    "#define N 8",
+    "struct CircularQueue {",
+    "    int data[N];",
+    "    int front = 0, rear = 0, count = 0;",
+    "    bool enqueue(int x) {",
+    "        if (count == N) return false;",
+    "        data[rear] = x;",
+    "        rear = (rear + 1) % N;",
+    "        count++;",
+    "        return true;",
+    "    }",
+    "    bool dequeue() {",
+    "        if (count == 0) return false;",
+    "        front = (front + 1) % N;",
+    "        count--;",
+    "        return true;",
+    "    }",
+    "};"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "「#define N 8」＝先約定一個代號：這個排隊區總共有 8 個格子。之後程式裡看到 N 就是 8。想改成 100 格，只要改這一行。",
+    "「struct」＝把相關的資料和動作打包成一個零件，取名 CircularQueue（環形佇列）。就像把「排隊區＋管理規則」整組做成一台機器。",
+    "準備一排 8 格的陣列 data，用來放排隊的顧客。陣列＝一排編號 0～7 的置物格。注意：記憶體裡它其實是直的一條，「環」只是我們看待它的方式。",
+    "三個管理數字，開店時都是 0。front＝下一個要離場的人站在第幾格；rear＝下一個進場的人該站第幾格；count＝現在總共幾個人——它是分辨「滿」和「空」的關鍵。",
+    "「enqueue（進場）」函式。函式＝一台可以重複使用的小機器：把新顧客 x 丟進來，它會回答 true（成功）或 false（失敗）——bool 就是「只有真／假兩種答案」的意思。",
+    "先檢查：count 已經等於 N（8 格全滿）了嗎？滿了就「return false」＝立刻停止、回報失敗。不先檢查就硬放，會蓋掉還沒離場的顧客。",
+    "沒滿，就把 x 放進 rear 指著的那一格。rear 平常永遠指著「下一個空位」，所以不用找位子，直接放。",
+    "rear 往前走一格。重點是「% N」：%（模運算）＝做除法只留餘數。(7+1)%8＝0，所以走到第 7 格之後會繞回第 0 格——就這一行，把直線陣列接成了圓環。",
+    "「count++」＝count 加 1（多了一個人）。空／滿全靠 count 分辨，忘了這行整台機器就壞了。",
+    "「return true」＝回報進場成功，enqueue 到此結束。",
+    "這個右大括號 } 只是標記「enqueue 的內容到此為止」。",
+    "「dequeue（離場）」函式：讓排最前面的顧客離開。一樣回答 true／false。",
+    "先檢查：count 是 0（半個人都沒有）嗎？是就回報失敗——沒有人，誰也離不了場。對空佇列硬拿東西，是初學者最常見的當機原因。",
+    "front 往前走一格，一樣用 % N 繞圈。注意：格子裡的舊資料不必清掉，front 走過去之後那格就「不算在隊伍裡」了，下次進場直接覆蓋。",
+    "「count--」＝count 減 1（少了一個人）。",
+    "回報離場成功。",
+    "dequeue 的內容到此為止。",
+    "整個 CircularQueue 零件定義結束（struct 的結尾要加分號）。"
+  ];
+
+  var BADGE = {start:"START", enq:"ENQ", deq:"DEQ", full:"FULL", empty:"EMPTY", done:"DONE"};
+  /* say 與 log 的顏色沿用全站 data-k 命名 */
+  var SAYK  = {start:"start", enq:"push", deq:"pop", full:"error", empty:"error", done:"done"};
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    ops:"", steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:-1,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1,
+    quizCorrect:"", quizCorrectLabel:""
+  };
+
+  /* ---------- 資料層：把整段劇本一次跑完 ---------- */
+  function buildSteps(ops){
+    var steps = [], data = [], i, f = 0, r = 0, c = 0, nextId = 1;
+    for(i=0;i<N;i++) data.push(null);
+    var snap = function(){ return data.slice(); };
+
+    steps.push({kind:"start", op:-1, val:null, slot:-1, wrap:false,
+      fB:0, rB:0, cB:0, front:0, rear:0, count:0, data:snap(), line:4,
+      title:"開店：" + N + " 個位置都空著",
+      msg:"front 和 rear 都指著第 0 格、count = 0。<b>front</b>＝下一個要離場的人站的格子；<b>rear</b>＝下一個進場的人要站的格子。現在兩根指標疊在一起——front == rear 而且是「空」。"});
+
+    for(i=0;i<ops.length;i++){
+      var op = ops[i], fB = f, rB = r, cB = c;
+      if(op === "+"){
+        if(c === N){
+          steps.push({kind:"full", op:i, val:null, slot:r, wrap:false,
+            fB:fB, rB:rB, cB:cB, front:f, rear:r, count:c, data:snap(), line:6,
+            title:"滿了！enqueue 失敗",
+            msg:"count = " + N + " = N，整圈都是人。rear 指著第 <b>" + r + "</b> 格，但那格的顧客還沒離場——硬放就會把他蓋掉。所以先檢查 count == N，直接回傳 false 拒絕。注意此刻 front == rear，跟「空」長得一模一樣，是 count 救了我們。"});
+        } else {
+          var v = nextId++;
+          data[r] = v;
+          var slotE = r, wrapE = (r === N-1);
+          r = (r + 1) % N; c++;
+          steps.push({kind:"enq", op:i, val:v, slot:slotE, wrap:wrapE,
+            fB:fB, rB:rB, cB:cB, front:f, rear:r, count:c, data:snap(), line:wrapE ? 8 : 7,
+            title: wrapE ? ("rear 繞回 0！顧客 " + v + " 進場 → 第 " + slotE + " 格")
+                         : ("顧客 " + v + " 進場 → 第 " + slotE + " 格"),
+            msg: wrapE
+              ? ("顧客 <b>" + v + "</b> 站進第 " + slotE + " 格。rear 要前進一格，但 " + (N-1) + " 已經是最後一格——( " + (N-1) + " + 1 ) % " + N + " = <b>0</b>，rear 繞回起點！這一刻就是「環形」兩個字的全部意義。count 變成 " + c + "。")
+              : ("rear 指著第 <b>" + slotE + "</b> 格，是空位——顧客 <b>" + v + "</b> 站進去。接著 rear 前進一格：( " + slotE + " + 1 ) % " + N + " = " + r + "，count 變成 " + c + "。")});
+        }
+      } else {
+        if(c === 0){
+          steps.push({kind:"empty", op:i, val:null, slot:f, wrap:false,
+            fB:fB, rB:rB, cB:cB, front:f, rear:r, count:c, data:snap(), line:13,
+            title:"空的！dequeue 失敗",
+            msg:"count = 0，一個人都沒有，沒人可以離場。檢查 count == 0，回傳 false——對空佇列硬拿東西，是初學者最常見的當機原因。此刻 front == rear，跟「滿」長得一模一樣，又是 count 分辨的。"});
+        } else {
+          var w = data[f];
+          data[f] = null;
+          var slotD = f, wrapD = (f === N-1);
+          f = (f + 1) % N; c--;
+          steps.push({kind:"deq", op:i, val:w, slot:slotD, wrap:wrapD,
+            fB:fB, rB:rB, cB:cB, front:f, rear:r, count:c, data:snap(), line:14,
+            title: wrapD ? ("front 繞回 0！顧客 " + w + " 離場")
+                         : ("顧客 " + w + " 離場（第 " + slotD + " 格空出來）"),
+            msg: wrapD
+              ? ("排最前面的是第 " + slotD + " 格的顧客 <b>" + w + "</b>，他走了。front 前進：( " + (N-1) + " + 1 ) % " + N + " = <b>0</b>——front 也會繞圈！count 剩 " + c + "。")
+              : ("排最前面的是第 <b>" + slotD + "</b> 格的顧客 <b>" + w + "</b>，他走了。front 前進：( " + slotD + " + 1 ) % " + N + " = " + f + "，count 剩 " + c + "。格子其實不必清空，front 走過去它就不算數了（畫面清掉是為了看得清楚）。")});
+        }
+      }
+    }
+
+    steps.push({kind:"done", op:ops.length, val:null, slot:-1, wrap:false,
+      fB:f, rB:r, cB:c, front:f, rear:r, count:c, data:snap(), line:0,
+      title:"劇本結束",
+      msg:"這一關的操作走完了。目前 front = " + f + "、rear = " + r + "、count = <b>" + c + "</b>。可以往回拉進度條，重看指標繞回 0 的那幾步。"});
+
+    return steps;
+  }
+
+  /* ---------- 畫面層：SVG 圓環 ---------- */
+  function paintRing(){
+    var st = S.steps[S.cur];
+    var cx = 184, cy = 184, i, parts = [];
+    var deg = function(k){ return -90 + k * 360 / N; };
+    var num = function(R, d){
+      var a = d * Math.PI / 180;
+      return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+    };
+    var fx = function(x){ return x.toFixed(1); };
+
+    /* 底環（虛線圓） */
+    parts.push('<circle class="ring-base" cx="' + cx + '" cy="' + cy + '" r="110"/>');
+
+    /* 方向箭頭：畫在第 7 格與第 0 格之間的缺口，順便強調 7 → 0 */
+    var gm = deg(0) - 180 / N;
+    var p1 = num(110, gm - 8), p2 = num(110, gm + 8);
+    var th = (gm + 8) * Math.PI / 180;
+    var tx = -Math.sin(th), ty = Math.cos(th), nx = Math.cos(th), ny = Math.sin(th);
+    parts.push('<path class="ring-dir" d="M ' + fx(p1[0]) + ' ' + fx(p1[1]) +
+      ' A 110 110 0 0 1 ' + fx(p2[0]) + ' ' + fx(p2[1]) + '"/>');
+    parts.push('<polygon class="ring-dirhead" points="' +
+      fx(p2[0] + tx*7) + ',' + fx(p2[1] + ty*7) + ' ' +
+      fx(p2[0] - nx*3.5) + ',' + fx(p2[1] - ny*3.5) + ' ' +
+      fx(p2[0] + nx*3.5) + ',' + fx(p2[1] + ny*3.5) + '"/>');
+
+    /* 8 個格子 */
+    for(i=0;i<N;i++){
+      var d = deg(i), p = num(110, d);
+      var occ = st.data[i] != null;
+      var cls = "slot-c" + (occ ? " on" : "");
+      if(i === st.slot){
+        if(st.kind === "enq") cls += " hit-enq";
+        else if(st.kind === "deq") cls += " hit-deq";
+        else if(st.kind === "full" || st.kind === "empty") cls += " hit-bad";
+      }
+      parts.push('<circle class="' + cls + '" cx="' + fx(p[0]) + '" cy="' + fx(p[1]) + '" r="27"/>');
+      parts.push('<text class="slot-idx" x="' + fx(p[0]) + '" y="' + fx(p[1] - 8) + '">' + i + '</text>');
+      if(occ){
+        parts.push('<text class="slot-val" x="' + fx(p[0]) + '" y="' + fx(p[1] + 12) + '">' + st.data[i] + '</text>');
+      }
+    }
+
+    /* front 指標（內圈，綠）：三角形指向自己的格子 */
+    var fd = deg(st.front);
+    var ft = num(80, fd), fb1 = num(63, fd - 7), fb2 = num(63, fd + 7), fl = num(45, fd);
+    parts.push('<polygon class="mk-f" points="' +
+      fx(ft[0]) + ',' + fx(ft[1]) + ' ' + fx(fb1[0]) + ',' + fx(fb1[1]) + ' ' + fx(fb2[0]) + ',' + fx(fb2[1]) + '"/>');
+    parts.push('<text class="mk-ftxt" x="' + fx(fl[0]) + '" y="' + fx(fl[1] + 3) + '">front</text>');
+
+    /* rear 指標（外圈，橘）：三角形由外指向格子 */
+    var rd = deg(st.rear);
+    var rt = num(141, rd), rb1 = num(157, rd - 5.5), rb2 = num(157, rd + 5.5), rl = num(168, rd);
+    parts.push('<polygon class="mk-r" points="' +
+      fx(rt[0]) + ',' + fx(rt[1]) + ' ' + fx(rb1[0]) + ',' + fx(rb1[1]) + ' ' + fx(rb2[0]) + ',' + fx(rb2[1]) + '"/>');
+    parts.push('<text class="mk-rtxt" x="' + fx(rl[0]) + '" y="' + fx(rl[1] + 3) + '">rear</text>');
+
+    /* 中央資訊 */
+    var full = (st.count === N), zero = (st.count === 0);
+    parts.push('<text class="c-n" x="' + cx + '" y="' + (cy - 30) + '">N = ' + N + ' 格</text>');
+    parts.push('<text class="c-count' + (full ? " full" : (zero ? " zero" : "")) + '" x="' + cx + '" y="' + cy + '">' + st.count + '</text>');
+    parts.push('<text class="c-lab" x="' + cx + '" y="' + (cy + 16) + '">目前人數</text>');
+    if(full)      parts.push('<text class="c-st full" x="' + cx + '" y="' + (cy + 32) + '">滿 FULL</text>');
+    else if(zero) parts.push('<text class="c-st empty" x="' + cx + '" y="' + (cy + 32) + '">空 EMPTY</text>');
+
+    $("ringBox").innerHTML =
+      '<svg viewBox="0 0 368 368" role="img" aria-label="環形佇列示意圖">' + parts.join("") + '</svg>';
+    $("ringNote").textContent = "front=" + st.front + " rear=" + st.rear + " count=" + st.count;
+  }
+
+  /* ---------- 畫面層：底層陣列視圖 ---------- */
+  function paintArray(){
+    var st = S.steps[S.cur];
+    var arr = $("arr"), marks = $("arrMarks"), i;
+    arr.innerHTML = ""; marks.innerHTML = "";
+    for(i=0;i<N;i++){
+      var occ = st.data[i] != null;
+      var cell = document.createElement("div");
+      cell.className = "acell";
+      cell.setAttribute("data-on", occ ? "1" : "0");
+      if(i === st.slot){
+        if(st.kind === "enq") cell.setAttribute("data-hit", "enq");
+        else if(st.kind === "deq") cell.setAttribute("data-hit", "deq");
+        else if(st.kind === "full" || st.kind === "empty") cell.setAttribute("data-hit", "bad");
+      }
+      var idx = document.createElement("span");
+      idx.className = "idx"; idx.textContent = i;
+      var box = document.createElement("span");
+      box.className = "abox"; box.textContent = occ ? st.data[i] : "";
+      cell.appendChild(idx); cell.appendChild(box);
+      arr.appendChild(cell);
+
+      var mk = document.createElement("div");
+      mk.className = "amk";
+      if(st.front === i){
+        var bf = document.createElement("b");
+        bf.className = "mf"; bf.textContent = "F";
+        mk.appendChild(bf);
+      }
+      if(st.rear === i){
+        var br = document.createElement("b");
+        br.className = "mr"; br.textContent = "R";
+        mk.appendChild(br);
+      }
+      marks.appendChild(mk);
+    }
+  }
+
+  /* ---------- 畫面層：指標數字與 front==rear 指示 ---------- */
+  function paintStats(){
+    var st = S.steps[S.cur];
+    $("vFront").textContent = st.front;
+    $("vRear").textContent = st.rear;
+    $("vCount").textContent = st.count;
+    $("vFree").textContent = N - st.count;
+    var eq = $("eqLine");
+    if(st.front === st.rear){
+      if(st.count === 0){
+        eq.setAttribute("data-k", "empty");
+        eq.textContent = "front == rear (" + st.front + ")，count=0 → 空";
+      } else {
+        eq.setAttribute("data-k", "full");
+        eq.textContent = "front == rear (" + st.front + ")，count=" + N + " → 滿！";
+      }
+    } else {
+      eq.setAttribute("data-k", "");
+      eq.textContent = "front=" + st.front + " ≠ rear=" + st.rear;
+    }
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", SAYK[kind] || kind);
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j=1;j<=S.cur;j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", SAYK[st.kind]);
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      if(st.kind === "enq")       b.textContent = st.val + " → 格" + st.slot;
+      else if(st.kind === "deq")  b.textContent = st.val + " ← 格" + st.slot;
+      else if(st.kind === "full") b.textContent = "拒絕";
+      else if(st.kind === "empty")b.textContent = "沒人";
+      else                        b.textContent = "—";
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "f" + st.front + " r" + st.rear + " c" + st.count;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintRing(); paintArray(); paintStats(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ S.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 闖關 ---------- */
+  function nextQuizIndex(){
+    return (S.cur + 1 < S.steps.length) ? S.cur + 1 : -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), host = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      host.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      host.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadOps(S.ops, S.levelIdx); });
+      host.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    host.innerHTML = "";
+
+    if(st.kind === "enq" || st.kind === "full"){
+      q.innerHTML = "又來了一位顧客想進場（enqueue）。現在 front=<b>" + st.fB + "</b>、rear=<b>" + st.rB + "</b>、count=<b>" + st.cB + "</b> —— 結果會是？";
+      var alt = (st.fB !== st.rB) ? st.fB : ((st.rB + 1) % N);
+      addOpt(host, "成功：站進第 " + st.rB + " 格", "data[rear]=x", "in" + st.rB);
+      addOpt(host, "成功：站進第 " + alt + " 格", "data[?]=x", "in" + alt);
+      addOpt(host, "失敗：佇列滿了", "return false", "fail");
+      setCorrect((st.kind === "enq") ? ("in" + st.slot) : "fail",
+                 (st.kind === "enq") ? ("成功：站進第 " + st.slot + " 格") : "失敗：佇列滿了");
+    } else if(st.kind === "deq" || st.kind === "empty"){
+      if(st.kind === "deq" && ni % 2 === 1){
+        q.innerHTML = "輪到最前面的顧客離場（dequeue）。現在 count=<b>" + st.cB + "</b> —— 做完這一步之後，佇列裡剩幾個人？";
+        addOpt(host, "剩 " + (st.cB - 1) + " 人", "count--", "c" + (st.cB - 1));
+        addOpt(host, "剩 " + st.cB + " 人", "count", "c" + st.cB);
+        addOpt(host, "失敗：佇列是空的", "return false", "fail");
+        setCorrect("c" + (st.cB - 1), "剩 " + (st.cB - 1) + " 人");
+      } else {
+        q.innerHTML = "輪到最前面的顧客離場（dequeue）。現在 front=<b>" + st.fB + "</b>、count=<b>" + st.cB + "</b> —— 結果會是？";
+        var nf = (st.fB + 1) % N, wf = (st.fB + 2) % N;
+        addOpt(host, "成功：front 移到第 " + nf + " 格", "(front+1)%8", "f" + nf);
+        addOpt(host, "成功：front 移到第 " + wf + " 格", "(front+?)%8", "f" + wf);
+        addOpt(host, "失敗：佇列是空的，沒人可離場", "return false", "fail");
+        setCorrect((st.kind === "deq") ? ("f" + nf) : "fail",
+                   (st.kind === "deq") ? ("成功：front 移到第 " + nf + " 格") : "失敗：佇列是空的");
+      }
+    } else { /* done */
+      q.textContent = "劇本走完了。最後佇列裡剩幾個人？";
+      var c0 = st.count, d1 = c0 + 1, d2 = (c0 > 0) ? (c0 - 1) : 2;
+      addOpt(host, "剩 " + c0 + " 人", "count", "c" + c0);
+      addOpt(host, "剩 " + d1 + " 人", "count", "c" + d1);
+      addOpt(host, "剩 " + d2 + " 人", "count", "c" + d2);
+      setCorrect("c" + c0, "剩 " + c0 + " 人");
+    }
+  }
+
+  function setCorrect(key, label){
+    S.quizCorrect = key;
+    S.quizCorrectLabel = label;
+  }
+
+  function addOpt(host, label, sub, key){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    var sm = document.createElement("small");
+    sm.textContent = sub;
+    b.appendChild(sm);
+    b.addEventListener("click", function(){ answerQuiz(key); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(key){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni];
+    var correctLabel = S.quizCorrectLabel;
+    var win = (key === S.quizCorrect);
+
+    S.asked++;
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 載入 ---------- */
+  function loadOps(ops, levelIdx){
+    stopPlay();
+    S.ops = ops;
+    S.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    S.steps = buildSteps(ops);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadOps(LEVELS[i].ops, i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.d;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著兩根指標和 count，猜猜下一個操作會發生什麼事。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadOps(S.ops, S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = $("customInput").value.replace(/\s+/g, "");
+    if(/^[+\-]{1,40}$/.test(v)){
+      loadOps(v, -1);
+    } else if(v){
+      say("error", "劇本只能包含 + 和 -", "「+」代表一位顧客進場（enqueue）、「-」代表隊頭顧客離場（dequeue），例如 <b>+++--+</b>。");
+    }
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 啟動 ---------- */
+  $("arr").style.gridTemplateColumns = "repeat(" + N + ",1fr)";
+  $("arrMarks").style.gridTemplateColumns = "repeat(" + N + ",1fr)";
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

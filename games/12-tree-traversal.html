@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>走訪路線猜謎 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式（只有這一關獨有的視覺） ============ */
+
+/* SVG 二元樹 */
+.treewrap{overflow-x:auto;display:flex;justify-content:center;padding:4px 0}
+.tnode circle{fill:var(--sunken);stroke:var(--line);stroke-width:1.6;
+  transition:fill var(--dur),stroke var(--dur)}
+.tnode text.val{fill:var(--ink-soft);font-family:var(--font-mono);font-size:15px;
+  font-weight:700;text-anchor:middle;dominant-baseline:central}
+.tnode[data-s="wait"] circle{fill:var(--accent-soft);stroke:var(--accent)}
+.tnode[data-s="wait"] text.val{fill:var(--accent)}
+.tnode[data-s="out"] circle{fill:var(--jade);stroke:var(--jade)}
+.tnode[data-s="out"] text.val{fill:var(--surface)}
+.tnode[data-s="cur"] circle{fill:var(--accent);stroke:var(--accent)}
+.tnode[data-s="cur"] text.val{fill:var(--surface)}
+.tnode text.ord{fill:var(--jade);font-family:var(--font-mono);font-size:10px;
+  font-weight:700;text-anchor:middle}
+.tedge{stroke:var(--line);stroke-width:1.6}
+
+/* 輸出帶 */
+.otape{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:44px;
+  padding:8px 10px;background:var(--sunken);border:1px dashed var(--line);border-radius:8px}
+.ocell{width:38px;height:38px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:17px;font-weight:700;
+  background:var(--jade-soft);color:var(--jade);
+  border:1.5px solid var(--jade);border-radius:8px}
+.ocell.fresh{background:var(--jade);color:var(--surface);box-shadow:var(--shadow-lift)}
+.otape .none{color:var(--ink-faint);font-size:12.5px}
+
+/* 呼叫堆疊（同 04 關的畫法） */
+.topmark{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;
+  color:var(--ink-faint);text-align:center;padding:6px;background:var(--sunken);
+  border:1px solid var(--line-soft);border-bottom:0;border-radius:8px 8px 0 0}
+.frames{display:flex;flex-direction:column-reverse;justify-content:flex-start;gap:5px;
+  min-height:210px;background:var(--sunken);border:1px solid var(--line-soft);border-top:0;
+  border-radius:0 0 8px 8px;padding:10px}
+.frame{padding:7px 11px;border-radius:7px;
+  background:var(--accent-soft);border:1.5px solid var(--accent);
+  transition:background var(--dur),border-color var(--dur)}
+.frame .fn{font-family:var(--font-mono);font-size:13.5px;font-weight:800;color:var(--accent)}
+.frame .st{font-size:11px;color:var(--ink-soft);margin-top:1px;line-height:1.4}
+.frame.top{background:var(--accent);border-color:var(--accent);box-shadow:var(--shadow-lift)}
+.frame.top .fn{color:var(--surface)}
+.frame.top .st{color:var(--surface);opacity:.9}
+.side-empty{text-align:center;color:var(--ink-faint);font-size:12px;padding:16px 8px;
+  margin:auto;line-height:1.6}
+
+/* 佇列視圖（層序時取代堆疊） */
+.qhead{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;
+  color:var(--ink-faint);text-align:center;padding:6px;background:var(--sunken);
+  border:1px solid var(--line-soft);border-bottom:0;border-radius:8px 8px 0 0}
+.qrow{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;min-height:210px;
+  align-content:flex-start;background:var(--sunken);border:1px solid var(--line-soft);
+  border-top:0;border-radius:0 0 8px 8px;padding:10px}
+.qcell{position:relative;width:44px;height:44px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:17px;font-weight:700;
+  background:var(--accent-soft);color:var(--accent);
+  border:1.5px solid var(--accent);border-radius:8px}
+.qcell.front{background:var(--accent);color:var(--surface)}
+.qcell .ftag{position:absolute;top:-7px;left:50%;transform:translateX(-50%);
+  font-size:8.5px;letter-spacing:.1em;font-weight:700;color:var(--accent);
+  background:var(--surface);padding:0 4px;border-radius:4px;border:1px solid var(--accent)}
+
+/* 反推謎題 */
+.rb-row{display:flex;gap:10px;align-items:center;overflow-x:auto;padding:2px 0}
+.rb-label{flex:0 0 52px;font-family:var(--font-mono);font-size:11px;font-weight:700;
+  letter-spacing:.08em;color:var(--ink-soft);text-align:right}
+.rb-strip{display:flex;gap:5px}
+.rb-cell{flex:0 0 auto;width:36px;height:40px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:16px;font-weight:700;
+  background:var(--sunken);color:var(--ink-soft);
+  border:1.5px solid var(--line-soft);border-radius:7px;
+  transition:background var(--dur),border-color var(--dur),opacity var(--dur)}
+.rb-cell[data-s="root"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.rb-cell[data-s="l"]{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.rb-cell[data-s="r"]{background:var(--surface-2);border-color:var(--ink-faint);
+  border-style:dashed;color:var(--ink)}
+.rb-cell[data-s="old"]{opacity:.3}
+.rb-cell[data-s="ok"]{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.rb-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink-soft)}
+.rb-legend i{display:inline-block;width:13px;height:13px;border-radius:4px;
+  margin-right:5px;vertical-align:-2px;font-style:normal}
+.rb-legend .k1{background:var(--accent)}
+.rb-legend .k2{background:var(--jade-soft);border:1.5px solid var(--jade)}
+.rb-legend .k3{background:var(--surface-2);border:1.5px dashed var(--ink-faint)}
+.rb-legend .k4{background:var(--sunken);border:1px solid var(--line);opacity:.4}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">12 · 樹走訪</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 12 · Tree Traversal</p>
+    <h1>走訪路線猜謎</h1>
+    <p class="lede">前序、中序、後序、層序 —— 同一棵樹，四種走法，四份完全不同的名單。前三種只差「什麼時候簽名」，第四種乾脆把堆疊換成佇列。走完之後還有反向謎題：只給你名單，反推那棵樹長什麼樣。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>二元樹＋堆疊／佇列</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>O(n)</b></div>
+      <div class="fact"><span>空間</span><b>O(h) 或 O(w)</b></div>
+      <div class="fact"><span>先備知識</span><b>遞迴（04 呼叫堆疊）</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上有一棵二元樹。走訪時目前的節點會亮橘色、已經「輸出」的節點變綠色，樹下面的<b>輸出帶</b>會依序長出節點。右邊的側欄同步演出幕後功臣：前中後序時是<b>呼叫堆疊</b>，層序時整個換成<b>佇列</b>。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一棵<b>樹</b>（滿樹、歪樹、隨機形狀），或按「亂數長一棵」。</li>
+            <li>選一種<b>走訪方式</b>。同一棵樹把四種都跑一遍，比較輸出。</li>
+            <li>按 <b>下一步</b> 一格一格走，盯著側欄的堆疊怎麼疊高、佇列怎麼排隊。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>每次都先問你：<b>下一個被輸出的節點是誰？</b></li>
+            <li>答對得分、連對加分；答錯立刻解釋為什麼是那一個。</li>
+          </ol>
+          <h4>反推謎題</h4>
+          <ol class="steps">
+            <li>遊戲下方還有一關：只給「前序＋中序」（或「後序＋中序」）兩串名單。</li>
+            <li>一步步看「找根 → 用中序切左右」怎麼把整棵樹長回來。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>四種走訪的定義與比喻</b> —— 前序＝進門先簽名、中序＝中場簽名、後序＝出門才簽名、層序＝一層一層掃地。</li>
+            <li><b>DFS 三兄弟只差「簽名時機」</b> —— 三份程式碼幾乎一模一樣，只有 visit 那一行換了位置，輸出就完全不同。</li>
+            <li><b>遞迴＝堆疊、層序＝佇列</b> —— 這是本關最重要的記憶點。前三種靠呼叫堆疊「鑽到底再退回來」，層序把資料結構整個換成佇列，走法就變成「掃一層再掃下一層」。</li>
+            <li><b>反推的原理</b> —— 前序（或後序）告訴你「根是誰」，中序負責「把左右子樹切開」；為什麼「前序＋後序」反而不一定能唯一重建。</li>
+            <li><b>複雜度</b> —— 時間都是 O(n)；空間 DFS 是 O(h)（h＝樹高）、層序是 O(w)（w＝最寬那一層的節點數）。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">用<b>滿樹</b>把四種走法各跑一遍（尤其盯側欄）→ 切<b>歪樹</b>看堆疊疊到跟節點數一樣高 → 開闖關模式 → 最後玩下面的反推謎題。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選一棵樹 → 選走法 → 看輸出帶和側欄怎麼同步動。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+        <span class="bar-label" style="margin-left:8px">走訪</span>
+        <div class="modes" role="tablist" aria-label="走訪方式">
+          <button class="mode-btn is-on" data-order="pre" role="tab" aria-selected="true">前序</button>
+          <button class="mode-btn" data-order="in" role="tab" aria-selected="false">中序</button>
+          <button class="mode-btn" data-order="post" role="tab" aria-selected="false">後序</button>
+          <button class="mode-btn" data-order="level" role="tab" aria-selected="false">層序</button>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--ink-soft);margin:-6px 2px 0" id="orderHint"></p>
+
+      <div class="bar">
+        <span class="bar-label">樹</span>
+        <div class="chips" id="chips"></div>
+        <button class="btn" id="btnRand" type="button">🎲 亂數長一棵</button>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">二元樹</h3>
+            <span class="panel-note" id="treeNote"></span>
+          </div>
+
+          <div class="treewrap">
+            <svg id="treeSvg" width="100" height="100" aria-hidden="true"></svg>
+          </div>
+
+          <div class="panel-head" style="margin-top:2px">
+            <h3 class="panel-title">輸出帶（visit 的順序）</h3>
+            <span class="panel-note" id="outNote"></span>
+          </div>
+          <div class="otape" id="outTape"></div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一棵樹、選一種走法</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title" id="sideTitle">呼叫堆疊 Call Stack</h3>
+              <span class="panel-note" id="sideNote"></span>
+            </div>
+            <div id="stackWrap">
+              <div class="topmark">↑ TOP　現在正在執行的那一層</div>
+              <div class="frames" id="frames"></div>
+            </div>
+            <div id="queueWrap" style="display:none">
+              <div class="qhead">← FRONT 前端　下一個輪到誰</div>
+              <div class="qrow" id="qrow"></div>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="hot"><div class="k" id="sALabel">目前深度</div><div class="v" id="sA">0</div></div>
+              <div class="stat"><div class="k" id="sBLabel">最大深度</div><div class="v" id="sB">0</div></div>
+            </div>
+            <div class="callout" data-k="key" style="padding:10px 12px">
+              <span class="tag">對比</span>
+              <span class="txt" id="sideHint" style="font-size:12.5px"></span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">四種走訪 O(n)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉之後的本體。注意前三個函式<b>只有 visit 那一行的位置不同</b>，第四個函式則整個換了資料結構：</p>
+                <pre class="code">#include &lt;cstdio&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+struct Node { char val; Node *left, *right; };   <i>// 一個節點：值 + 左右孩子的指標</i>
+void visit(char v) { printf("%c ", v); }         <i>// 「簽名」＝把值印出來</i>
+
+void preorder(Node* t) {                         <i>// 前序：根 → 左 → 右</i>
+    if (t == nullptr) return;
+    visit(t-&gt;val);                                <i>// 簽名放「最前面」</i>
+    preorder(t-&gt;left);
+    preorder(t-&gt;right);
+}
+void inorder(Node* t) {                          <i>// 中序：左 → 根 → 右</i>
+    if (t == nullptr) return;
+    inorder(t-&gt;left);
+    visit(t-&gt;val);                                <i>// 簽名夾「中間」</i>
+    inorder(t-&gt;right);
+}
+void postorder(Node* t) {                        <i>// 後序：左 → 右 → 根</i>
+    if (t == nullptr) return;
+    postorder(t-&gt;left);
+    postorder(t-&gt;right);
+    visit(t-&gt;val);                                <i>// 簽名放「最後面」</i>
+}
+void levelOrder(Node* root) {                    <i>// 層序：換成佇列</i>
+    queue&lt;Node*&gt; q;
+    q.push(root);
+    while (!q.empty()) {
+        Node* t = q.front(); q.pop();
+        visit(t-&gt;val);
+        if (t-&gt;left)  q.push(t-&gt;left);
+        if (t-&gt;right) q.push(t-&gt;right);
+    }
+}</pre>
+        <p>DFS 三兄弟靠的是<b>系統幫你維護的呼叫堆疊</b>（就是 04 關畫出來的那座）；層序沒有半行遞迴，靠的是你自己準備的佇列。</p>
+      </div>
+
+      <!-- ============ 反推謎題 ============ -->
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">反推謎題：從走訪結果長回一棵樹</h3>
+          <span class="panel-note" id="rbNote">對象：上面這棵樹</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--ink-soft)">現在把樹藏起來，只給你兩串走訪名單。祕訣只有一招：<b>前序的第一個字（或後序的最後一個字）一定是根</b>；拿著這個根到中序裡一切，左邊那段就是左子樹、右邊那段就是右子樹 —— 再對每一段重複同一招。</p>
+        <div class="modes" role="tablist" aria-label="反推材料">
+          <button class="mode-btn is-on" data-rb="pre" role="tab" aria-selected="true">前序＋中序</button>
+          <button class="mode-btn" data-rb="post" role="tab" aria-selected="false">後序＋中序</button>
+        </div>
+        <div class="rb-row"><span class="rb-label" id="rbALabel">前序</span><div class="rb-strip" id="rbA"></div></div>
+        <div class="rb-row"><span class="rb-label">中序</span><div class="rb-strip" id="rbB"></div></div>
+        <div class="rb-legend">
+          <span><i class="k1"></i>這一段的根</span>
+          <span><i class="k2"></i>左子樹那一段</span>
+          <span><i class="k3"></i>右子樹那一段</span>
+          <span><i class="k4"></i>已放進樹裡</span>
+        </div>
+        <div class="treewrap">
+          <svg id="rbTreeSvg" width="100" height="100" aria-hidden="true"></svg>
+        </div>
+        <div class="controls">
+          <button class="btn" id="rbPrev" type="button">← 上一步</button>
+          <button class="btn btn-primary" id="rbNext" type="button">下一步</button>
+          <button class="btn" id="rbReset" type="button">↺ 重來</button>
+          <span class="step-count" id="rbCount">0 / 0</span>
+        </div>
+        <div class="say" id="rbSay" data-k="start">
+          <span class="say-badge" id="rbSayBadge">START</span>
+          <div class="say-body">
+            <div class="say-title" id="rbSayTitle"></div>
+            <div class="say-text" id="rbSayText"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>為什麼一定要有「中序」？換成「前序＋後序」就會出事</h3>
+        <p>前序、後序都能告訴你「根是誰」，但<b>只有中序能把左右子樹切開</b>——根的左邊全是左子樹、右邊全是右子樹。少了這把刀，就會出現兩棵不同的樹、名單卻一模一樣：</p>
+                <pre class="code">   樹一：       樹二：
+     A            A
+    /              \
+   B                B
+
+樹一　前序 = A B　　後序 = B A
+樹二　前序 = A B　　後序 = B A     <i>// 完全相同！</i></pre>
+        <p>兩棵樹的前序都是「先簽 A 再簽 B」、後序都是「先簽 B 再簽 A」——你分不出 B 到底掛在左邊還是右邊。所以「前序＋後序」只有在<b>每個節點都恰好有 0 或 2 個孩子</b>時才能唯一重建；一般的樹，必須有中序參與。</p>
+      </div>
+
+    </div>
+  </section>
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">四種走法怎麼來、為什麼前三種是一家人、第四種為什麼要換資料結構。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義：什麼是「走訪」</h3>
+        <p>走訪（traversal）＝<b>把樹上每個節點恰好拜訪一次</b>，並按某種固定順序把它們「輸出」。樹不像陣列有天生的先後順序，所以「按什麼順序唸」本身就是一個要回答的問題。常見答案有四種：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>走法</th><th class="mono">順序</th><th>生活比喻</th><th>屬於哪一家</th></tr></thead>
+            <tbody>
+              <tr><td><b>前序</b> Preorder</td><td class="mono">根 → 左 → 右</td><td><b>進門先簽名</b>：一走進房間就先簽，再進去逛</td><td rowspan="3">DFS（深度優先）<br>靠<b>堆疊</b></td></tr>
+              <tr><td><b>中序</b> Inorder</td><td class="mono">左 → 根 → 右</td><td><b>中場簽名</b>：左半邊逛完、回到門口簽名，再逛右半邊</td></tr>
+              <tr><td><b>後序</b> Postorder</td><td class="mono">左 → 右 → 根</td><td><b>出門才簽名</b>：整個房間逛完，離開前最後一刻才簽</td></tr>
+              <tr><td><b>層序</b> Level-order</td><td class="mono">一層掃完換下一層</td><td><b>一層一層掃地</b>：先掃一樓、再掃二樓，絕不跳層</td><td>BFS（廣度優先）<br>靠<b>佇列</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>三個名字裡的「前、中、後」，指的都是同一件事：<b>「自己」排在左右子樹的什麼位置</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：「不就是從上唸到下、從左唸到右？」</h3>
+        <p>很多人以為樹只有一種自然的唸法。錯 —— 那種「由上而下、由左而右」的唸法只是四種之一（層序），而且它反而是<b>最特殊</b>的一種。</p>
+        <ul class="bullets no">
+          <li><b>樹是巢狀結構，不是一排字</b> —— 每個節點下面還掛著整棵子樹。「唸到 B 的時候，要不要先把 B 底下的整片唸完？」不同的答案就是不同的走訪。</li>
+          <li><b>順著指標走，天生就會「鑽到底」</b> —— 程式拿到一個節點，手上只有它的左右孩子。自然的寫法是遞迴：一路往下鑽、再一路退回來。想「橫著掃」反而做不到，因為<b>同一層的節點之間根本沒有指標相連</b>。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">「橫著掃」需要一個地方<b>暫存「這一層還沒處理的節點」</b>，而且要先進先出 —— 這就是為什麼層序非用佇列不可。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：DFS 三兄弟只差「簽名時機」，層序整個換了資料結構</h3>
+        <p>把 02 段的程式碼並排看，會發現一件漂亮的事：</p>
+        <ul class="bullets">
+          <li><b>前序、中序、後序的程式碼一字不差，只有 visit 那一行的位置不同</b> —— 放在兩個遞迴呼叫的前面、中間、後面。走的路線其實完全一樣（每個節點都會「經過」三次），差別只是<b>在第幾次經過時簽名</b>。</li>
+          <li><b>它們三個都不需要你寫任何堆疊</b> —— 因為遞迴本身就是堆疊（04 關畫過的呼叫堆疊）。「鑽到底再退回來」的記憶，全記在那疊 frame 裡。</li>
+          <li><b>層序連一行遞迴都沒有</b> —— 它要的不是「最晚進來的先處理」（LIFO），而是「最早排隊的先處理」（FIFO）。需求從堆疊變成佇列，整個程式的形狀就從遞迴變成 while 迴圈。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">記這句</span>
+          <span class="txt"><b>堆疊讓你鑽得深，佇列讓你掃得寬。</b>選了哪個資料結構，就決定了走出來是 DFS 還是 BFS —— 07 關的迷宮用的是同一個道理。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <h4>DFS（前／中／後序）：一條遞迴走天下</h4>
+        <ol class="steps">
+          <li><b>遇到空節點</b>（nullptr）—— 直接 return。這是遞迴的煞車。</li>
+          <li><b>按自家順序做三件事</b> —— 「處理左子樹」「簽名」「處理右子樹」，只是排列不同：前序＝簽、左、右；中序＝左、簽、右；後序＝左、右、簽。</li>
+          <li><b>「處理子樹」就是呼叫自己</b> —— 那一整片交給遞迴，呼叫堆疊會記住「我做到一半、等你回來」。</li>
+        </ol>
+        <h4>層序：佇列的固定節奏</h4>
+        <ol class="steps">
+          <li><b>根節點先排隊</b>。</li>
+          <li><b>隊伍不空就重複</b>：隊伍最前面的人出列 → 輸出他 → 他的左右孩子（如果有）排到隊伍最後面。</li>
+          <li><b>孩子屬於下一層</b>，自然排在這一層所有人後面 —— 「一層掃完才換下一層」不是特別設計，是 FIFO 的必然結果。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常錯</span>
+          <span class="txt">DFS 忘了寫 <b>nullptr 的檢查</b>（無限遞迴直到爆掉）；層序忘了<b>只把存在的孩子入隊</b>（把 nullptr 排進去，出列時就當機）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：同一棵樹，四種輸出</h3>
+        <p>就是遊戲裡的「滿樹」關卡。考試時先把樹畫出來，再按各自的口訣走一遍：</p>
+                <pre class="code">        A
+      ┌─┴─┐
+      B   C
+    ┌─┴┐ ┌┴─┐
+    D  E F  G</pre>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>走法</th><th class="mono">口訣</th><th class="mono">輸出</th><th>看點</th></tr></thead>
+            <tbody>
+              <tr><td><b>前序</b></td><td class="mono">根左右</td><td class="mono">A B D E C F G</td><td>根 <b>A 排第一個</b>；先把左半邊 BDE 整片吃完才碰 C</td></tr>
+              <tr><td><b>中序</b></td><td class="mono">左根右</td><td class="mono">D B E A F C G</td><td>根 <b>A 卡在正中間</b>，左邊 DBE 全是左子樹、右邊 FCG 全是右子樹</td></tr>
+              <tr><td><b>後序</b></td><td class="mono">左右根</td><td class="mono">D E B F G C A</td><td>根 <b>A 排最後一個</b>；每個節點都比自己的孩子晚出現</td></tr>
+              <tr><td><b>層序</b></td><td class="mono">一層層</td><td class="mono">A B C D E F G</td><td>正好一層一層：A｜BC｜DEFG</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="bullets">
+          <li><b>根的位置就是名字</b> —— 前序最前、中序正中（把左右分開）、後序最後。反推謎題全靠這三條性質。</li>
+          <li><b>前序 ≠ 層序</b> —— 兩個的第一個字都是根，但第三個字就分家了（前序鑽到 D，層序橫掃到 C）。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O(n)</b> —— 四種走法都一樣：每個節點恰好被拜訪一次，每次做的事（簽名、把孩子入隊）都是固定成本。</li>
+          <li><b>DFS 空間 O(h)</b> —— h 是<b>樹高</b>（從根到最深葉子的層數）。呼叫堆疊最深時剛好疊了「根到目前節點」這一條路徑。平衡樹 h ≈ log₂n，很省；<b>歪樹 h = n</b>，堆疊跟節點數一樣高 —— 玩玩看遊戲裡的歪樹關卡。</li>
+          <li><b>層序空間 O(w)</b> —— w 是<b>最寬那一層的節點數</b>。佇列最長的瞬間，裝的差不多就是最寬的一層。滿樹的最底層約有 n/2 個節點，所以最壞也是 O(n) —— 但形狀跟 DFS 相反：<b>樹越歪 DFS 越吃虧、樹越滿層序越吃虧</b>。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「中序輸出一定由小到大」</b> —— 只有<b>二元搜尋樹</b>（BST）才有這個福利。普通的樹，中序只是位置順序，跟大小無關。（反過來記：BST 的定義就是「中序起來剛好有序」的樹。）</li>
+          <li><b>「前序跟層序差不多吧，第一個都是根」</b> —— 第三個字就不一樣了。前序會鑽進左子樹深處，層序永遠橫著掃。</li>
+          <li><b>「前序＋後序也能反推出樹」</b> —— 不行。單一個孩子時分不清它在左還是右（見 02 段結尾的反例）。要唯一重建，中序是必要的那一半。</li>
+          <li><b>「層序用遞迴也寫得出來，所以跟資料結構無關」</b> —— 硬寫得出來（一層一層收集），但本質上你還是在維護「按層排隊」這件事。真正的分野在：<b>LIFO 鑽深、FIFO 掃寬</b>，這是資料結構決定的，不是語法。</li>
+          <li><b>「visit 一定是印出來」</b> —— visit 是「對這個節點做事」的統稱：加總、複製、刪除都行。刪除整棵樹必須用<b>後序</b>（先刪孩子才能刪自己），這就是簽名時機真正重要的時刻。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟全站一樣：按任何按鈕之前，整段走訪已經跑完、存成一串快照了。DFS 的部分和 04 關同一招 —— <b>真的跑一次 JavaScript 遞迴來「錄影」</b>，一邊跑一邊把堆疊快照存下來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">輸入 <small>一棵樹 ＋ 走訪方式</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps() <small>DFS 用真遞迴錄影／層序用真佇列跑一遍</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格＝樹的狀態＋輸出帶＋堆疊或佇列的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反向走訪」這種恐怖東西。</li>
+          <li><b>換走法＝重算一次 steps</b> —— 樹不動，走法一換，整串快照重新生成，畫面程式一行不用改。</li>
+          <li><b>四種走法共用同一套畫面</b> —— 差別只在快照裡裝的是 stack 還是 q，側欄看欄位決定畫哪種。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步存一份快照，記憶體 O(步數 × 樹大小)。教學規模（十個節點內）完全沒問題。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildStepsDFS / buildStepsBFS</td><td>唯一真正跑走訪的地方。DFS 用真遞迴、BFS 用真佇列，輸出步驟陣列。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>全站唯一一份狀態：樹、走法、目前第幾步、模式、分數。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintTree / paintTape / paintSide<br>paintAlgo / paintSay / paintLog</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td><td>找下一個「輸出」步、出選項、對答案、計分。</td></tr>
+              <tr><td><b>反推謎題</b></td><td class="mono">buildRbSteps / renderRb</td><td>獨立的小播放器：自己的 steps、自己的目前步數，跟主遊戲互不干擾。</td></tr>
+              <tr><td><b>載入</b></td><td class="mono">loadTree / loadLevel / setOrder / setMode</td><td>換樹、換走法、換模式，重建 steps 並歸零。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto_(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintTree<small>節點顏色＋輸出編號</small></div>
+            <div class="node">paintTape<small>輸出帶</small></div>
+            <div class="node">paintSide<small>堆疊或佇列</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:  <i>// start / call / visit / nul / ret / enq / deq / done → 顏色與徽章</i>
+  <b>cur</b>:   <i>// 目前節點的 id → 樹上塗橘色的那一顆</i>
+  <b>v</b>:     <i>// 這一步牽涉到的節點值 → 歷程與闖關對答案用</i>
+  <b>out</b>:   <i>// 已輸出的值（快照）→ 輸出帶 + 綠色節點 + 輸出編號</i>
+  <b>stack</b>: <i>// 呼叫堆疊快照 [{v, phase}]（前中後序才有）</i>
+  <b>q</b>:     <i>// 佇列快照（層序才有）→ 側欄看這兩個欄位決定畫哪種</i>
+  <b>line</b>:  <i>// 演算法要高亮第幾行（前中後序落在各自的函式裡）</i>
+  <b>title</b>, <b>msg</b>: <i>// 說明面板文字</i>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加一棵固定的樹</td><td><code>LEVELS</code> 陣列加一筆（用 <code>N("值", 左, 右)</code> 巢狀寫）</td><td>1 行</td></tr>
+              <tr><td>改亂數樹的節點數</td><td><code>randomTree()</code> 開頭的 <code>6 + …*3</code></td><td>1 行</td></tr>
+              <tr><td>加第五種走法（例如反中序 右根左）</td><td><code>buildStepsDFS()</code> 換一下三段的順序，<code>CODE</code> 補一段</td><td>少量</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次全站生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+                <pre class="code">用 C++ 幫我把「二元樹走訪」完整做一遍。
+
+1. 定義 struct Node { char val; Node *left, *right; }，
+   手刻出這棵樹：A(B(D,E), C(F,G))
+2. 寫 preorder / inorder / postorder（遞迴）和 levelOrder（std::queue），
+   四個都跑一遍並印出結果，跟我手算的對答案：
+   前序 ABDECFG、中序 DBEAFCG、後序 DEBFGCA、層序 ABCDEFG
+3. 寫 buildTree(preorder, inorder)：從前序＋中序反推出整棵樹，
+   再對重建結果跑一次四種走訪，驗證跟第 2 步完全一致
+4. 在每個遞迴函式裡加一個全域深度計數器，
+   印出「最大遞迴深度」，換一棵歪樹（A(B(C(D)))）再跑一次比較
+
+寫完後回答我三個問題：
+- 為什麼三個 DFS 只差 visit 的位置，輸出卻完全不同？
+- levelOrder 若把 queue 換成 stack，輸出會變成哪一種走訪？親手驗證。
+- 為什麼 buildTree 不能用「前序＋後序」？舉出最小反例。</pre>
+
+        <h4>延伸挑戰一：迭代版中序 —— 自己接管呼叫堆疊</h4>
+                <pre class="code">不准用遞迴，用 std::stack&lt;Node*&gt; 寫出 inorderIter(root)：
+- 規則：一路把左邊全部 push 到底；pop 一個就 visit 它，然後轉向它的右子樹
+- 每一步印出 stack 內容，跟本頁側欄的呼叫堆疊對照——你會發現長得一模一樣
+- 回答：為什麼堆疊的最大高度剛好是樹高 h？</pre>
+
+        <h4>延伸挑戰二：之字形層序（LeetCode 103）</h4>
+                <pre class="code">把層序改成「第一層由左到右、第二層由右到左、第三層再由左到右…」：
+- 方法一：照常用 queue，但記住每層的節點數，偶數層收集完再反轉
+- 方法二：用兩個 stack 交替，push 孩子的順序每層對調
+- 回答：為什麼方法二天生就是之字形？（提示：LIFO 把順序反過來了）</pre>
+
+        <h4>延伸挑戰三：序列化 —— 讓「只靠前序」也能唯一重建</h4>
+                <pre class="code">本頁說過：光有前序反推不出樹。但只要把「空位」也記下來就可以了！
+- 寫 serialize(root)：前序走訪，空節點輸出 '#'，例如 A(B,-) → "A B # # #"
+- 寫 deserialize(s)：把字串讀回一棵樹，驗證來回轉換後樹不變
+- 回答：為什麼加了 # 之後，連中序都不需要了？
+  （提示：# 把「這裡沒有孩子」說死了，左右不再有歧義）</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 12 走訪路線猜謎</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  /* ---------- 1. 常數 ---------- */
+
+  var CODE = [
+    "void preorder(Node* t) {",
+    "    if (t == nullptr) return;",
+    "    visit(t->val);",
+    "    preorder(t->left);",
+    "    preorder(t->right);",
+    "}",
+    "void inorder(Node* t) {",
+    "    if (t == nullptr) return;",
+    "    inorder(t->left);",
+    "    visit(t->val);",
+    "    inorder(t->right);",
+    "}",
+    "void postorder(Node* t) {",
+    "    if (t == nullptr) return;",
+    "    postorder(t->left);",
+    "    postorder(t->right);",
+    "    visit(t->val);",
+    "}",
+    "void levelOrder(Node* root) {",
+    "    queue<Node*> q;",
+    "    q.push(root);",
+    "    while (!q.empty()) {",
+    "        Node* t = q.front(); q.pop();",
+    "        visit(t->val);",
+    "        if (t->left)  q.push(t->left);",
+    "        if (t->right) q.push(t->right);",
+    "    }",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "「前序走訪」機器的開頭。把一棵樹丟進去（準確說是「指向某個節點的箭頭」t，Node* 就是箭頭的意思），它會按「先自己、再左邊、再右邊」的順序把每個節點唸出來。",
+    "守門檢查：如果 t 指向「空」（nullptr，代表這個位置根本沒有節點，例如葉子的下面），就直接 return 回頭。這一行同時是遞迴的煞車 —— 沒有它會無限呼叫下去，堆疊爆掉。",
+    "visit ＝「簽名／輸出」。前序把簽名放在最前面：一走進門就先簽自己，再去管孩子 —— 所以叫「前」序，自己排最前面。",
+    "帶著左孩子再開一台一模一樣的機器（遞迴呼叫）。左子樹裡的所有節點會在這一行「全部」處理完，才輪得到下一行 —— 呼叫堆疊會幫這一層記住「我做到一半，等你回來」。",
+    "左邊整片做完後，換右孩子：再開一台新機器，把右子樹全部走完。",
+    "前序機器到此結束（} 只是「到這裡為止」的記號），return 回到上一層。",
+    "「中序走訪」機器。程式跟前序幾乎一字不差，唯一的差別是「簽名那一行」放的位置 —— 改成「先左邊、再自己、再右邊」。",
+    "一樣的守門檢查：遇到空節點立刻回頭。",
+    "中序的第一件事是往左邊衝：先把左子樹全部做完，自己先「不」簽名。",
+    "左邊全部完成後，才輪到自己簽名。因為簽名夾在左右中間，所以叫「中」序。",
+    "自己簽完，最後才去右子樹。",
+    "中序機器結束，回上一層。",
+    "「後序走訪」機器：順序是「先左邊、再右邊、最後才自己」。",
+    "守門檢查，跟前兩台一樣。",
+    "先把左子樹全部做完。",
+    "再把右子樹也全部做完。",
+    "左右都完成、要離開之前，才輪到自己簽名 ——「出門才簽名」，所以叫「後」序。要刪掉整棵樹時就得用這個順序：先刪孩子，最後才能刪自己。",
+    "後序機器結束。",
+    "「層序走訪」換了一種完全不同的做法：不用遞迴，改用「佇列」—— 一條排隊的隊伍，先排的先出來（FIFO）。",
+    "準備一個空佇列 q。queue<Node*> 的意思是「一條專門排『節點箭頭』的隊伍」，裡面放的是「等一下要處理的節點」。",
+    "讓根節點先去排隊 —— 隊伍裡的第一個人。",
+    "只要隊伍裡還有人（!q.empty() ＝「隊伍不是空的」），就一直重複下面幾行。",
+    "front ＝ 看隊伍最前面是誰；pop ＝ 讓他出列。拿到的節點取名叫 t —— 輪到他了。",
+    "輪到誰就輸出誰。因為隊伍是先進先出，同一層的節點一定先於下一層全部被處理 —— 這就是「一層一層掃」的祕密。",
+    "如果 t 有左孩子，讓左孩子去隊伍「最後面」排隊。",
+    "如果有右孩子，也去排隊。孩子們屬於下一層，自然排在這一層所有人的後面。",
+    "回到第 22 行再檢查一次隊伍。隊伍空了，就代表每個節點都輪過一遍了。",
+    "層序機器結束。注意整個函式沒有呼叫自己 —— 堆疊換成佇列，走法就從「鑽到底」變成「掃一層」。"
+  ];
+
+  /* 每種走法在 CODE 裡對應的行號 */
+  var LN = {
+    pre:  {head:1,  nul:2,  visit:3,  left:4,  right:5,  close:6},
+    "in": {head:7,  nul:8,  left:9,  visit:10, right:11, close:12},
+    post: {head:13, nul:14, left:15, right:16, visit:17, close:18},
+    level:{head:19, decl:20, push:21, loop:22, deq:23, visit:24, enqL:25, enqR:26, close:28}
+  };
+
+  var FN = {pre:"preorder", "in":"inorder", post:"postorder"};
+  var ONAME = {pre:"前序", "in":"中序", post:"後序", level:"層序"};
+  var OHINT = {
+    pre:  "<b>前序＝進門先簽名</b>：一走進節點就先輸出自己，再去左、右子樹。順序＝根→左→右。",
+    "in": "<b>中序＝中場簽名</b>：先把左子樹整片走完，回到自己才簽名，然後才去右邊。順序＝左→根→右。",
+    post: "<b>後序＝出門才簽名</b>：左右子樹都走完，離開前的最後一刻才輸出自己。順序＝左→右→根。",
+    level:"<b>層序＝一層一層掃地</b>：不鑽深，改排隊 —— 同一層全部處理完才輪到下一層。用的是佇列，不是堆疊。"
+  };
+  var BADGE = {start:"START", call:"CALL", visit:"OUTPUT", nul:"NULL", ret:"RETURN", enq:"ENQUEUE", deq:"DEQUEUE", done:"DONE"};
+  var SAYK  = {start:"start", call:"push", visit:"ok", nul:"start", ret:"start", enq:"push", deq:"hot", done:"done"};
+
+  function N(v, l, r){ return {v:v, l:l||null, r:r||null}; }
+  var LEVELS = [
+    {c:"7", n:"滿樹（教科書款）", make:function(){
+      return N("A", N("B", N("D"), N("E")), N("C", N("F"), N("G"))); }},
+    {c:"4", n:"歪樹（考堆疊深度）", make:function(){
+      return N("A", N("B", N("C", null, N("D"))), null); }},
+    {c:"7", n:"隨機形狀", make:function(){
+      return N("A", N("D", null, N("B", N("G"), N("E"))), N("F", null, N("C"))); }}
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+
+  /* ---------- 2. 狀態 ---------- */
+  var S = {
+    root:null, nodes:[], byV:{}, width:0, maxD:0, T:null,
+    order:"pre", steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:-1,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+  var R = {mode:"pre", steps:[], cur:0};
+
+  /* ---------- 3. 樹的準備：編號、座標、四種序列 ---------- */
+  function prepTree(root){
+    var nodes = [], xi = 0, maxD = 0, id = 0, byV = {};
+    (function walk(n, d, par){
+      if(!n) return;
+      n.id = id++; n.depth = d; n.parent = par;
+      if(d > maxD) maxD = d;
+      walk(n.l, d+1, n);
+      n.x = xi++;
+      walk(n.r, d+1, n);
+      nodes.push(n);
+      byV[n.v] = n;
+    })(root, 0, null);
+    S.nodes = nodes; S.byV = byV; S.width = xi; S.maxD = maxD;
+
+    var pre = [], ino = [], post = [], lvl = [];
+    (function w(n){
+      if(!n) return;
+      pre.push(n.v); w(n.l); ino.push(n.v); w(n.r); post.push(n.v);
+    })(root);
+    var qa = [root];
+    while(qa.length){
+      var n = qa.shift();
+      lvl.push(n.v);
+      if(n.l) qa.push(n.l);
+      if(n.r) qa.push(n.r);
+    }
+    S.T = {pre:pre, ino:ino, post:post, lvl:lvl};
+  }
+
+  function randomTree(){
+    var n = 6 + Math.floor(Math.random()*3);
+    var letters = "ABCDEFGHIJ".split("").slice(0, n);
+    for(var i = letters.length-1; i > 0; i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t = letters[i]; letters[i] = letters[j]; letters[j] = t;
+    }
+    var k = 0;
+    return (function build(m){
+      if(m <= 0) return null;
+      var lm = Math.floor(Math.random()*m);
+      var node = N(letters[k++]);
+      node.l = build(lm);
+      node.r = build(m - 1 - lm);
+      return node;
+    })(n);
+  }
+
+  /* ---------- 4. 資料層：把整趟走訪先跑完 ---------- */
+  function buildStepsDFS(order){
+    var L = LN[order], fn = FN[order];
+    var steps = [], out = [], stack = [], maxD = 0;
+
+    function snap(kind, cur, v, line, title, msg){
+      steps.push({kind:kind, cur:cur, v:v, line:line, title:title, msg:msg,
+        out:out.slice(),
+        stack:stack.map(function(f){ return {v:f.v, phase:f.phase}; }),
+        q:null, depth:stack.length, maxDepth:maxD});
+    }
+    function doVisit(n){
+      out.push(n.v);
+      stack[stack.length-1].phase = "已簽名（輸出）";
+      var msg;
+      if(order === "pre")       msg = "前序＝<b>進門先簽名</b>：一走進 " + n.v + " 就立刻輸出，然後才去管它的左右子樹。";
+      else if(order === "in")   msg = "中序：" + n.v + " 的<b>左子樹已經全部完成</b>，現在輪到它自己簽名；簽完才去右子樹。";
+      else                      msg = "後序＝<b>出門才簽名</b>：" + n.v + " 的左右子樹都做完了，離開前的最後一刻才輸出它。";
+      snap("visit", n.id, n.v, L.visit, "輸出 " + n.v + "（第 " + out.length + " 個）", msg);
+    }
+
+    snap("start", null, null, L.head, "準備出發",
+      "從根節點 <b>" + S.root.v + "</b> 開始呼叫 " + fn + "。呼叫堆疊目前是空的 —— 接下來每一次遞迴呼叫都會推入一層框架。");
+
+    (function go(n){
+      stack.push({v:n.v, phase:"剛進入"});
+      if(stack.length > maxD) maxD = stack.length;
+      var opening = (order === "pre") ? "前序會馬上簽名。" : (order === "in") ? "中序要先等左子樹全部做完。" : "後序要等左右子樹都做完。";
+      snap("call", n.id, n.v, L.head, "進入節點 " + n.v,
+        "呼叫 " + fn + "(" + n.v + ")：呼叫堆疊推入一層新框架，深度變成 <b>" + stack.length + "</b>。" + opening);
+
+      if(order === "pre") doVisit(n);
+
+      stack[stack.length-1].phase = "往左子樹去";
+      if(n.l){
+        go(n.l);
+        stack[stack.length-1].phase = "左邊完成";
+      } else {
+        snap("nul", n.id, n.v, L.nul, n.v + " 的左邊是空的",
+          "呼叫 " + fn + "(nullptr)：" + n.v + " 沒有左孩子。進去第一行就發現是空指標，立刻 return —— 什麼都不做。");
+      }
+
+      if(order === "in") doVisit(n);
+
+      stack[stack.length-1].phase = "往右子樹去";
+      if(n.r){
+        go(n.r);
+        stack[stack.length-1].phase = "右邊完成";
+      } else {
+        snap("nul", n.id, n.v, L.nul, n.v + " 的右邊是空的",
+          "呼叫 " + fn + "(nullptr)：" + n.v + " 沒有右孩子，立刻 return。");
+      }
+
+      if(order === "post") doVisit(n);
+
+      stack[stack.length-1].phase = "完成，返回";
+      snap("ret", n.id, n.v, L.close, "離開 " + n.v,
+        n.v + " 為根的整棵子樹處理完了：這一層框架彈出（pop），回到上一層繼續它做到一半的事。");
+      stack.pop();
+      if(stack.length) stack[stack.length-1].phase = "從 " + n.v + " 那邊回來了";
+    })(S.root);
+
+    snap("done", null, null, L.close, "走訪完成",
+      ONAME[order] + "輸出：<b>" + out.join(" → ") + "</b>。堆疊清空。過程中最深疊到 <b>" + maxD +
+      "</b> 層 —— 剛好是樹高，所以空間是 O(h)。");
+    return steps;
+  }
+
+  function buildStepsBFS(){
+    var L = LN.level;
+    var steps = [], out = [], qa = [], maxQ = 0;
+
+    function snap(kind, cur, v, line, title, msg){
+      steps.push({kind:kind, cur:cur, v:v, line:line, title:title, msg:msg,
+        out:out.slice(), stack:null,
+        q:qa.map(function(n){ return n.v; }),
+        depth:qa.length, maxDepth:maxQ});
+    }
+
+    snap("start", null, null, L.decl, "準備一個空佇列",
+      "層序不用遞迴：準備一條隊伍，等一下「誰排在前面就先處理誰」。");
+    qa.push(S.root); maxQ = 1;
+    snap("enq", S.root.id, S.root.v, L.push, "根節點 " + S.root.v + " 排隊",
+      "讓根節點 <b>" + S.root.v + "</b> 第一個去排隊。接下來進入 while 迴圈，直到隊伍清空。");
+
+    while(qa.length){
+      var n = qa.shift();
+      snap("deq", n.id, n.v, L.deq, "輪到 " + n.v + " 出列",
+        "隊伍最前面是 <b>" + n.v + "</b>：front 看到他、pop 讓他出列。");
+      out.push(n.v);
+      snap("visit", n.id, n.v, L.visit, "輸出 " + n.v + "（第 " + out.length + " 個）",
+        "佇列最前面的是 " + n.v + "，把它輸出。<b>先排隊的先服務（FIFO）</b>—— 所以同一層一定先於下一層全部輸出。");
+      if(n.l){
+        qa.push(n.l);
+        if(qa.length > maxQ) maxQ = qa.length;
+        snap("enq", n.l.id, n.l.v, L.enqL, n.l.v + " 去排隊",
+          "把 " + n.v + " 的左孩子 <b>" + n.l.v + "</b> 排到隊伍最後面 —— 它屬於下一層，要等這一層的人都輪完。");
+      }
+      if(n.r){
+        qa.push(n.r);
+        if(qa.length > maxQ) maxQ = qa.length;
+        snap("enq", n.r.id, n.r.v, L.enqR, n.r.v + " 去排隊",
+          "右孩子 <b>" + n.r.v + "</b> 也去隊伍最後面排著。");
+      }
+    }
+
+    snap("done", null, null, L.loop, "走訪完成",
+      "回到 while 檢查：隊伍空了，每個節點都輪過一遍。層序輸出：<b>" + out.join(" → ") +
+      "</b>。過程中隊伍最長 <b>" + maxQ + "</b> 人 —— 大約就是最寬那一層，所以空間是 O(w)。");
+    return steps;
+  }
+
+  function buildSteps(){
+    return (S.order === "level") ? buildStepsBFS() : buildStepsDFS(S.order);
+  }
+
+  /* ---------- 5. 畫面層：SVG 樹 ---------- */
+  var PAD = 30, GX = 52, GY = 62, RAD = 17;
+
+  function nodePos(n){ return {x: PAD + n.x*GX, y: PAD + n.depth*GY}; }
+
+  function treeSVG(stepState){
+    /* stepState(n) → "cur" / "out" / "wait" / ""，ordOf(n) → 輸出編號或 0 */
+    var parts = [], i, n, p, c;
+    for(i = 0; i < S.nodes.length; i++){
+      n = S.nodes[i];
+      if(!n.parent) continue;
+      p = nodePos(n.parent); c = nodePos(n);
+      if(stepState.edgeShown(n)){
+        parts.push('<line class="tedge" x1="'+p.x+'" y1="'+p.y+'" x2="'+c.x+'" y2="'+c.y+'"/>');
+      }
+    }
+    for(i = 0; i < S.nodes.length; i++){
+      n = S.nodes[i];
+      if(!stepState.nodeShown(n)) continue;
+      c = nodePos(n);
+      var st = stepState.state(n);
+      var ord = stepState.ord(n);
+      parts.push('<g class="tnode" data-s="'+st+'">'
+        + '<circle cx="'+c.x+'" cy="'+c.y+'" r="'+RAD+'"/>'
+        + '<text class="val" x="'+c.x+'" y="'+c.y+'">'+esc(n.v)+'</text>'
+        + (ord ? '<text class="ord" x="'+(c.x+RAD-2)+'" y="'+(c.y-RAD+3)+'">'+ord+'</text>' : '')
+        + '</g>');
+    }
+    return parts.join("");
+  }
+
+  function sizeSvg(svg){
+    svg.setAttribute("width", PAD*2 + (S.width-1)*GX);
+    svg.setAttribute("height", PAD*2 + S.maxD*GY);
+  }
+
+  function paintTree(){
+    var st = S.steps[S.cur];
+    var outIdx = {}, waitSet = {};
+    st.out.forEach(function(v, i){ outIdx[v] = i + 1; });
+    if(st.stack) st.stack.forEach(function(f){ waitSet[f.v] = 1; });
+    if(st.q)     st.q.forEach(function(v){ waitSet[v] = 1; });
+    $("treeSvg").innerHTML = treeSVG({
+      nodeShown: function(){ return true; },
+      edgeShown: function(){ return true; },
+      state: function(n){
+        if(st.cur !== null && n.id === st.cur) return "cur";
+        if(outIdx[n.v]) return "out";
+        if(waitSet[n.v]) return "wait";
+        return "";
+      },
+      ord: function(n){ return outIdx[n.v] || 0; }
+    });
+  }
+
+  /* ---------- 畫面層：輸出帶 ---------- */
+  function paintTape(){
+    var st = S.steps[S.cur], host = $("outTape");
+    host.innerHTML = "";
+    if(st.out.length === 0){
+      host.innerHTML = '<span class="none">（還沒有任何輸出）</span>';
+    } else {
+      st.out.forEach(function(v, i){
+        var d = document.createElement("span");
+        d.className = "ocell" + ((i === st.out.length-1 && st.kind === "visit") ? " fresh" : "");
+        d.textContent = v;
+        host.appendChild(d);
+      });
+    }
+    $("outNote").textContent = st.out.length + " / " + S.nodes.length;
+  }
+
+  /* ---------- 畫面層：側欄（堆疊 or 佇列） ---------- */
+  function paintSide(){
+    var st = S.steps[S.cur];
+    var isBFS = (S.order === "level");
+    $("stackWrap").style.display = isBFS ? "none" : "";
+    $("queueWrap").style.display = isBFS ? "" : "none";
+    $("sideTitle").textContent = isBFS ? "佇列 Queue" : "呼叫堆疊 Call Stack";
+    $("sideHint").innerHTML = isBFS
+      ? "層序把堆疊整個換成<b>佇列</b>：先排隊的先出來（FIFO），所以才會一層一層掃。"
+      : "前中後序共用這一座堆疊 —— 遞迴就是系統幫你 push／pop。三種走法差的只是「簽名時機」。";
+    if(isBFS){
+      var qr = $("qrow");
+      qr.innerHTML = "";
+      if(st.q.length === 0){
+        qr.innerHTML = '<div class="side-empty">（佇列是空的）<br>還沒開始，或已經全部輪完</div>';
+      } else {
+        st.q.forEach(function(v, i){
+          var d = document.createElement("div");
+          d.className = "qcell" + (i === 0 ? " front" : "");
+          d.textContent = v;
+          if(i === 0){
+            var tag = document.createElement("span");
+            tag.className = "ftag"; tag.textContent = "FRONT";
+            d.appendChild(tag);
+          }
+          qr.appendChild(d);
+        });
+      }
+      $("sideNote").textContent = "長度 " + st.depth;
+      $("sALabel").textContent = "目前隊伍長度";
+      $("sBLabel").textContent = "最長隊伍";
+    } else {
+      var fr = $("frames");
+      fr.innerHTML = "";
+      if(st.stack.length === 0){
+        fr.innerHTML = '<div class="side-empty">（呼叫堆疊是空的）<br>還沒開始，或已經全部返回</div>';
+      } else {
+        st.stack.forEach(function(f, i){
+          var d = document.createElement("div");
+          d.className = "frame" + (i === st.stack.length-1 ? " top" : "");
+          var fn = document.createElement("div");
+          fn.className = "fn"; fn.textContent = FN[S.order] + "(" + f.v + ")";
+          var ph = document.createElement("div");
+          ph.className = "st"; ph.textContent = f.phase;
+          d.appendChild(fn); d.appendChild(ph);
+          d.style.marginLeft = Math.min(i*6, 42) + "px";
+          fr.appendChild(d);
+        });
+      }
+      $("sideNote").textContent = "深度 " + st.depth;
+      $("sALabel").textContent = "目前深度";
+      $("sBLabel").textContent = "最大深度";
+    }
+    $("sA").textContent = st.depth;
+    $("sB").textContent = st.maxDepth;
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < CODE.length; i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < CODE.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", SAYK[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", SAYK[st.kind] || "start");
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = st.v || "—";
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = (S.order === "level" ? "隊 " : "深 ") + st.depth;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintTree(); paintTape(); paintSide(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 6. 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ S.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 7. 闖關 ---------- */
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){
+      if(S.steps[k].kind === "visit") return k;
+    }
+    return -1;
+  }
+
+  function shuffle(a){
+    for(var i = a.length-1; i > 0; i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。全部 " + S.nodes.length + " 個節點都輸出了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一棵樹 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1 + LEVELS.length) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這棵重來";
+      r.addEventListener("click", reloadSame);
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = "現在用「<b style='font-size:inherit'>" + ONAME[S.order] + "</b>」走訪，已輸出 " +
+      (st.out.length - 1) + " 個 —— 下一個被<b>輸出</b>的節點是誰？";
+    opts.innerHTML = "";
+
+    var correct = st.v, pool = [];
+    S.nodes.forEach(function(n){
+      if(n.v !== correct && st.out.indexOf(n.v) === -1) pool.push(n.v);
+    });
+    if(pool.length < 3){
+      S.nodes.forEach(function(n){
+        if(n.v !== correct && pool.indexOf(n.v) === -1) pool.push(n.v);
+      });
+    }
+    shuffle(pool);
+    var choices = pool.slice(0, 3);
+    choices.push(correct);
+    shuffle(choices);
+    choices.forEach(function(v){
+      var b = document.createElement("button");
+      b.className = "opt"; b.type = "button";
+      b.innerHTML = esc(v) + "<small>NODE</small>";
+      b.addEventListener("click", function(){ answerQuiz(v); });
+      opts.appendChild(b);
+    });
+  }
+
+  function answerQuiz(ans){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.v;
+
+    S.asked++;
+    var win = (ans === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + esc(correct) + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 8. 載入 ---------- */
+  function resetScore(){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+
+  function loadTree(root, levelIdx){
+    stopPlay();
+    S.root = root;
+    S.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    prepTree(root);
+    sizeSvg($("treeSvg"));
+    sizeSvg($("rbTreeSvg"));
+    S.steps = buildSteps();
+    S.cur = 0;
+    if(S.mode === "quiz") resetScore();
+    $("treeNote").textContent = "n = " + S.nodes.length + " · " + (S.maxD + 1) + " 層";
+    paintChips();
+    render();
+    initRebuild();
+  }
+  function loadLevel(i){ loadTree(LEVELS[i].make(), i); }
+  function reloadSame(){
+    stopPlay();
+    S.steps = buildSteps();
+    S.cur = 0;
+    if(S.mode === "quiz") resetScore();
+    render();
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.c;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setOrder(o){
+    stopPlay();
+    S.order = o;
+    var btns = document.querySelectorAll("[data-order]");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-order") === o;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("orderHint").innerHTML = OHINT[o];
+    S.steps = buildSteps();
+    S.cur = 0;
+    if(S.mode === "quiz") resetScore();
+    render();
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll("[data-mode]");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      resetScore();
+      goto_(0);
+      say("start", "闖關開始",
+        "現在用「" + ONAME[S.order] + "」走訪這棵樹。每一題都問：下一個被輸出的節點是誰？連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 9. 反推謎題 ---------- */
+  function inR(i, seg){ return seg && i >= seg.lo && i <= seg.hi; }
+
+  function buildRbSteps(){
+    var usePost = (R.mode === "post");
+    var A = usePost ? S.T.post : S.T.pre;
+    var I = S.T.ino;
+    var steps = [], placed = [];
+
+    steps.push({placed:[], cur:null, kind:"start", title:"拿到兩份名單",
+      msg: usePost
+        ? "樹被藏起來了，只知道後序 <b>" + A.join("") + "</b> 和中序 <b>" + I.join("") + "</b>。後序的<b>最後一個</b>字一定是整棵樹的根 —— 從它下刀。"
+        : "樹被藏起來了，只知道前序 <b>" + A.join("") + "</b> 和中序 <b>" + I.join("") + "</b>。前序的<b>第一個</b>字一定是整棵樹的根 —— 從它下刀。"});
+
+    (function rec(aLo, aHi, iLo, iHi){
+      if(aLo > aHi) return;
+      var rootV = usePost ? A[aHi] : A[aLo];
+      var k = I.indexOf(rootV);
+      var leftN = k - iLo, rightN = iHi - k;
+      placed.push(rootV);
+      var msg = (usePost ? "這一段後序的<b>最後一個</b>" : "這一段前序的<b>第一個</b>") +
+        "字＝根 → <b>" + rootV + "</b>。到中序裡找到 " + rootV +
+        "：左邊 " + leftN + " 個字是它的左子樹成員，右邊 " + rightN + " 個是右子樹成員。";
+      if(leftN === 0)  msg += "左邊 0 個 —— " + rootV + " 沒有左孩子。";
+      if(rightN === 0) msg += "右邊 0 個 —— " + rootV + " 沒有右孩子。";
+      if(leftN > 0 || rightN > 0) msg += "接著對剩下的段落重複同一招。";
+      steps.push({
+        placed: placed.slice(), cur: rootV, kind:"root",
+        aRoot: usePost ? aHi : aLo,
+        aL: usePost ? {lo:aLo, hi:aLo+leftN-1} : {lo:aLo+1, hi:aLo+leftN},
+        aR: usePost ? {lo:aLo+leftN, hi:aHi-1} : {lo:aLo+leftN+1, hi:aHi},
+        iRoot: k,
+        iL: {lo:iLo, hi:k-1},
+        iR: {lo:k+1, hi:iHi},
+        title: "這一段的根是 " + rootV,
+        msg: msg
+      });
+      if(usePost){
+        rec(aLo, aLo+leftN-1, iLo, k-1);
+        rec(aLo+leftN, aHi-1, k+1, iHi);
+      } else {
+        rec(aLo+1, aLo+leftN, iLo, k-1);
+        rec(aLo+leftN+1, aHi, k+1, iHi);
+      }
+    })(0, A.length-1, 0, I.length-1);
+
+    steps.push({placed: placed.slice(), cur:null, kind:"done", title:"整棵樹長回來了",
+      msg:"每一段都被「找根 → 用中序切左右」一路切到底，樹的形狀被<b>唯一</b>決定 —— 往上對照主遊戲那棵，一模一樣。切左右的那把刀只有中序有：換成「前序＋後序」，單一個孩子就分不清在左還是右（見下方反例）。"});
+    return steps;
+  }
+
+  function rbStripPaint(host, arr, st, isA){
+    host.innerHTML = "";
+    for(var i = 0; i < arr.length; i++){
+      var s = "";
+      if(st.kind === "root"){
+        var root = isA ? st.aRoot : st.iRoot;
+        var segL = isA ? st.aL : st.iL;
+        var segR = isA ? st.aR : st.iR;
+        if(i === root) s = "root";
+        else if(inR(i, segL)) s = "l";
+        else if(inR(i, segR)) s = "r";
+        else if(st.placed.indexOf(arr[i]) !== -1) s = "old";
+      } else if(st.kind === "done"){
+        s = "ok";
+      }
+      var d = document.createElement("span");
+      d.className = "rb-cell";
+      if(s) d.setAttribute("data-s", s);
+      d.textContent = arr[i];
+      host.appendChild(d);
+    }
+  }
+
+  function renderRb(){
+    var st = R.steps[R.cur];
+    var usePost = (R.mode === "post");
+    var A = usePost ? S.T.post : S.T.pre;
+    $("rbALabel").textContent = usePost ? "後序" : "前序";
+    rbStripPaint($("rbA"), A, st, true);
+    rbStripPaint($("rbB"), S.T.ino, st, false);
+
+    var placedSet = {};
+    st.placed.forEach(function(v){ placedSet[v] = 1; });
+    $("rbTreeSvg").innerHTML = treeSVG({
+      nodeShown: function(n){ return !!placedSet[n.v]; },
+      edgeShown: function(n){ return placedSet[n.v] && placedSet[n.parent.v]; },
+      state: function(n){ return (st.cur !== null && n.v === st.cur) ? "cur" : ""; },
+      ord: function(){ return 0; }
+    });
+
+    var k = (st.kind === "root") ? "push" : (st.kind === "done" ? "done" : "start");
+    $("rbSay").setAttribute("data-k", k);
+    $("rbSayBadge").textContent = (st.kind === "root") ? "ROOT" : (st.kind === "done" ? "DONE" : "START");
+    $("rbSayTitle").textContent = st.title;
+    $("rbSayText").innerHTML = st.msg;
+
+    $("rbCount").textContent = R.cur + " / " + (R.steps.length - 1);
+    $("rbPrev").disabled = (R.cur === 0);
+    $("rbNext").disabled = (R.cur >= R.steps.length - 1);
+    $("rbNote").textContent = "對象：上面這棵樹（n = " + S.nodes.length + "）";
+  }
+
+  function initRebuild(){
+    R.steps = buildRbSteps();
+    R.cur = 0;
+    renderRb();
+  }
+
+  function setRbMode(m){
+    R.mode = m;
+    var btns = document.querySelectorAll("[data-rb]");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-rb") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    initRebuild();
+  }
+
+  /* ---------- 10. 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", reloadSame);
+  $("btnRand").addEventListener("click", function(){ loadTree(randomTree(), -1); });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-mode]"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-order]"), function(b){
+    b.addEventListener("click", function(){ setOrder(b.getAttribute("data-order")); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-rb]"), function(b){
+    b.addEventListener("click", function(){ setRbMode(b.getAttribute("data-rb")); });
+  });
+
+  $("rbNext").addEventListener("click", function(){
+    if(R.cur < R.steps.length - 1){ R.cur++; renderRb(); }
+  });
+  $("rbPrev").addEventListener("click", function(){
+    if(R.cur > 0){ R.cur--; renderRb(); }
+  });
+  $("rbReset").addEventListener("click", function(){ R.cur = 0; renderRb(); });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 11. 啟動 ---------- */
+  renderAlgo();
+  $("orderHint").innerHTML = OHINT.pre;
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

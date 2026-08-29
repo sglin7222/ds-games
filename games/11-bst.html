@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>二元搜尋樹種樹 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式（只寫這一關獨有的視覺） ============ */
+.custom{display:flex;gap:6px;flex:0 1 320px}
+.custom input{flex:1}
+
+/* 樹的畫布 */
+.treewrap{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;
+  padding:10px;overflow-x:auto}
+#tree{display:block;margin:0 auto;width:100%;height:auto}
+
+/* SVG 內部元素（顏色一律用全站色彩變數） */
+.edge{stroke:var(--line);stroke-width:1.5}
+.nd{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.nd-cur{fill:var(--accent-soft);stroke:var(--accent);stroke-width:3}
+.nd-plant{fill:var(--jade-soft);stroke:var(--jade);stroke-width:2.5}
+.nd-succ{fill:var(--jade-soft);stroke:var(--jade);stroke-width:2.5;stroke-dasharray:5 3}
+.nd-ghost{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:2;stroke-dasharray:4 3;opacity:.6}
+.nv{font-family:var(--font-mono);font-size:14px;font-weight:700;fill:var(--ink);text-anchor:middle}
+.ntag{font-size:10px;font-family:var(--font-sans);text-anchor:middle}
+.ntag-ghost{fill:var(--alarm)}
+.ntag-succ{fill:var(--jade)}
+.ntag-plant{fill:var(--jade)}
+.slotc{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 3}
+.slotc-bad{stroke:var(--alarm)}
+.chip-r{fill:var(--accent)}
+.chip-r-bad{fill:var(--alarm)}
+.chip-t{font-family:var(--font-mono);font-size:13px;font-weight:700;fill:var(--surface);text-anchor:middle}
+.cmp{font-family:var(--font-mono);font-size:11px;fill:var(--ink-soft);text-anchor:middle}
+.empty-t{font-size:13px;fill:var(--ink-faint);text-anchor:middle;font-family:var(--font-sans)}
+
+/* 圖例 */
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink-soft)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;
+  vertical-align:-1px;border:2px solid var(--line);background:var(--surface)}
+.legend .lg-cur i{border-color:var(--accent);background:var(--accent-soft)}
+.legend .lg-plant i{border-color:var(--jade);background:var(--jade-soft)}
+.legend .lg-ghost i{border-color:var(--alarm);background:var(--alarm-soft);border-style:dashed}
+.legend .lg-chip i{border-color:var(--accent);background:var(--accent);border-radius:4px}
+
+/* 側欄：中序走訪 */
+.mini-k{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:5px}
+.inorder{font-family:var(--font-mono);font-size:13.5px;font-weight:700;
+  background:var(--sunken);border-radius:8px;padding:8px 11px;
+  overflow-x:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.mini-note{font-size:11.5px;color:var(--ink-faint);margin-top:5px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">11 · 二元搜尋樹</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 11 · Binary Search Tree</p>
+    <h1>二元搜尋樹種樹</h1>
+    <p class="lede">丟一個數字進去，看它一路比大小往下掉：比誰小就往左、比誰大就往右，最後長在唯一屬於它的位置。搜尋走同一條路，刪除節點的三種情況也一步一步演給你看。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>二元搜尋樹 BST</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>平均 O(log n)</b></div>
+      <div class="fact"><span>空間</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>比大小就夠，指標與遞迴現場教</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上是一棵樹：每個圓圈是一個「節點」，裡面裝一個數字。橘色小方塊是「掉落中的數字」，它每停在一個節點，就跟那個節點比一次大小，決定往左還是往右。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>從上方挑一個<b>關卡</b>：種樹、搜尋、三種刪除都有，也可以自己輸入一串數字來種。</li>
+            <li>按 <b>下一步</b> 看數字一格一格往下掉；或按 <b>自動播放</b>。</li>
+            <li>邊走邊看三件事同步變化：樹的形狀、右側「中序走訪」的輸出、下方 C++ 程式的高亮行。</li>
+            <li>看不懂就按 <b>上一步</b> 倒回去，反覆走。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你猜：下一步往左還是往右？這個數字最後會種在誰底下？刪這個節點是三種情況中的哪一種？</li>
+            <li>答對得分、連對加分；答錯立刻告訴你正確答案和理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>BST 的家規：左小右大</b> —— 任何節點的左子樹全部比它小、右子樹全部比它大。插入、搜尋、刪除全靠這一條。</li>
+            <li><b>搜尋為什麼快</b> —— 每比一次就丟掉半棵樹不用看，成本只跟「樹高」有關，平均 O(log n)。</li>
+            <li><b>中序走訪＝自動排序</b> —— 照「左→根→右」把樹走一遍，數字就由小到大跑出來。這是 BST 最漂亮的性質。</li>
+            <li><b>刪除的三種情況</b> —— 葉節點直接摘、單子節點讓孩子頂上、雙子節點要找「中序後繼」來替班。少會一種就不算會刪。</li>
+            <li><b>退化成鏈的陷阱</b> —— 把排好序的數列照順序種進去，樹會歪成一條 O(n) 的長鏈，這正是 AVL、紅黑樹存在的理由。</li>
+            <li><b>把遞迴讀成畫面</b> —— insert 裡再呼叫 insert，就是「機器裡再開一台小機器」，畫面會讓你看見它一層一層往下鑽。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩「種一棵漂亮的樹」建立直覺，再玩「陷阱：照順序種」看樹歪掉，最後把三個刪除關都走過一遍，切闖關模式驗收。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看數字掉進樹裡的位置。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="60" placeholder="自己輸入數列種樹，如：45 12 68 30" aria-label="自訂插入數列">
+          <button class="btn" type="submit">種樹</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">二元搜尋樹</h3>
+            <span class="panel-note" id="treeNote"></span>
+          </div>
+
+          <div class="treewrap">
+            <svg id="tree" viewBox="0 0 360 150" role="img" aria-label="二元搜尋樹圖"></svg>
+          </div>
+          <div class="legend">
+            <span class="lg-chip"><i></i>掉落中的數字</span>
+            <span class="lg-cur"><i></i>正在比較的節點</span>
+            <span class="lg-plant"><i></i>剛種下／後繼</span>
+            <span class="lg-ghost"><i></i>要刪除的節點</span>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」，看數字怎麼一路比大小掉進樹裡。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">樹的狀態</h3>
+              <span class="panel-note" id="stateNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat"><span class="k">節點數</span><span class="v" id="stCount">0</span></div>
+              <div class="stat" id="statH"><span class="k">樹高</span><span class="v" id="stHeight">0</span></div>
+            </div>
+            <div>
+              <div class="mini-k">中序走訪（左→根→右）</div>
+              <div class="inorder" id="inorder">—</div>
+              <div class="mini-note">不管樹長什麼形狀，這一行永遠由小到大——不是巧合，見第 03 段。</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">insert / search / remove</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把教學用的視覺化全部拿掉，演算法本體就是這樣。<code>struct Node</code> 定義節點、三個函式對應遊戲裡的三種操作，<code>inorder</code> 就是右側那行「中序走訪」：</p>
+                <pre class="code">#include &lt;cstdio&gt;
+
+struct Node { int val; Node *left, *right; };          <i>// 節點：一個數字 + 兩個指向孩子的指標</i>
+
+Node* insert(Node* root, int x) {                      <i>// 插入：回傳插入後這棵子樹的根</i>
+    if (root == NULL) return new Node{x, NULL, NULL};  <i>// 掉到空位 → 新節點在這裡誕生</i>
+    if (x &lt; root-&gt;val)      root-&gt;left  = insert(root-&gt;left,  x);
+    else if (x &gt; root-&gt;val) root-&gt;right = insert(root-&gt;right, x);
+    return root;                                       <i>// 相等：已經有了，不重複種</i>
+}
+
+bool search(Node* root, int x) {
+    if (root == NULL)   return false;                  <i>// 掉出樹外 → 樹裡沒有這個數</i>
+    if (x == root-&gt;val) return true;                   <i>// 找到了</i>
+    return x &lt; root-&gt;val ? search(root-&gt;left,  x)
+                         : search(root-&gt;right, x);     <i>// 小往左找、大往右找</i>
+}
+
+Node* removeNode(Node* root, int x) {                  <i>// 取名 removeNode，避免和 cstdio 的 remove 撞名</i>
+    if (root == NULL) return NULL;
+    if (x &lt; root-&gt;val)      root-&gt;left  = removeNode(root-&gt;left,  x);
+    else if (x &gt; root-&gt;val) root-&gt;right = removeNode(root-&gt;right, x);
+    else {                                             <i>// 就是這個節點，分三種情況</i>
+        if (!root-&gt;left &amp;&amp; !root-&gt;right) { delete root; return NULL; }       <i>// ① 葉節點：直接摘</i>
+        if (!root-&gt;left)  { Node* r = root-&gt;right; delete root; return r; }  <i>// ② 只有右孩子：頂上</i>
+        if (!root-&gt;right) { Node* l = root-&gt;left;  delete root; return l; }  <i>// ② 只有左孩子：頂上</i>
+        Node* s = root-&gt;right;                         <i>// ③ 兩個孩子：找中序後繼</i>
+        while (s-&gt;left) s = s-&gt;left;                   <i>//    右子樹一路向左＝最小的</i>
+        root-&gt;val = s-&gt;val;                            <i>//    把後繼的值搬過來</i>
+        root-&gt;right = removeNode(root-&gt;right, s-&gt;val); <i>//    再把原本的後繼刪掉</i>
+    }
+    return root;
+}
+
+void inorder(Node* root) {                             <i>// 中序走訪：左 → 根 → 右</i>
+    if (root == NULL) return;
+    inorder(root-&gt;left);
+    printf("%d ", root-&gt;val);
+    inorder(root-&gt;right);
+}
+
+int main() {
+    int a[] = {50, 30, 70, 20, 40, 60, 80};
+    Node* root = NULL;
+    for (int v : a) root = insert(root, v);
+    inorder(root);                    <i>// 印出：20 30 40 50 60 70 80 —— 自動排好序！</i>
+    root = removeNode(root, 50);      <i>// 刪掉樹根：中序後繼 60 會頂上來</i>
+}</pre>
+        <p>三個函式各十行上下。遊戲頁面多出來的幾百行，全部是為了「讓掉落的過程看得見」——教學程式和生產程式的差別就在這裡。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從問題定義走到完整演算法，中間每一個判斷為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>我們要一本「隨時會變動的名冊」：數字會不斷加入（插入）、要能很快查到某個數字在不在（搜尋）、也會被拿走（刪除）。<b>二元搜尋樹（BST）</b>用一條家規解決全部三件事：</p>
+        <div class="callout" data-k="key">
+          <span class="tag">家規</span>
+          <span class="txt">對<b>每一個</b>節點：左子樹裡的數<b>全部</b>比它小，右子樹裡的數<b>全部</b>比它大。（本頁不收重複數字。）</span>
+        </div>
+        <p>「子樹」就是從某個節點往下的整串家族。注意家規管的是<b>整棵子樹</b>，不是只有直接的孩子：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">情況（樹根是 50）</th><th>結果</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">40 在 50 的左子樹</td><td style="color:var(--jade);font-weight:700">合法</td><td>40 &lt; 50，小的住左邊</td></tr>
+              <tr><td class="mono">60 在 50 的右子樹</td><td style="color:var(--jade);font-weight:700">合法</td><td>60 &gt; 50，大的住右邊</td></tr>
+              <tr><td class="mono">60 藏在 50 的左子樹深處</td><td style="color:var(--alarm);font-weight:700">不合法</td><td>不管藏多深，比 50 大就不准出現在左邊</td></tr>
+              <tr><td class="mono">同一個數出現兩次</td><td style="color:var(--alarm);font-weight:700">不收</td><td>不小也不大，沒地方擺——insert 直接略過</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>生活比喻：圖書館的分類架。站在任何一格前面，「編號比較小的一定在左邊那區、比較大的一定在右邊那區」——所以你永遠不用整館翻，一路問下去就到了。</p>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：「用排好序的陣列不就好了？」</h3>
+        <p>排序陣列配二分搜尋，查東西也是 O(log n)，看起來跟 BST 打平。但名冊是<b>會變動</b>的——插入和刪除一比，勝負立刻分出來：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>操作</th><th>排序陣列</th><th>二元搜尋樹（平均）</th></tr></thead>
+            <tbody>
+              <tr><td><b>搜尋</b></td><td class="mono">O(log n)（二分搜尋）</td><td class="mono">O(log n)</td></tr>
+              <tr><td><b>插入</b></td><td class="mono" style="color:var(--alarm);font-weight:700">O(n)</td><td class="mono" style="color:var(--jade);font-weight:700">O(log n)</td></tr>
+              <tr><td><b>刪除</b></td><td class="mono" style="color:var(--alarm);font-weight:700">O(n)</td><td class="mono" style="color:var(--jade);font-weight:700">O(log n)</td></tr>
+              <tr><td><b>由小到大輸出</b></td><td class="mono">O(n)</td><td class="mono">O(n)（中序走訪）</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="bullets no">
+          <li><b>陣列插入要「搬家」</b> —— 想把 45 插進 [10,20,…,90] 的中間，後面每一個數都得往右挪一格，一百萬筆就挪一百萬次。</li>
+          <li><b>刪除一樣慘</b> —— 抽掉中間一格，後面全部往左補。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">樹用<b>指標</b>把節點串起來，插入刪除只要改幾張「名片」（指標），完全不用搬動其他人。這就是「用指標換掉搬家成本」。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察一：每比一次，就丟掉半棵樹</h3>
+        <p>找 65：跟 50 比，65 比較大 → <b>左半邊整片從此不用看</b>；跟 70 比，65 比較小 → 70 的右邊整片不用看。每一步都把「可能的範圍」砍掉一大塊，所以總步數＝<b>走過的層數＝樹高</b>。</p>
+        <p>一棵長得勻稱的樹，每往下一層節點數大約翻倍：高度 h 的樹裝得下約 2<sup>h</sup>−1 個節點。反過來說，n 個節點只需要約 log₂n 層——一百萬個數字，20 次比較就見底。</p>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察二：中序走訪＝排序輸出</h3>
+        <p>「中序走訪」的規則只有一句：對每個節點，先走完<b>左</b>子樹、再輪到<b>自己</b>、最後走<b>右</b>子樹。因為家規保證「左邊全部較小、右邊全部較大」，這個順序印出來的就是<b>由小到大</b>。</p>
+        <p>玩的時候盯著右側「中序走訪」面板：不管樹被插入、刪除成什麼形狀，那一行永遠保持排好序——只要它亂掉，就代表家規被破壞了。這也是檢查「一棵樹是不是合法 BST」最實用的方法。</p>
+      </div>
+
+      <div class="block">
+        <h3>演算法（一）：插入</h3>
+        <ol class="steps">
+          <li><b>從樹根出發</b> —— 新數字 x 跟目前節點比大小。</li>
+          <li><b>比它小 → 往左；比它大 → 往右</b> —— 走到孩子那裡，重複同一件事（這就是遞迴：同樣的問題丟給小一號的子樹）。</li>
+          <li><b>掉到空位（NULL）</b> —— 就地生出新節點裝 x。掉落路線是被大小關係唯一決定的，所以每個數字有<b>唯一的家</b>。</li>
+          <li><b>相等</b> —— 已經有了，什麼都不做。</li>
+        </ol>
+        <div class="callout" data-k="ok">
+          <span class="tag">重點</span>
+          <span class="txt">新節點<b>永遠長在最下面</b>（原本的空位上），絕不會插在兩個舊節點中間——所以插入不用搬動任何人。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法（二）：搜尋</h3>
+        <p>跟插入走一模一樣的路：小往左、大往右、相等就是找到。唯一多的一條是——<b>掉出樹外（NULL）＝確定不存在</b>。</p>
+        <p>為什麼一條路就能斷定？因為如果 x 在樹裡，家規逼著它<b>只可能</b>長在這條路的終點。終點是空的，全樹就都不用再看了。</p>
+      </div>
+
+      <div class="block">
+        <h3>演算法（三）：刪除的三種情況</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>情況</th><th>長相</th><th>作法</th><th>本頁關卡</th></tr></thead>
+            <tbody>
+              <tr><td><b>① 葉節點</b></td><td>沒有任何孩子</td><td>直接摘掉，爸爸的指標改成 NULL</td><td class="mono">del 20</td></tr>
+              <tr><td><b>② 單子節點</b></td><td>只有一個孩子</td><td>把孩子那<b>整棵子樹</b>往上接，頂替自己的位置</td><td class="mono">del 70</td></tr>
+              <tr><td><b>③ 雙子節點</b></td><td>左右都有孩子</td><td>去右子樹找<b>最小的</b>（中序後繼）把值抄過來，再回頭刪掉那個後繼</td><td class="mono">del 50</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>情況③是精華。左右都有人時不能直接摘——兩棵子樹會沒地方掛。解法是找「中序後繼」：<b>比 x 大的數裡最小的那一個</b>，也就是右子樹一路向左走到底。用它的值頂替 x 的位置，「左邊仍然全部較小、右邊剩下的仍然全部較大」，家規自動保持成立。而那個後繼因為已經「靠左靠到底」，最多只剩右孩子，回頭刪它一定落在①或②的簡單情況——問題保證會變簡單，不會鬼打牆。</p>
+        <pre class="code">Node* removeNode(Node* root, int x) {
+    if (root == NULL) return NULL;                     <i>// 沒找到，不用刪</i>
+    if (x &lt; root-&gt;val)      root-&gt;left  = removeNode(root-&gt;left,  x);   <i>// 目標在左邊</i>
+    else if (x &gt; root-&gt;val) root-&gt;right = removeNode(root-&gt;right, x);   <i>// 目標在右邊</i>
+    else {                                             <i>// 就是它！分三種情況</i>
+        if (!root-&gt;left &amp;&amp; !root-&gt;right) { delete root; return NULL; }       <i>// ①</i>
+        if (!root-&gt;left)  { Node* r = root-&gt;right; delete root; return r; }  <i>// ②</i>
+        if (!root-&gt;right) { Node* l = root-&gt;left;  delete root; return l; }  <i>// ②</i>
+        Node* s = root-&gt;right;                         <i>// ③ 找中序後繼：</i>
+        while (s-&gt;left) s = s-&gt;left;                   <i>//   右子樹一路向左到底</i>
+        root-&gt;val = s-&gt;val;                            <i>//   值頂替上來</i>
+        root-&gt;right = removeNode(root-&gt;right, s-&gt;val); <i>//   回頭刪掉後繼本人</i>
+    }
+    return root;
+}</pre>
+        <div class="callout" data-k="no">
+          <span class="tag">最常錯</span>
+          <span class="txt">雙子節點<b>不能</b>「隨便挑一個孩子接上來」。刪 50 時把左孩子 30 直接頂上，30 的右邊就得同時塞下 40 和整棵 70——結構直接爆掉。必須用中序後繼（或對稱的中序前驅）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：依序插入 50, 30, 70, 20, 40, 60, 80</h3>
+        <p>考試在紙上追蹤就是畫這張表。「路徑」欄記的是每一次比大小的結果：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">插入</th><th>路徑（每一步的比較）</th><th>種在哪</th><th class="mono">樹高</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">50</td><td>樹是空的</td><td>成為樹根</td><td class="mono">1</td></tr>
+              <tr><td class="mono">30</td><td class="mono">30&lt;50 ↙</td><td>50 的左孩子</td><td class="mono">2</td></tr>
+              <tr><td class="mono">70</td><td class="mono">70&gt;50 ↘</td><td>50 的右孩子</td><td class="mono">2</td></tr>
+              <tr><td class="mono">20</td><td class="mono">20&lt;50 ↙ → 20&lt;30 ↙</td><td>30 的左孩子</td><td class="mono">3</td></tr>
+              <tr><td class="mono">40</td><td class="mono">40&lt;50 ↙ → 40&gt;30 ↘</td><td>30 的右孩子</td><td class="mono">3</td></tr>
+              <tr><td class="mono">60</td><td class="mono">60&gt;50 ↘ → 60&lt;70 ↙</td><td>70 的左孩子</td><td class="mono">3</td></tr>
+              <tr><td class="mono">80</td><td class="mono">80&gt;50 ↘ → 80&gt;70 ↘</td><td>70 的右孩子</td><td class="mono">3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>七個數字、高度只有 3——每個數字最多比 3 次就到家。這是「勻稱」的樹。</p>
+      </div>
+
+      <div class="block">
+        <h3>陷阱：排好序再種，樹會歪成一條鏈</h3>
+        <p>換成依序插入 <code>10, 20, 30, 40, 50, 60</code>：每個新數字都比路上遇到的所有人大，一路往右、往右、再往右——種出一條「歪脖子」長鏈，高度＝節點數。</p>
+        <ul class="bullets no">
+          <li><b>搜尋退化成 O(n)</b> —— 每次只丟掉「一個節點」而不是半棵樹，跟從頭到尾掃一遍的串列沒兩樣。</li>
+          <li><b>越有秩序的輸入，種出越糟的樹</b> —— 這是 BST 最大的諷刺：資料剛好排過序，反而是最壞情況。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">伏筆</span>
+          <span class="txt">所以真實世界用的是會<b>自動轉正</b>的平衡樹——AVL 樹、紅黑樹。它們在插入刪除時做「旋轉」把歪掉的地方扶正，保證高度永遠是 O(log n)。C++ 的 <code>std::map</code>、<code>std::set</code> 底下就是紅黑樹。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>三種操作都是 O(樹高)</b> —— 插入、搜尋、刪除走的都是「樹根到某處」的一條路，成本由樹高決定。</li>
+          <li><b>平均 O(log n)</b> —— 插入順序夠隨機時，樹高大約是 log₂n 的常數倍。</li>
+          <li><b>最壞 O(n)</b> —— 排好序的輸入把樹種成鏈，樹高＝n。</li>
+          <li><b>空間 O(n)</b> —— n 個節點各存一個值加兩個指標；遞迴另外吃 O(樹高) 的呼叫堆疊。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「BST 會自己保持平衡」</b> —— 不會。普通 BST 的形狀完全由插入順序決定，照順序插就退化成鏈。自動平衡是 AVL／紅黑樹加上去的能力。</li>
+          <li><b>「家規只要管直接的孩子」</b> —— 錯。是<b>整棵</b>左子樹都要比它小。反例：60 放在 50 的左孫位置，每對父子局部都合法，整棵卻是壞的。</li>
+          <li><b>「搜尋不到要把整棵樹翻完才能確定」</b> —— 不用。一條路走到 NULL 就足以斷定不存在，因為它「只可能」在那條路的終點。</li>
+          <li><b>「刪雙子節點可以把某個孩子直接接上來」</b> —— 不行，另一棵子樹會沒地方掛。要用中序後繼（右子樹最小）或中序前驅（左子樹最大）頂替。</li>
+          <li><b>「中序後繼要先排序才找得到」</b> —— 不用排序。右子樹一路向左走到底，就是後繼本人。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟本站其他關卡一樣：使用者還沒按「下一步」之前，整段插入／搜尋／刪除的過程就已經全部算好了。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡＝操作序列 <small>seed + [ins 50, find 40, del 20…]</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(lv) <small>把每個操作跑完，沿路拍快照</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格帶著「整棵樹當下的複本」</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反向刪除」「反向插入」這種必錯的邏輯。</li>
+          <li><b>畫面函式變單純</b> —— 同一個 step 一定畫出同一棵樹，跟之前發生過什麼無關。</li>
+          <li><b>演算法與畫面分離</b> —— buildSteps 裡沒有半行 SVG 程式碼，它就是純粹的 BST 演算法。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每一步都用 <code>clone()</code> 複製整棵樹，記憶體最壞 <b>O(n×步數)</b>。教學規模（十幾個節點）毫無問題，真實工程不會這樣寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps / doInsert<br>doFind / doDelete</td><td>唯一真正跑演算法的地方。輸入關卡，輸出步驟陣列。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：目前關卡、第幾步、模式、分數。全站只有這一份。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintTree / paintState<br>paintAlgo / paintSay / paintLog</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。</td></tr>
+              <tr><td><b>版面</b></td><td class="mono">paintTree 內的中序編號</td><td>x 座標＝中序順位 × 間距、y 座標＝深度 × 層高，樹再醜也不會重疊。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td><td>出題、對答案、計分。不碰演算法，只是「先不給看下一步」。</td></tr>
+              <tr><td><b>載入</b></td><td class="mono">loadLevel / loadCustom<br>setMode</td><td>換關卡、換模式，重建 steps 並歸零。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto_(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintTree<small>SVG 樹＋掉落方塊</small></div>
+            <div class="node">paintState<small>節點數/樹高/中序</small></div>
+            <div class="node">paintAlgo<small>C++ 高亮行</small></div>
+            <div class="node">paintSay<small>說明面板</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:  <i>// drop / goL / goR / place / hit / miss / found / leaf / one / succ / copy / cut…</i>
+         <i>// → 決定徽章文字、顏色、闖關題型</i>
+  <b>tree</b>:  <i>// 整棵樹在這一步的複本（{v, L, R} 巢狀物件）→ paintTree 直接畫它</i>
+  <b>cur</b>:   <i>// 正在比較的節點值（橘色粗框）</i>
+  <b>drop</b>:  <i>// 掉落中的數字（橘色小方塊）　chip: 方塊畫在哪（某節點上方/某個空位）</i>
+  <b>ghost</b>: <i>// 要刪除、正在淡出的節點值　　succ / plant: 後繼、剛種下的節點值</i>
+  <b>line</b>:  <i>// C++ 程式要高亮第幾行（1~31）</i>
+  <b>qa</b>:    <i>// 闖關用：「最後種在誰底下」的正解與選項</i>
+  <b>title</b>, <b>msg</b>: <i>// 說明面板的標題與白話內文</i>
+}</pre>
+        <p>因為 BST 不收重複數字，<b>節點的值本身就是身分證</b>——<code>cur:60</code> 就能唯一指到那顆圓圈，不需要另外編號。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡（例如「del 80 再 find 65」）</td><td><code>LEVELS</code> 陣列加一筆 <code>{c, n, seed, ops}</code></td><td>1 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>1000</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改樹的間距／圓圈大小</td><td>常數 <code>SPX / SPY / R</code></td><td>1~3 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次全站生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>給 AI 的 Prompt</h3>
+        <p>想讓 AI 幫你重做或擴充這一關？把下面這段貼給它，就能得到同等級的成品：</p>
+        <pre class="code">請用純 HTML+CSS+JS（單一檔案、不用框架、離線可用）做一個「二元搜尋樹」互動教學頁：
+1. 用 SVG 畫樹：x 座標＝節點的中序順位、y 座標＝深度，節點是圓圈＋數字。
+2. 演算法先跑完產生 steps[]，每一步存整棵樹的深拷貝快照；畫面只畫 steps[目前步]。
+   支援 下一步/上一步/自動播放/進度條/鍵盤 → ← 空白鍵。
+3. 插入動畫：掉落中的數字停在目前比較的節點上方，顯示「比它小→往左 / 比它大→往右」，
+   掉到 NULL 就種下新節點。搜尋同一條路，多「相等=找到 / 掉出樹外=不存在」。
+4. 刪除三情況逐步演：葉節點淡出直接摘；單子節點讓孩子頂上；雙子節點先走右子樹
+   一路向左找中序後繼，把值抄過來，再回頭刪掉後繼。
+5. 關卡：漂亮的樹（50 30 70 20 40 60 80）、退化鏈（10 20 30 40 50 60，帶出 O(n)
+   與平衡樹伏筆）、搜尋命中/未命中、三種刪除各一，另允許使用者輸入數列種樹。
+6. 附一個逐行高亮的真 C++ 面板（struct Node + 遞迴 insert/search/remove），
+   每行配一句給零基礎讀者的白話說明，遞迴用「機器裡再開一台小機器」比喻。
+7. 加闖關模式：猜下一步往左/往右、猜數字最後種在誰底下、猜刪除是哪一種情況，
+   答對計分、連對加分、答錯立刻解釋。</pre>
+      </div>
+
+      <div class="block">
+        <h3>延伸挑戰</h3>
+        <ol class="steps">
+          <li><b>找最小／最大按鈕</b> —— 加兩顆按鈕：最小值＝從樹根一路向左到底、最大值＝一路向右。在 <code>buildSteps</code> 加一種新 op，重用現有的 goL/goR 步驟就能做出動畫。</li>
+          <li><b>改用中序前驅刪除</b> —— 把情況③改成「左子樹一路向右找最大」來頂替，對同一棵樹分別執行兩種刪法，比較刪完的樹形有什麼不同。</li>
+          <li><b>退化偵測器</b> —— 當「樹高 == 節點數且節點數 ≥ 4」時，在說明面板跳出警告並建議讀 AVL 樹。再進一步：實作一次「左旋」把三個一直線的節點轉成三角形，你就摸到平衡樹的門把了。</li>
+        </ol>
+      </div>
+
+    </div>
+  </section>
+
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 11 二元搜尋樹種樹</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  /* ---------- 1. 常數 ---------- */
+  var LEVELS = [
+    {c:"50 30 70 …", n:"種一棵漂亮的樹", seed:[], ops:[["ins",50],["ins",30],["ins",70],["ins",20],["ins",40],["ins",60],["ins",80]],
+     fin:"七個數字種出高度 3 的勻稱樹：每往下一層人數翻倍，之後不管找誰最多比 3 次。這就是 O(log n) 的長相。"},
+    {c:"10 20 30 …", n:"陷阱：照順序種", seed:[], ops:[["ins",10],["ins",20],["ins",30],["ins",40],["ins",50],["ins",60]],
+     fin:"排好序的數列讓每個新數字都一路向右，種出一條高度＝節點數的「歪脖子」長鏈——搜尋退化成 O(n)，跟從頭掃到尾沒兩樣。這就是為什麼需要會自動轉正的平衡樹（AVL、紅黑樹），見第 03 段。"},
+    {c:"find 40", n:"搜尋：命中", seed:[50,30,70,20,40,60,80], ops:[["find",40]],
+     fin:"三次比較就找到 40——每比一次丟掉半棵樹，全程只走「樹根到目標」這一條路。"},
+    {c:"find 65", n:"搜尋：撲空", seed:[50,30,70,20,40,60,80], ops:[["find",65]],
+     fin:"65 如果在樹裡，只可能長在剛剛那條路的終點。終點是 NULL，就足以斷定整棵樹都沒有它——不用翻遍全樹。"},
+    {c:"del 20", n:"刪除①：葉節點", seed:[50,30,70,20,40,60,80], ops:[["del",20]],
+     fin:"葉節點是三種情況裡最簡單的：沒有人靠它活，直接摘掉，其他節點一根指標都不用動。"},
+    {c:"del 70", n:"刪除②：單子節點", seed:[50,30,70,20,40,60], ops:[["del",70]],
+     fin:"單子節點像抽掉鏈條中的一環：孩子帶著整棵子樹往上接。它本來就在 70 該在的那一側，大小關係不會壞。"},
+    {c:"del 50", n:"刪除③：雙子節點", seed:[50,30,70,20,40,60,80], ops:[["del",50]],
+     fin:"雙子節點不能直接摘——找「中序後繼」（右子樹一路向左的最小值 60）把值頂上來，再回頭刪掉原本的 60。中序走訪依然由小到大，家規毫髮無傷。"}
+  ];
+
+  var CODE = [
+    "struct Node { int val; Node *left, *right; };",
+    "Node* insert(Node* root, int x) {",
+    "    if (root == NULL)",
+    "        return new Node{x, NULL, NULL};",
+    "    if (x < root->val)",
+    "        root->left  = insert(root->left,  x);",
+    "    else if (x > root->val)",
+    "        root->right = insert(root->right, x);",
+    "    return root;",
+    "}",
+    "bool search(Node* root, int x) {",
+    "    if (root == NULL) return false;",
+    "    if (x == root->val) return true;",
+    "    if (x < root->val) return search(root->left, x);",
+    "    return search(root->right, x);",
+    "}",
+    "Node* remove(Node* root, int x) {",
+    "    if (root == NULL) return NULL;",
+    "    if (x < root->val)      root->left  = remove(root->left,  x);",
+    "    else if (x > root->val) root->right = remove(root->right, x);",
+    "    else {",
+    "        if (!root->left && !root->right) { delete root; return NULL; }",
+    "        if (!root->left)  { Node* r = root->right; delete root; return r; }",
+    "        if (!root->right) { Node* l = root->left;  delete root; return l; }",
+    "        Node* s = root->right;",
+    "        while (s->left) s = s->left;",
+    "        root->val = s->val;",
+    "        root->right = remove(root->right, s->val);",
+    "    }",
+    "    return root;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "先定義「節點」長什麼樣。每個節點是一個小盒子，裝三樣東西：一個數字 val，加上 left、right 兩張「名片」。名片上寫著左孩子、右孩子住在記憶體的哪裡——程式裡管這種名片叫「指標」。名片可以是空白的（NULL），代表那一邊沒有孩子。",
+    "這是「種樹機器」的開頭。函式就像一台小機器：給它兩樣東西——root（這棵樹或子樹的樹根名片）和要種的數字 x，它會回傳「種完之後這棵子樹的樹根」，因為種完後樹根有可能換人（例如空樹種下第一個節點）。",
+    "先問：這裡是空位嗎？root 是空白名片（NULL）就表示走到了沒有節點的地方——數字一路比下來，掉到底了。",
+    "是空位，就當場 new（生出）一個新節點裝 x，左右名片都空白（它還沒有孩子），交回給上一層——讓它爸爸的名片指向這個新生兒。新節點永遠長在最底下的空位上。",
+    "比大小：x 比目前節點的數字小嗎？小的住左邊——這就是 BST 唯一的家規。",
+    "往左走。這裡用了「遞迴」：機器裡再開一台一模一樣的小機器，把左子樹和 x 交給它，叫它去左邊處理完全相同的問題。小機器種完會回傳左子樹（可能更新過）的樹根，我們把左名片換成它。",
+    "不比它小，那比它大嗎？大的住右邊。",
+    "往右走：再開一台小機器去右子樹種，種完更新右名片。",
+    "既不小也不大＝相等，樹上已經有這個數字了，什麼都不種。最後把這棵子樹的樹根交回給上一層。",
+    "種樹機器到此結束。",
+    "「找數字機器」：給它樹根和要找的 x，它回答 true（有）或 false（沒有）——bool 就是「只有是／否兩種答案」的意思。",
+    "走到空白名片＝一路比下來掉出樹外了。如果 x 在樹裡，它只可能在這條路的終點；終點是空的，就證明整棵樹都沒有它，回報「找不到」。",
+    "x 跟目前節點一樣大？找到了！立刻回報 true，機器收工。",
+    "x 比較小 → 答案只可能在左子樹。開一台小機器去左邊找，右邊那半棵樹整片直接跳過不看——這就是 BST 快的原因。",
+    "剩下唯一的可能：x 比較大，開小機器去右子樹找。",
+    "找數字機器結束。",
+    "「刪除機器」：把 x 從樹裡拿掉，回傳刪完之後這棵子樹的樹根（樹根可能因為刪除而換人）。",
+    "掉出樹外＝樹裡根本沒有 x，什麼都不用刪，把空白名片原樣交回。",
+    "x 比較小 → 要刪的人在左子樹。派一台小機器去左邊刪，刪完把左名片更新成它交回來的新樹根。",
+    "x 比較大 → 派小機器去右子樹刪。",
+    "不小也不大＝就是這個節點！接下來看它有幾個孩子，分三種情況處理。",
+    "情況①葉節點：左右都沒有孩子。直接把它摘掉（delete＝把記憶體還給系統），回傳空白名片給爸爸——爸爸的名片從此指向空。",
+    "情況②只有右孩子：先用一張便條 r 記住右孩子，摘掉自己，把右孩子交回去——孩子帶著它整棵子樹往上頂替爸爸的位置。",
+    "情況②只有左孩子：同樣道理，讓左孩子整棵頂上來。",
+    "情況③兩個孩子：不能隨便摘，兩棵子樹會沒地方掛。辦法：去右子樹找「中序後繼」——比 x 大的數裡最小的那一個。先派偵察兵 s 站到右孩子那裡。",
+    "一路往左走到底：右子樹裡「最左邊」的節點就是最小的，也就是後繼本人。while 的意思是「只要左邊還有人，就繼續往左」。",
+    "把後繼的數字抄進目前這個節點——位置不動、值換人。左子樹依然全部比它小、右子樹剩下的依然全部比它大，家規自動保持成立。",
+    "後繼的值已經搬上來了，原位置的它變成多餘的分身——再開一台小機器去右子樹把它刪掉。它已經「靠左靠到底」，最多只剩右孩子，一定落在情況①或②，保證不會沒完沒了。",
+    "三種情況到此處理完畢。",
+    "把（可能已經改過的）子樹樹根交回上一層。",
+    "刪除機器結束。"
+  ];
+
+  var BADGE = {start:"START", drop:"DROP", goL:"LEFT", goR:"RIGHT", place:"PLANT", dup:"SAME",
+    fstart:"FIND", hit:"FOUND", miss:"MISS", dstart:"DELETE", found:"HERE",
+    leaf:"CASE 1", one:"CASE 2", succ:"CASE 3", succL:"SUCC", copy:"COPY", cut:"CUT", done:"DONE"};
+  /* 每種步驟對應到說明面板的顏色系（site.css 的 data-k） */
+  var KVIS = {start:"start", drop:"hot", goL:"hot", goR:"hot", place:"ok", dup:"no",
+    fstart:"hot", hit:"ok", miss:"no", dstart:"hot", found:"hot",
+    leaf:"no", one:"hot", succ:"hot", succL:"hot", copy:"hot", cut:"no", done:"done"};
+  var OPLAB = {ins:"插入", find:"搜尋", del:"刪除"};
+
+  /* 樹版面常數：x=中序順位×SPX，y=深度×SPY */
+  var SPX = 54, SPY = 66, R = 17, PADT = 70, PADX = 14;
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+
+  /* ---------- 2. 狀態 ---------- */
+  var S = {
+    steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:-1,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* ---------- 3. 資料層：樹的小工具 ---------- */
+  function mkNode(v){ return {v:v, L:null, R:null}; }
+  function clone(t){ return t ? {v:t.v, L:clone(t.L), R:clone(t.R)} : null; }
+  function countN(t){ return t ? 1 + countN(t.L) + countN(t.R) : 0; }
+  function heightN(t){ return t ? 1 + Math.max(heightN(t.L), heightN(t.R)) : 0; }
+  function inorderVals(t){
+    var a = [];
+    (function w(n){ if(!n) return; w(n.L); a.push(n.v); w(n.R); })(t);
+    return a;
+  }
+  function silentInsert(t,x){
+    if(!t) return mkNode(x);
+    if(x < t.v) t.L = silentInsert(t.L,x);
+    else if(x > t.v) t.R = silentInsert(t.R,x);
+    return t;
+  }
+  function silentRemove(t,x){
+    if(!t) return null;
+    if(x < t.v) t.L = silentRemove(t.L,x);
+    else if(x > t.v) t.R = silentRemove(t.R,x);
+    else {
+      if(!t.L) return t.R;
+      if(!t.R) return t.L;
+      var s = t.R; while(s.L) s = s.L;
+      t.v = s.v; t.R = silentRemove(t.R, s.v);
+    }
+    return t;
+  }
+  function shuffle(a){
+    for(var i=a.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1)), t = a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a;
+  }
+
+  /* ---------- 3b. 資料層：把整個關卡一次跑完 ---------- */
+  function buildSteps(lv){
+    var steps = [], root = null, i;
+    for(i=0;i<lv.seed.length;i++) root = silentInsert(root, lv.seed[i]);
+
+    function push(o){
+      o.tree = clone(root);
+      o.n = countN(root);
+      o.h = heightN(root);
+      steps.push(o);
+    }
+
+    push({kind:"start", op:"", line:1, lg:"—",
+      title: lv.seed.length ? "這棵樹已經先種好了" : "從一棵空樹開始",
+      msg: lv.seed.length
+        ? "這棵樹是用插入順序 <b>" + lv.seed.join(" → ") + "</b> 先種好的。注意家規：任何節點的左邊全部比它小、右邊全部比它大。按「下一步」開始這一關的操作。"
+        : "連樹根都還沒有。每個節點會由 struct Node 定義：一個數字加左右兩個指標。按「下一步」開始種。"});
+
+    function doInsert(x){
+      if(!root){
+        push({kind:"drop", op:"ins", x:x, drop:x, chip:{t:"free"}, line:2, lg:"ins "+x,
+          title:"插入 " + x + "：樹是空的",
+          msg:"整棵樹連樹根都沒有，<b>" + x + "</b> 不用跟任何人比，直接落地。"});
+        root = mkNode(x);
+        push({kind:"place", op:"ins", x:x, plant:x, line:4, lg:"根="+x,
+          title:"種下 " + x + "（樹根誕生）",
+          msg:"insert 收到空白指標（NULL），當場 new 一個新節點裝 <b>" + x + "</b> 交回去——它就是樹根。"});
+        return;
+      }
+      /* 先偷算最後會落在誰底下（闖關出題用） */
+      var p = root, parent = null, dup = false;
+      while(p){
+        if(x === p.v){ dup = true; break; }
+        parent = p; p = (x < p.v) ? p.L : p.R;
+      }
+      var qa = null;
+      if(!dup && parent){
+        var pool = inorderVals(root).filter(function(v){ return v !== parent.v; });
+        if(pool.length >= 1){
+          shuffle(pool);
+          qa = {answer:parent.v, opts:shuffle([parent.v].concat(pool.slice(0,3)))};
+        }
+      }
+      push({kind:"drop", op:"ins", x:x, drop:x, cur:root.v, chip:{t:"node", v:root.v},
+        line:2, qa:qa, lg:"ins "+x,
+        title:"插入 " + x + "：從樹根出發",
+        msg:"數字 <b>" + x + "</b> 來到樹根 <b>" + root.v + "</b> 上方，準備一路比大小往下掉：比誰小就往左、比誰大就往右，直到掉進空位。"});
+      var node = root;
+      for(;;){
+        if(x === node.v){
+          push({kind:"dup", op:"ins", x:x, cur:node.v, line:9, lg:"重複",
+            title:x + " 已經在樹上",
+            msg:"<b>" + x + "</b> 跟節點 <b>" + node.v + "</b> 相等——BST 不收重複數字，什麼都不種，原樹交回。"});
+          return;
+        }
+        var gl = x < node.v, child = gl ? node.L : node.R;
+        if(child){
+          push({kind: gl?"goL":"goR", op:"ins", x:x, drop:x, src:node.v, cur:child.v,
+            chip:{t:"node", v:child.v},
+            cmp: x + (gl?" < ":" > ") + node.v + (gl?" → 左":" → 右"),
+            line: gl?6:8, lg:(gl?"↙ ":"↘ ") + child.v,
+            title: x + " 比 " + node.v + (gl?" 小 → 往左":" 大 → 往右"),
+            msg:"<b>" + x + "</b> 比 <b>" + node.v + "</b> " + (gl?"小，家規說「小的住左邊」":"大，家規說「大的住右邊」") + "——掉到" + (gl?"左":"右") + "孩子 <b>" + child.v + "</b> 那裡，繼續比。"});
+          node = child;
+        } else {
+          push({kind: gl?"goL":"goR", op:"ins", x:x, drop:x, src:node.v, cur:node.v,
+            chip:{t:"slot", p:node.v, side: gl?"L":"R"},
+            cmp: x + (gl?" < ":" > ") + node.v,
+            line: gl?6:8, lg:(gl?"↙":"↘") + " 空位",
+            title: x + " 比 " + node.v + (gl?" 小 → 往左，是空位！":" 大 → 往右，是空位！"),
+            msg:"往" + (gl?"左":"右") + "一看是空白指標（NULL）——沒有節點擋路了，<b>" + x + "</b> 掉到底，這裡就是它唯一的家。"});
+          if(gl) node.L = mkNode(x); else node.R = mkNode(x);
+          push({kind:"place", op:"ins", x:x, plant:x, line:4, lg:"種 "+x,
+            title:"種下 " + x,
+            msg:"insert 遇到 NULL → new 一個新節點裝 <b>" + x + "</b> 交回上一層，讓 <b>" + node.v + "</b> 的" + (gl?"左":"右") + "手指標指向它。左小右大依然成立。"});
+          return;
+        }
+      }
+    }
+
+    function doFind(x){
+      push({kind:"fstart", op:"find", x:x, drop:x,
+        cur: root ? root.v : null, chip: root ? {t:"node", v:root.v} : {t:"free"},
+        line:11, lg:"find "+x,
+        title:"搜尋 " + x + "：從樹根出發",
+        msg:"找數字跟種數字走同一條路：<b>" + x + "</b> 從樹根開始比大小往下走。中途相等＝找到；掉出樹外＝確定沒有。"});
+      var node = root;
+      for(;;){
+        if(!node){
+          push({kind:"miss", op:"find", x:x, line:12, lg:"miss",
+            title:x + " 不在樹上", msg:"樹是空的，當然找不到。search 回傳 false。"});
+          return;
+        }
+        if(x === node.v){
+          push({kind:"hit", op:"find", x:x, src:node.v, cur:node.v, line:13, lg:"hit "+x,
+            title:"找到 " + x + " 了！",
+            msg:"<b>" + x + "</b> 跟目前節點相等——search 回傳 true。注意整趟只走了一條路，沒有翻遍整棵樹。"});
+          return;
+        }
+        var gl = x < node.v, child = gl ? node.L : node.R;
+        if(child){
+          push({kind: gl?"goL":"goR", op:"find", x:x, drop:x, src:node.v, cur:child.v,
+            chip:{t:"node", v:child.v},
+            cmp: x + (gl?" < ":" > ") + node.v + (gl?" → 左":" → 右"),
+            line: gl?14:15, lg:(gl?"↙ ":"↘ ") + child.v,
+            title: x + " 比 " + node.v + (gl?" 小 → 往左":" 大 → 往右"),
+            msg:"<b>" + x + "</b> 比較" + (gl?"小，答案只可能在左子樹":"大，答案只可能在右子樹") + "——另外半邊<b>整片不用看</b>，這就是 BST 快的原因。"});
+          node = child;
+        } else {
+          push({kind: gl?"goL":"goR", op:"find", x:x, drop:x, src:node.v, cur:node.v,
+            chip:{t:"slot", p:node.v, side: gl?"L":"R"},
+            cmp: x + (gl?" < ":" > ") + node.v,
+            line: gl?14:15, lg:(gl?"↙":"↘") + " 空位",
+            title: x + " 比 " + node.v + (gl?" 小 → 往左":" 大 → 往右"),
+            msg:"家規說往" + (gl?"左":"右") + "走，但那邊是空白指標（NULL）——掉出樹外了。"});
+          push({kind:"miss", op:"find", x:x, cur:node.v,
+            chip:{t:"slot", p:node.v, side: gl?"L":"R"}, drop:x, bad:true,
+            line:12, lg:"miss",
+            title:x + " 不在樹上",
+            msg:"如果 <b>" + x + "</b> 在樹裡，它<b>只可能</b>長在剛剛那條路的終點。終點是空的，就證明整棵樹都沒有它——search 回傳 false，一條路就下了整棵樹的結論。"});
+          return;
+        }
+      }
+    }
+
+    function doDelete(x){
+      push({kind:"dstart", op:"del", x:x, drop:x, cur:root.v, chip:{t:"node", v:root.v},
+        line:17, lg:"del "+x,
+        title:"刪除 " + x + "：先找到它",
+        msg:"刪除的第一步跟搜尋一模一樣：從樹根 <b>" + root.v + "</b> 出發，比大小找到 <b>" + x + "</b> 在哪裡。"});
+      var node = root;
+      while(node && x !== node.v){
+        var gl = x < node.v, child = gl ? node.L : node.R;
+        push({kind: gl?"goL":"goR", op:"del", x:x, drop:x, src:node.v,
+          cur: child ? child.v : node.v,
+          chip: child ? {t:"node", v:child.v} : {t:"slot", p:node.v, side: gl?"L":"R"},
+          cmp: x + (gl?" < ":" > ") + node.v + (gl?" → 左":" → 右"),
+          line: gl?19:20, lg:(gl?"↙":"↘") + (child?" "+child.v:" 空位"),
+          title: x + " 比 " + node.v + (gl?" 小 → 往左":" 大 → 往右"),
+          msg:"還沒找到 <b>" + x + "</b>，繼續往" + (gl?"左":"右") + "追。"});
+        node = child;
+      }
+      if(!node){
+        push({kind:"miss", op:"del", x:x, line:18, lg:"miss",
+          title:x + " 不在樹上", msg:"掉出樹外＝樹裡沒有 <b>" + x + "</b>，不用刪，原樹交回。"});
+        return;
+      }
+      var kids = (node.L?1:0) + (node.R?1:0);
+      push({kind:"found", op:"del", x:x, src:node.v, cur:node.v, line:21, lg:"就是它",
+        title:"就是它：" + x,
+        msg:"找到要刪的節點了。先數它的孩子：<b>" + kids + "</b> 個——這決定接下來是三種情況中的哪一種。"});
+      if(kids === 0){
+        push({kind:"leaf", op:"del", x:x, ghost:x, line:22, lg:"① 葉",
+          title:"情況①：葉節點，直接摘",
+          msg:"<b>" + x + "</b> 沒有任何孩子，摘掉它不影響任何人。delete 釋放記憶體、回傳 NULL 給爸爸，爸爸的指標改成空白。"});
+        root = silentRemove(root, x);
+        push({kind:"done", op:"del", x:x, line:30, lg:"完成",
+          title:"摘掉了",
+          msg:"<b>" + x + "</b> 消失，其他節點一根指標都不用動——中序走訪看一眼，依然由小到大。"});
+      } else if(kids === 1){
+        var c2 = node.L || node.R, sideTxt = node.L ? "左" : "右";
+        push({kind:"one", op:"del", x:x, ghost:x, succ:c2.v, line: node.L?24:23, lg:"② 單子",
+          title:"情況②：只有一個孩子",
+          msg:"<b>" + x + "</b> 只有一個" + sideTxt + "孩子 <b>" + c2.v + "</b>。摘掉 <b>" + x + "</b>，讓 <b>" + c2.v + "</b> 帶著整棵子樹往上頂替——像抽掉鏈條中的一環，上下直接接起來。"});
+        root = silentRemove(root, x);
+        push({kind:"done", op:"del", x:x, plant:c2.v, line:30, lg:"完成",
+          title:c2.v + " 頂上來了",
+          msg:"<b>" + c2.v + "</b> 的整棵子樹原封不動搬上來。它本來就在 <b>" + x + "</b> 的" + sideTxt + "邊，大小關係不會被破壞。"});
+      } else {
+        var s = node.R;
+        push({kind:"succ", op:"del", x:x, ghost:x, cur:s.v, line:25, lg:"③ 雙子",
+          title:"情況③：兩個孩子 → 找中序後繼",
+          msg:"<b>" + x + "</b> 左右都有人，直接摘會讓兩棵子樹沒地方掛。辦法：去<b>右子樹找最小的</b>——它就是「中序後繼」，比 " + x + " 大的數裡最小的一個。先走到右孩子 <b>" + s.v + "</b>。"});
+        while(s.L){
+          s = s.L;
+          push({kind:"succL", op:"del", x:x, ghost:x, cur:s.v, line:26, lg:"↙ "+s.v,
+            title:"還能往左 → " + s.v,
+            msg:"右子樹裡「一路往左走到底」就是最小的。繼續往左，來到 <b>" + s.v + "</b>。"});
+        }
+        var sv = s.v;
+        push({kind:"copy", op:"del", x:x, cur:x, succ:sv, line:27, lg:sv+"→"+x,
+          title:"把 " + sv + " 的值頂替上來",
+          msg:"中序後繼是 <b>" + sv + "</b>。把它的值抄進被刪節點——<b>位置不動、值換人</b>。左子樹依然全部比 " + sv + " 小、右子樹剩下的依然全部比它大，家規自動保持成立。"});
+        node.v = sv;
+        node.R = silentRemove(node.R, sv);
+        push({kind:"cut", op:"del", x:x, plant:sv, line:28, lg:"摘後繼",
+          title:"摘掉原本的 " + sv,
+          msg:"值搬上來之後，原位置的 <b>" + sv + "</b> 變成多餘的分身，從右子樹把它摘掉。它已經靠左靠到底、最多只剩右孩子，一定是情況①或②，簡單解決。"});
+        push({kind:"done", op:"del", x:x, line:30, lg:"完成",
+          title:"刪除完成",
+          msg:"<b>" + x + "</b> 不見了、<b>" + sv + "</b> 坐上它的位置。看右側中序走訪：依然由小到大——BST 性質毫髮無傷。"});
+      }
+    }
+
+    for(i=0;i<lv.ops.length;i++){
+      var op = lv.ops[i];
+      if(op[0] === "ins") doInsert(op[1]);
+      else if(op[0] === "find") doFind(op[1]);
+      else doDelete(op[1]);
+    }
+    if(lv.fin){
+      push({kind:"done", op:"", line:0, lg:"總結",
+        title:"這一關看完了", msg:lv.fin});
+    }
+    return steps;
+  }
+
+  /* ---------- 4. 畫面層：SVG 樹 ---------- */
+  function chipSvg(x, y, v, bad){
+    var s = String(v), w = Math.max(30, s.length*9 + 14);
+    return '<rect class="chip-r' + (bad?' chip-r-bad':'') + '" x="' + (x-w/2) + '" y="' + (y-12) +
+           '" width="' + w + '" height="24" rx="7"/>' +
+           '<text class="chip-t" x="' + x + '" y="' + (y+5) + '">' + s + '</text>';
+  }
+
+  function paintTree(){
+    var st = S.steps[S.cur], t = st.tree, svg = $("tree");
+    var parts = [], W, H;
+
+    if(!t){
+      W = 360; H = 170;
+      parts.push('<text class="empty-t" x="' + (W/2) + '" y="120">（空樹——連樹根都還沒有）</text>');
+      if(st.chip && st.drop != null) parts.push(chipSvg(W/2, 56, st.drop, false));
+    } else {
+      var pos = {}, cnt = 0, maxD = 0;
+      (function w(n, d){
+        if(!n) return;
+        w(n.L, d+1);
+        pos[n.v] = {i:cnt++, d:d};
+        if(d > maxD) maxD = d;
+        w(n.R, d+1);
+      })(t, 0);
+      W = Math.max(300, PADX*2 + cnt*SPX);
+      H = PADT + (maxD+1)*SPY + 26;
+      var px = function(v){ return PADX + pos[v].i*SPX + SPX/2; };
+      var py = function(v){ return PADT + pos[v].d*SPY; };
+
+      /* 邊（先畫，讓圓圈壓在上面） */
+      (function edges(n){
+        if(!n) return;
+        if(n.L) parts.push('<line class="edge" x1="' + px(n.v) + '" y1="' + py(n.v) + '" x2="' + px(n.L.v) + '" y2="' + py(n.L.v) + '"/>');
+        if(n.R) parts.push('<line class="edge" x1="' + px(n.v) + '" y1="' + py(n.v) + '" x2="' + px(n.R.v) + '" y2="' + py(n.R.v) + '"/>');
+        edges(n.L); edges(n.R);
+      })(t);
+
+      /* 節點 */
+      (function draw(n){
+        if(!n) return;
+        draw(n.L);
+        var x = px(n.v), y = py(n.v), cls = "nd", tag = null, tagCls = "";
+        if(st.ghost === n.v){ cls = "nd nd-ghost"; tag = "要刪的"; tagCls = "ntag-ghost"; }
+        else if(st.plant === n.v){ cls = "nd nd-plant"; tag = "新位置"; tagCls = "ntag-plant"; }
+        else if(st.succ === n.v){ cls = "nd nd-succ"; tag = "後繼"; tagCls = "ntag-succ"; }
+        else if(st.cur === n.v){ cls = "nd nd-cur"; }
+        parts.push('<circle class="' + cls + '" cx="' + x + '" cy="' + y + '" r="' + R + '"/>');
+        parts.push('<text class="nv" x="' + x + '" y="' + (y+5) + '">' + n.v + '</text>');
+        if(tag) parts.push('<text class="ntag ' + tagCls + '" x="' + x + '" y="' + (y+R+13) + '">' + tag + '</text>');
+        draw(n.R);
+      })(t);
+
+      /* 掉落中的數字（chip）＋ 比較說明 */
+      if(st.chip && st.drop != null){
+        var cx = null, cy = null;
+        if(st.chip.t === "node" && pos[st.chip.v]){
+          cx = px(st.chip.v); cy = py(st.chip.v) - R - 21;
+        } else if(st.chip.t === "slot" && pos[st.chip.p]){
+          cx = px(st.chip.p) + (st.chip.side === "L" ? -SPX*0.55 : SPX*0.55);
+          cy = py(st.chip.p) + SPY*0.85;
+          parts.push('<circle class="slotc' + (st.bad ? ' slotc-bad' : '') + '" cx="' + cx + '" cy="' + cy + '" r="15"/>');
+        }
+        if(cx != null){
+          if(st.cmp) parts.push('<text class="cmp" x="' + cx + '" y="' + (cy-20) + '">' + esc(st.cmp) + '</text>');
+          parts.push(chipSvg(cx, cy, st.drop, !!st.bad));
+        }
+      }
+    }
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.style.maxWidth = Math.min(940, W*1.45) + "px";
+    svg.innerHTML = parts.join("");
+    $("treeNote").textContent = t ? ("節點 " + st.n + " · 高度 " + st.h) : "空樹";
+  }
+
+  /* ---------- 畫面層：樹的狀態（節點數 / 樹高 / 中序） ---------- */
+  function paintState(){
+    var st = S.steps[S.cur];
+    $("stCount").textContent = st.n;
+    $("stHeight").textContent = st.h;
+    var lop = (st.h === st.n && st.n > 2);
+    $("statH").setAttribute("data-k", lop ? "no" : "");
+    $("stateNote").textContent = lop ? "歪成鏈了！" : "";
+    var seq = inorderVals(st.tree);
+    $("inorder").textContent = seq.length ? seq.join("  ") : "—";
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function paintSay(){
+    var st = S.steps[S.cur];
+    $("say").setAttribute("data-k", KVIS[st.kind] || "start");
+    $("sayBadge").textContent = BADGE[st.kind] || "STEP";
+    $("sayTitle").textContent = st.title;
+    $("sayText").innerHTML = st.msg;
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j=1;j<=S.cur;j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", KVIS[st.kind] || "");
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = st.lg;
+      var tail = document.createElement("span");
+      tail.className = "tail"; tail.textContent = "n=" + st.n;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function paintAll(){
+    paintTree(); paintState(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+  }
+  function render(){
+    paintAll();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 5. 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 1000);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 6. 闖關 ---------- */
+  function isQuizStep(st){
+    return st.kind === "goL" || st.kind === "goR" || st.kind === "hit" || st.kind === "found" ||
+           st.kind === "leaf" || st.kind === "one" || st.kind === "succ" ||
+           (st.kind === "drop" && st.qa);
+  }
+  function nextQuizIndex(){
+    var k = S.cur;
+    while(k+1 < S.steps.length && !isQuizStep(S.steps[k+1])) k++;
+    return (k+1 < S.steps.length) ? k+1 : -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      /* 沒有題目了：把剩下的自動步驟播完，展示最終結果 */
+      if(S.cur < S.steps.length-1){ S.cur = S.steps.length-1; paintAll(); }
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ reloadCurrent(); });
+      opts.appendChild(r);
+      return;
+    }
+
+    /* 把題目前的自動步驟（drop、place、找後繼…）先播到眼前 */
+    if(S.cur < ni-1){ S.cur = ni-1; paintAll(); }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    var opl = OPLAB[st.op] || "";
+    opts.innerHTML = "";
+
+    if(st.kind === "drop"){
+      q.innerHTML = opl + " <b>" + st.x + "</b>：它會從樹根一路比大小往下掉——最後會種在哪個節點底下？";
+      for(var i=0;i<st.qa.opts.length;i++){
+        addOpt(opts, "節點 " + st.qa.opts[i], "種在它底下", "P" + st.qa.opts[i]);
+      }
+    } else if(st.kind === "leaf" || st.kind === "one" || st.kind === "succ"){
+      q.innerHTML = "刪除 <b>" + st.x + "</b>：找到它了。看看它有幾個孩子——這是三種刪除情況中的哪一種？";
+      addOpt(opts, "情況① 葉節點", "直接摘掉", "C1");
+      addOpt(opts, "情況② 單子節點", "孩子頂上來", "C2");
+      addOpt(opts, "情況③ 雙子節點", "找中序後繼", "C3");
+    } else {
+      q.innerHTML = opl + " <b>" + st.x + "</b>：目前停在節點 <b>" + st.src + "</b> ——下一步？";
+      addOpt(opts, "往左走", st.x + " 比它小", "L");
+      addOpt(opts, "往右走", st.x + " 比它大", "R");
+      if(st.op !== "ins") addOpt(opts, "就是它", st.x + " 相等", "HERE");
+    }
+  }
+
+  function addOpt(host, label, sub, answer){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.innerHTML = label + "<small>" + sub + "</small>";
+    b.addEventListener("click", function(){ answerQuiz(answer); });
+    host.appendChild(b);
+  }
+
+  function correctOf(st){
+    if(st.kind === "goL") return "L";
+    if(st.kind === "goR") return "R";
+    if(st.kind === "hit" || st.kind === "found") return "HERE";
+    if(st.kind === "leaf") return "C1";
+    if(st.kind === "one") return "C2";
+    if(st.kind === "succ") return "C3";
+    if(st.kind === "drop") return "P" + st.qa.answer;
+    return "";
+  }
+  function labelOf(a){
+    if(a === "L") return "往左走";
+    if(a === "R") return "往右走";
+    if(a === "HERE") return "就是它";
+    if(a === "C1") return "情況① 葉節點";
+    if(a === "C2") return "情況② 單子節點";
+    if(a === "C3") return "情況③ 雙子節點";
+    if(a && a.charAt(0) === "P") return "種在節點 " + a.slice(1) + " 底下";
+    return a;
+  }
+
+  function answerQuiz(ans){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = correctOf(st), win = (ans === correct);
+
+    S.asked++;
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);  /* 內部的 renderQuiz 會把畫面推進到下一題前 */
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + labelOf(correct) + '」。</span> ';
+    $("say").setAttribute("data-k", win ? "ok" : "no");
+    $("sayBadge").textContent = win ? "RIGHT" : "WRONG";
+    $("sayTitle").textContent = st.title;
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 7. 載入 ---------- */
+  function loadSteps(lv, levelIdx){
+    stopPlay();
+    S.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    S.steps = buildSteps(lv);
+    S.cur = 0;
+    S.pendingIndex = -1;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadSteps(LEVELS[i], i); }
+  function reloadCurrent(){
+    if(S.levelIdx >= 0) loadLevel(S.levelIdx);
+    else if(S.lastVals) loadCustom(S.lastVals);
+    else loadLevel(0);
+  }
+  function loadCustom(vals){
+    var ops = [], i;
+    for(i=0;i<vals.length;i++) ops.push(["ins", vals[i]]);
+    loadSteps({seed:[], ops:ops,
+      fin:"你自己種的樹：" + vals.length + " 個數字、高度 " +
+          "看右上角。想一想：換一種插入順序，同一批數字會種出不同形狀嗎？（會！形狀完全由順序決定。）"}, -1);
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.c;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      S.cur = 0;
+      render();
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 8. 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", reloadCurrent);
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var raw = $("customInput").value.trim();
+    if(!raw) return;
+    var seen = {}, vals = [];
+    raw.split(/[\s,，、]+/).forEach(function(tk){
+      var n = parseInt(tk, 10);
+      if(!isNaN(n) && n > -1000 && n < 1000 && !seen[n] && vals.length < 12){
+        seen[n] = 1; vals.push(n);
+      }
+    });
+    if(vals.length){
+      S.lastVals = vals;
+      loadCustom(vals);
+    }
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 9. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

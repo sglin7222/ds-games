@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鏈結串列接龍 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：車廂節點、指標標籤、
+   ∅ 終點、斷鏈淡出。 */
+
+.lrail{overflow-x:auto;overflow-y:hidden;padding:6px 0 2px}
+.lstage{position:relative;height:226px;min-width:100%}
+.ledges{position:absolute;left:0;top:0;pointer-events:none}
+
+/* 節點＝車廂：左格 val、右格 next 車鉤 */
+.lnode{position:absolute;width:96px;
+  transition:left .35s ease,top .35s ease,opacity .35s ease,filter .35s ease}
+.lnode .cells{display:flex;height:54px;border:1.5px solid var(--line);
+  border-radius:8px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.lnode .val{flex:1;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:19px;font-weight:700;color:var(--ink)}
+.lnode .nxt{flex:0 0 30px;border-left:1.5px dashed var(--line);
+  display:grid;place-items:center;background:var(--sunken);
+  font-family:var(--font-mono);font-size:14px;color:var(--ink-soft)}
+.lnode .addr{margin-top:2px;text-align:center;
+  font-family:var(--font-mono);font-size:10px;color:var(--ink-faint)}
+.lnode.is-hot .cells{border-color:var(--accent);background:var(--accent-soft)}
+.lnode.is-hot .val{color:var(--accent)}
+.lnode.is-lost{opacity:.28;filter:saturate(.15);transform:translateY(6px)}
+
+/* 指標標籤：cur / prev / new，掛在節點上方 */
+.ptags{position:absolute;top:-21px;left:0;right:0;
+  display:flex;gap:4px;justify-content:center}
+.ptag{font-family:var(--font-mono);font-size:10px;font-weight:700;
+  letter-spacing:.06em;padding:1px 7px;border-radius:5px;line-height:1.5}
+.ptag[data-p="cur"]{background:var(--accent);color:var(--surface)}
+.ptag[data-p="prev"]{background:var(--jade);color:var(--surface)}
+.ptag[data-p="nu"]{background:var(--ink);color:var(--paper)}
+
+/* head 指標樁 與 ∅ 終點 */
+.hstub{position:absolute;width:54px;height:54px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  background:var(--surface);border:1.5px solid var(--ink-soft);border-radius:8px;
+  font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--ink);
+  transition:border-color .35s}
+.hstub small{font-size:9px;font-weight:500;color:var(--ink-faint);letter-spacing:.1em}
+.hstub.is-hot{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.lnull{position:absolute;width:44px;height:54px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:1.5px dashed var(--line);border-radius:8px;color:var(--ink-faint);
+  font-family:var(--font-mono)}
+.lnull b{font-size:18px;font-weight:700}
+.lnull small{font-size:8.5px;letter-spacing:.06em}
+
+/* 圖例 */
+.lgd{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;
+  font-size:12px;color:var(--ink-faint)}
+.lgd .ptag{position:static}
+.lgd b.nul{font-family:var(--font-mono);font-size:14px;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">10 · 鏈結串列</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 10 · Linked List</p>
+    <h1>鏈結串列接龍</h1>
+    <p class="lede">節點是車廂，next 指標是車鉤。親手做插入與刪除，體驗一次「順序接錯就斷鏈」——後半列車廂當場漂走變垃圾，你就永遠記得為什麼要先接後斷。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>單向鏈結串列</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>時間</span><b>搜尋 O(n)・插刪 O(1)</b></div>
+      <div class="fact"><span>空間</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>變數、迴圈</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上是一列火車：每個方塊是一節<b>節點</b>（車廂），左格放數字、右格是 <b>next 指標</b>（車鉤），箭頭鉤向下一節；<b>head</b> 是記著「第一節在哪」的指標樁，<b>∅</b>（nullptr）代表「後面沒有了」。演到一半的 cur、prev、new 指標會用彩色標籤掛在車廂上方。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>從上方挑一個<b>關卡</b>：開頭插入、中間插入、刪除、搜尋⋯⋯</li>
+            <li>按 <b>下一步</b> 一格一格走，看指標一根一根改。</li>
+            <li>第 3 關是<b>反例</b>：故意把兩行順序接反，親眼看斷鏈。</li>
+            <li>隨時 <b>上一步</b> 倒回去，反覆看不懂的地方。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>每個關鍵步驟先<b>不給答案</b>，由你選：下一步該改哪根指標？</li>
+            <li>答對得分，<b>連續答對</b>額外加分；答錯立刻解釋為什麼。</li>
+            <li>一關結束會結算正確率，可以直接跳下一關。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>節點＝值＋指標</b> —— 一節車廂裝兩樣東西：貨物（val）和下一節的地址條（next）。串列的一切操作都只是在改地址條。</li>
+            <li><b>先接後斷的鐵律</b> —— 插入時新節點的 next 要<b>先</b>指向下一個，才能改前一個的 next。順序反了，後半段串列沒人記得，當場變垃圾（memory leak）。</li>
+            <li><b>刪除前要先記住</b> —— 改指標之前先用 cur 抄下要刪節點的地址，否則永遠還不了那塊記憶體。</li>
+            <li><b>串列 vs 陣列的交換條件</b> —— 陣列中間插入要整段往後搬 O(n)；串列只改兩根指標 O(1)，但找位置要 O(n) 一節一節走。</li>
+            <li><b>nullptr 是安全網</b> —— 走訪的迴圈條件 <code>c != nullptr</code> 少寫一個，程式就在串列尾端當掉。</li>
+            <li><b>複雜度</b> —— 搜尋 O(n)；已知前一節點時插入／刪除 O(1)。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩第 1、2 關把「先接後斷」走順，再玩第 3 關<b>反例：接反了</b>——那一關的斷鏈畫面，是這一頁最值得記住的東西。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看指標怎麼一根一根改。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">串列列車</h3>
+            <span class="panel-note" id="stageNote"></span>
+          </div>
+
+          <div class="lrail" id="lrail">
+            <div class="lstage" id="lstage"></div>
+          </div>
+
+          <div class="lgd">
+            <span><i class="ptag" data-p="cur">cur</i> 走訪指標</span>
+            <span><i class="ptag" data-p="prev">prev</i> 前一節</span>
+            <span><i class="ptag" data-p="nu">new</i> 新節點</span>
+            <span><b class="nul">∅</b> nullptr（沒有下一節）</span>
+            <span>@0x… 記憶體地址（注意：不連續）</span>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">串列狀態</h3>
+              <span class="panel-note" id="statNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat"><div class="k">長度</div><div class="v" id="statLen">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">指標改動</div><div class="v" id="statWrites">0</div></div>
+              <div class="stat"><div class="k">節點總數</div><div class="v" id="statNodes">0</div></div>
+              <div class="stat" id="statLostBox"><div class="k">垃圾節點</div><div class="v" id="statLost">0</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">插刪 O(1)・搜尋 O(n)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把教學用的視覺化全部拿掉，鏈結串列的本體就是這樣——一個 struct 加四個小函式：</p>
+                <pre class="code">#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int val; Node* next; };      <i>// 車廂：貨物 + 車鉤</i>
+
+Node* pushFront(Node* head, int x) {       <i>// 開頭插入，回傳新的 head</i>
+    Node* nu = new Node{x, nullptr};
+    nu-&gt;next = head;                        <i>// 先接：鉤住原本的第一節</i>
+    return nu;                              <i>// 新車廂就是新的頭</i>
+}
+Node* insertAfter(Node* p, int x) {        <i>// 在 p 後面插入 x</i>
+    Node* nu = new Node{x, nullptr};
+    nu-&gt;next = p-&gt;next;                     <i>// 先接右邊</i>
+    p-&gt;next  = nu;                          <i>// 後改左邊 —— 順序不能反！</i>
+    return nu;
+}
+void removeAfter(Node* p) {                <i>// 刪掉 p 的下一節</i>
+    Node* cur = p-&gt;next;                    <i>// 先記住，等下才刪得到</i>
+    p-&gt;next = cur-&gt;next;                    <i>// 跳過它</i>
+    delete cur;                             <i>// 歸還記憶體，忘了就漏</i>
+}
+Node* find(Node* head, int x) {            <i>// 搜尋：只能一節一節走</i>
+    for (Node* c = head; c != nullptr; c = c-&gt;next)
+        if (c-&gt;val == x) return c;
+    return nullptr;                         <i>// 走完了，查無此人</i>
+}
+
+int main() {
+    Node* head = new Node{20, nullptr};    <i>// 20</i>
+    head = pushFront(head, 10);            <i>// 10 → 20</i>
+    insertAfter(head, 15);                 <i>// 10 → 15 → 20</i>
+    removeAfter(head);                     <i>// 10 → 20</i>
+    Node* hit = find(head, 20);            <i>// 拿到 20 那節的地址</i>
+}</pre>
+        <p>三十行不到。遊戲頁面多出來的幾百行，全部都是為了「讓指標的動作看得見」——這是教學程式和生產程式的差別。</p>
+      </div>
+    </div>
+  </section>
+
+<!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「什麼是鏈結串列」走到「為什麼先接後斷是鐵律」，每一步為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義：什麼是鏈結串列</h3>
+        <p>陣列是一排<b>連續</b>的格子，第 i 格在哪裡用算的就知道。鏈結串列反過來：節點<b>散落</b>在記憶體各處，每個節點除了值，還帶一根 <code>next</code> 指標——一張寫著「下一節在哪」的地址條。整條串列唯一的入口是 <code>head</code>。想像一列火車：車廂（節點）不必停在一起，只要車鉤（指標）一節鉤一節，列車就是完整的。</p>
+        <p>兩種結構是一組<b>交換條件</b>，沒有誰全面比較好：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>操作</th><th>陣列</th><th>鏈結串列</th><th>白話</th></tr></thead>
+            <tbody>
+              <tr><td>讀第 i 個元素</td><td style="color:var(--jade);font-weight:700">O(1)</td><td style="color:var(--alarm);font-weight:700">O(n)</td><td>陣列用算的；串列只能一節一節走過去</td></tr>
+              <tr><td>在開頭插入</td><td style="color:var(--alarm);font-weight:700">O(n)</td><td style="color:var(--jade);font-weight:700">O(1)</td><td>陣列要整排往後搬；串列改兩根指標</td></tr>
+              <tr><td>在已知節點後插入</td><td style="color:var(--alarm);font-weight:700">O(n)</td><td style="color:var(--jade);font-weight:700">O(1)</td><td>陣列要搬移後半段；串列改兩根指標</td></tr>
+              <tr><td>刪除已知節點的下一節</td><td style="color:var(--alarm);font-weight:700">O(n)</td><td style="color:var(--jade);font-weight:700">O(1)</td><td>陣列要整段往前補；串列改一根指標</td></tr>
+              <tr><td>搜尋某個值</td><td>O(n)</td><td>O(n)</td><td>都要一個一個看（陣列排序後可二分，串列不行）</td></tr>
+              <tr><td>記憶體</td><td>連續一整塊</td><td>散落，每節多付一根指標</td><td>串列用空間換「不搬移」的自由</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：「兩行順序無所謂吧」</h3>
+        <p>插入要改兩根指標：新節點的 <code>next</code>、前一節的 <code>next</code>。很多人覺得「反正兩行都要做，先做哪行不都一樣」。在紙上看起來一樣，在記憶體裡是生與死的差別。</p>
+        <ul class="bullets no">
+          <li><b>指標是唯一的線索</b> —— 單向串列裡，後半段串列<b>只有</b>前一節的 next 記得。你沒有在任何別的地方抄過它的地址。</li>
+          <li><b>先改前一節的 next ＝ 放手</b> —— 那一瞬間，後半段就沒有任何指標指著它了。不是「等下再接回來」，是<b>再也找不到了</b>——你連它的地址都不知道。</li>
+          <li><b>編譯器不會救你</b> —— 兩種順序在語法上都完全合法。程式不會當掉、不會報錯，只是安靜地把記憶體漏掉（memory leak）。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">改任何一根指標之前先問：「它現在指著的東西，<b>還有沒有別根指標記得？</b>」沒有，就不准改。這一句話就是整頁的核心。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：先讓新節點「有兩隻手」</h3>
+        <p>先做 <code>newNode-&gt;next = cur-&gt;next</code> 之後，右半段串列同時被<b>兩根</b>指標記著（舊的 cur-&gt;next、新的 newNode-&gt;next）。這時再改 cur-&gt;next，右半段仍然被新節點牽著——列車從頭到尾沒有斷過一秒。刪除同理：先用 <code>cur</code> 抄下要刪節點的地址，再改指標，最後才 <code>delete</code>。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">「<b>先接、後斷</b>」不是背口訣，是「任何時刻每段串列至少要有一根指標記得」這條原則推出來的必然結果。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <p><b>在節點 p 後面插入 x</b>（已經走到 p 的情況下）：</p>
+        <ol class="steps">
+          <li><b>new Node</b> —— 向記憶體要一節新車廂，裝上 x，next 先設 nullptr。</li>
+          <li><b>先接</b> —— <code>nu-&gt;next = p-&gt;next</code>：新車廂鉤住 p 原本的下一節。</li>
+          <li><b>後斷（改接）</b> —— <code>p-&gt;next = nu</code>：p 的車鉤改鉤新車廂。完成。</li>
+        </ol>
+        <p><b>刪除 p 的下一節</b>：</p>
+        <ol class="steps">
+          <li><b>先記住</b> —— <code>cur = p-&gt;next</code>：抄下要刪節點的地址。</li>
+          <li><b>跳過</b> —— <code>p-&gt;next = cur-&gt;next</code>：列車繞過它。</li>
+          <li><b>歸還</b> —— <code>delete cur</code>：把記憶體還給系統。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">刪除的第 3 步 <b>delete</b> 是初學者最常忘的一行。C++ 不會自動回收——指標改完列車是通了，但那節車廂會永遠漂在記憶體裡。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：在 10 → 20 → 30 的 20 後面插入 25</h3>
+        <p>考試要你在紙上追蹤時，就是畫這張表。先看<b>正確順序</b>：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th>動作</th><th class="mono">20 的 next</th><th class="mono">25 的 next</th><th class="mono">從 head 看到的列車</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0</td><td>初始</td><td class="mono">→30</td><td class="mono" style="color:var(--ink-faint)">（還沒出生）</td><td class="mono">10→20→30</td></tr>
+              <tr><td class="mono">1</td><td style="color:var(--accent)">new Node(25)</td><td class="mono">→30</td><td class="mono">∅</td><td class="mono">10→20→30（25 漂在旁邊）</td></tr>
+              <tr><td class="mono">2</td><td style="color:var(--accent)">25-&gt;next = 20-&gt;next</td><td class="mono">→30</td><td class="mono">→30</td><td class="mono">10→20→30（30 被兩根指標記著）</td></tr>
+              <tr><td class="mono">3</td><td style="color:var(--jade)">20-&gt;next = 25</td><td class="mono">→25</td><td class="mono">→30</td><td class="mono" style="color:var(--jade);font-weight:700">10→20→25→30 ✓</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>再看<b>接反的順序</b>——就是遊戲第 3 關演的災難：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th>動作</th><th class="mono">20 的 next</th><th class="mono">25 的 next</th><th>發生什麼事</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1'</td><td style="color:var(--alarm)">20-&gt;next = 25（先斷！）</td><td class="mono">→25</td><td class="mono">∅</td><td style="color:var(--alarm);font-weight:700">30 從此沒人記得 —— 斷鏈、漏記憶體</td></tr>
+              <tr><td class="mono">2'</td><td style="color:var(--alarm)">25-&gt;next = 20-&gt;next</td><td class="mono">→25</td><td class="mono">→25</td><td style="color:var(--alarm);font-weight:700">20-&gt;next 已是 25，等於 25 自己鉤自己 → 無限迴圈</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>一模一樣的兩行程式，只是對調順序：一邊是完美插入，一邊是斷鏈＋自鉤迴圈。這張對照表值得多看一分鐘。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>插入／刪除 O(1)</b> —— 已知前一節點時，只改固定幾根指標，跟串列多長無關。這是串列的看家本領。</li>
+          <li><b>搜尋／走到第 i 個 O(n)</b> —— 節點散落各處，沒有「跳到中間」這種事，只能沿車鉤一節一節走。連二分搜尋都救不了它——二分需要隨機存取。</li>
+          <li><b>空間 O(n)</b> —— n 個節點，每節多付一根指標的空間；此外節點分散，對 CPU 快取不友善，實務上常比理論值更慢。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「串列比陣列快」</b> —— 不一定。只有「頻繁在中間插入刪除、又已經站在正確位置」時才佔便宜；搜尋、遍歷、隨機讀取都是陣列贏。</li>
+          <li><b>「cur++ 可以走到下一個節點」</b> —— 錯。那是陣列的直覺。節點地址不連續，走訪只能 <code>cur = cur-&gt;next</code>。</li>
+          <li><b>「改完指標，節點就消失了」</b> —— 錯。節點只是「沒人指著」，記憶體還被佔著。C++ 要自己 <code>delete</code>；忘了就是 memory leak。</li>
+          <li><b>「delete 之後那個指標還能用」</b> —— 錯。delete 後指標變成<b>懸空指標</b>（dangling pointer），再讀它是 use-after-free，典型當機來源。</li>
+          <li><b>「先斷再接，等下接回來就好」</b> —— 錯。單向串列放手就是永別，第 3 關親眼看過就懂。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+<!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>使用者按下第一個按鈕之前，整關的指標操作就已經全部演完了。<code>buildSteps</code> 用一個迷你「記憶體模擬器」（節點表＋head＋指標表）把腳本跑一遍，每一步存下完整快照；畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡腳本 <small>insertAfter(20, 25)</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(level) <small>模擬記憶體，跑完整段操作</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是節點＋指標的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反向插入」「反向刪除」這種必錯的邏輯。</li>
+          <li><b>斷鏈自動偵測</b> —— 每次快照時從 head 重新走一遍：走得到的是列車、指標牽著的是浮動節點、誰都不記得的就是垃圾。反例關不用特別寫，規則本身就會把 30、40 判成垃圾。</li>
+          <li><b>演算法與畫面分離</b> —— buildSteps 裡沒有半行畫面程式碼。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步存一份節點表快照，記憶體較高。教學規模（每關幾個節點）完全沒問題，真實工程不會這樣寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps(level)</td><td>唯一真正動指標的地方。內含 alloc / kill / snap 三個小工具，模擬 new、delete 和拍快照。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：目前關卡、第幾步、模式、分數。全站只有這一份。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintStage / paintAlgo<br>paintSay / paintLog / paintStats</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。paintStage 負責排車廂、畫 SVG 箭頭、掛指標標籤。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td><td>找下一個帶題目的步驟、出題、對答案、計分。</td></tr>
+              <tr><td><b>載入</b></td><td class="mono">loadLevel / setMode</td><td>換關卡、換模式，重建 steps 並歸零。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto_(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintStage<small>車廂＋箭頭＋標籤</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+            <div class="node">paintStats<small>長度/垃圾數</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// start / new / link / walk / cmp / cut / del / error / done → 顏色與徽章</i>
+  <b>nodes</b>:  <i>// 這一步當下所有節點 {id: {val, next}} —— 迷你記憶體的快照</i>
+  <b>head</b>:   <i>// head 指著哪個節點</i>
+  <b>chain</b>:  <i>// 從 head 沿 next 走得到的節點順序（含自鉤迴圈偵測 looped）</i>
+  <b>floats</b>: <i>// 不在列車上、但還有指標牽著的節點（例如剛 new 出來的）</i>
+  <b>lost</b>:   <i>// 誰都不記得的垃圾節點 → 畫面上淡出漂走</i>
+  <b>ptrs</b>:   <i>// cur / prev / nu 各指著哪節 → 彩色標籤</i>
+  <b>hotEdge</b>:<i>// 這一步正在改的那根指標 → 箭頭變橘色</i>
+  <b>line</b>:   <i>// 演算法要高亮第幾行</i>
+  <b>title, msg, quiz</b>: <i>// 說明面板文字與闖關題目</i>
+}</pre>
+        <p>注意 <code>chain / floats / lost</code> 不是手動指定的——快照時從 head 重新走一遍自動分類。這正是「斷鏈畫面」不用特別寫就會出現的原因。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>改關卡的數字</td><td><code>buildSteps</code> 裡各關的 <code>initList([...])</code></td><td>1 行</td></tr>
+              <tr><td>加一個新關卡</td><td><code>LEVELS</code> 加一筆 ＋ <code>buildSteps</code> 加一段腳本</td><td>約 20 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>1000</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改車廂大小與間距</td><td><code>paintStage</code> 開頭的 <code>NODE_W / GAP</code> 常數</td><td>2 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次，全部頁面生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <p>把下面這段丟給任何 AI（或自己寫），做出來你就真的會鏈結串列了：</p>
+        <pre class="code">用 C++ 從零實作單向鏈結串列，只准用 struct Node { int val; Node* next; };
+不准用 std::list、std::vector 或陣列存節點。
+
+實作以下函式，每個函式前先用註解寫清楚「會改到哪幾根指標、順序為什麼」：
+1. pushFront(head, x)     // 開頭插入，回傳新 head
+2. insertAfter(p, x)      // 先接後斷；並回答：兩行對調會發生什麼？
+3. removeAfter(p)         // 先記住、再跳過、最後 delete
+4. removeFront(head)      // 回傳新 head；注意 delete 與移動 head 的順序
+5. find(head, x)          // 找不到回傳 nullptr
+6. printList(head)        // 印成 10 -> 20 -> 30 -> NULL
+7. freeAll(head)          // 整條歸還，一節都不能漏
+
+要求：
+- main() 依序演示：建 3 節 → 頭插 → 中插 → 刪中 → 刪頭 → 搜尋，
+  每一步之後都 printList
+- 用 -fsanitize=address（或 valgrind）編譯執行，證明沒有 memory leak
+- 最後回答兩題：
+  a. insertAfter 的兩行指標如果對調，會漏掉哪些節點？為什麼編譯器不報錯？
+  b. freeAll 為什麼要先記住 next 才能 delete？寫錯會怎樣？</pre>
+
+        <h4>延伸挑戰一：反轉串列</h4>
+        <pre class="code">寫 reverse(head)：把 10 -> 20 -> 30 反轉成 30 -> 20 -> 10。
+限制：不准 new 任何新節點，只准改 next 指標，O(n) 時間、O(1) 空間。
+
+提示：需要三根指標 prev / cur / nxt 一起往前爬。
+每一圈先用 nxt 記住 cur->next（先記住！），再把 cur->next 扳向 prev。
+畫出每一圈三根指標的位置——這題是面試最愛，畫得出來就寫得出來。</pre>
+
+        <h4>延伸挑戰二：雙向串列</h4>
+        <pre class="code">把 Node 加上 Node* prev，做成雙向鏈結串列。
+重寫 insertAfter 和 remove：現在每次要改四根指標，
+一樣先想清楚「改的順序」——哪幾步之間誰可能沒人記得？
+
+回答：多付一根指標的空間，換到了什麼能力？
+（提示：刪除自己、往回走、O(1) 刪尾）</pre>
+
+        <h4>延伸挑戰三：用串列重做約瑟夫環</h4>
+        <pre class="code">玩過第 6 關約瑟夫環的話：把最後一節的 next 接回第一節，串列就成了「環」。
+用環形串列重解約瑟夫問題：n 個人報數到 k 出局。
+
+比較：用陣列模擬每刪一人要 O(n) 搬移或跳格，
+用環形串列刪人只要 removeAfter —— O(1)。
+量測 n = 100000, k = 3 時兩種做法的時間差。</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 10 鏈結串列接龍</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var LEVELS = [
+    {t:"insHead", c:"pushFront(7)",       n:"開頭插入"},
+    {t:"insMid",  c:"insertAfter(20,25)", n:"中間插入・先接後斷"},
+    {t:"broken",  c:"⚠ 順序接反",         n:"反例：親眼看斷鏈"},
+    {t:"delMid",  c:"removeAfter(15)",    n:"刪除中間的 23"},
+    {t:"delHead", c:"removeFront()",      n:"刪除開頭"},
+    {t:"find",    c:"find(17)",           n:"搜尋：找得到"},
+    {t:"findX",   c:"find(99)",           n:"搜尋：找不到"}
+  ];
+
+  var CODE = [
+    "struct Node { int val; Node* next; };",
+    "",
+    "Node* insertAfter(Node* p, int x) {",
+    "    Node* nu = new Node{x, nullptr};",
+    "    nu->next = p->next;",
+    "    p->next  = nu;",
+    "    return nu;",
+    "}",
+    "",
+    "void removeAfter(Node* p) {",
+    "    Node* cur = p->next;",
+    "    p->next = cur->next;",
+    "    delete cur;",
+    "}",
+    "",
+    "Node* find(Node* head, int x) {",
+    "    for (Node* c = head; c != nullptr; c = c->next)",
+    "        if (c->val == x) return c;",
+    "    return nullptr;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "先畫「車廂的設計圖」。struct 是「自己定義一種資料包」的意思：每個 Node（節點）裝兩樣東西——int val 是車廂載的數字；Node* next 是一根「指標」，就是一張寫著「下一節車廂停在記憶體哪個位置」的地址條，也就是車鉤。",
+    "（空行——把「車廂長相」和下面的工具函式隔開，方便人眼閱讀，電腦會直接跳過。）",
+    "第一台小機器：insertAfter，「在 p 這節車廂後面，插入一節載著 x 的新車廂」。函式就像一台機器：把材料（p 和 x）丟進去，它做完事還會交回新車廂的地址（開頭的 Node* 就是「交回一個地址」的意思）。",
+    "new＝向記憶體倉庫要一塊空地，蓋一節新車廂：裝上數字 x，車鉤先設成 nullptr（唸「空指標」，意思是「還沒鉤任何人」）。nu 是一張抄著新車廂地址的便條。",
+    "【先接】新車廂的車鉤，先鉤住 p 原本鉤著的那一節。做完這行，右半段列車同時被兩根指標記著，非常安全。",
+    "【後斷】現在才把 p 的車鉤改鉤到新車廂。這兩行順序不能反——反過來的話 p 原本的下一節會沒有任何人記得，整段列車漂走（遊戲第 3 關親眼看）。",
+    "把新車廂的地址交回給呼叫的人，方便他繼續用。",
+    "insertAfter 到此結束。注意：整個插入只改了兩根指標，跟串列多長完全無關，所以是 O(1)。",
+    "（空行。）",
+    "第二台小機器：removeAfter，「把 p 後面那一節刪掉」。void＝這台機器做完事不用交回任何東西。",
+    "先用一張叫 cur 的便條，抄下「要刪的那節」的地址。不先抄下來，下一步指標一改，就再也找不到它、也還不了那塊記憶體了。",
+    "把 p 的車鉤跳過要刪的那節，直接鉤到再下一節。列車從此不經過它——但它還躺在記憶體裡。",
+    "delete＝把那節車廂的記憶體還給倉庫。C++ 不會自動回收，忘了這行就是「記憶體流失」（memory leak）：刪一千次就漏一千塊。",
+    "removeAfter 結束。改一根指標＋一次歸還，也是 O(1)。",
+    "（空行。）",
+    "第三台小機器：find，「從第一節開始，找出載著 x 的車廂」。找到就交回那節的地址，找不到交回 nullptr。",
+    "for 迴圈的三段話：便條 c 從 head（第一節）出發；只要 c 還不是 nullptr（還沒走出車尾）就繼續；每一圈沿車鉤 c = c->next 走到下一節。串列不能跳格，只能一節一節走。",
+    "打開目前這節車廂看看：載的是 x 嗎？是的話就把這節的地址交回去，機器結束。",
+    "整列走完都沒找到，交回 nullptr——用「空」代表「查無此人」。呼叫的人拿到空就知道沒有。",
+    "find 結束。最壞情況要走完整列才能確定沒有，所以搜尋是 O(n)。"
+  ];
+
+  var BADGE = {start:"START", "new":"NEW", link:"LINK", walk:"WALK", cmp:"CMP",
+               cut:"CUT", del:"FREE", error:"BREAK", done:"DONE"};
+  /* say / log 的顏色分類：hot=橘（進行中）、ok/done=綠、error=紅 */
+  var TONE  = {start:"start", "new":"hot", link:"hot", walk:"hot", cmp:"hot",
+               cut:"hot", del:"ok", error:"error", done:"done"};
+  var ADDRS = ["0x3A8","0x120","0x7F4","0x2C0","0x9B4","0x668","0x054","0x460"];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+
+  var S = {
+    steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:0,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* ---------- 資料層：迷你記憶體模擬器，把整關一次跑完 ---------- */
+  function buildSteps(level){
+    var steps = [];
+    var nodes = {};      // id -> {val, next}   next 是 id 或 null
+    var order = [];      // 依配置順序的 id
+    var head  = null;
+    var ptrs  = {};      // "cur"/"prev"/"nu" -> id 或 "null"
+    var writes = 0;      // 指標改動次數
+    var nid = 0;
+
+    function alloc(v){ nid += 1; nodes[nid] = {val:v, next:null}; order.push(nid); return nid; }
+    function kill(id){
+      delete nodes[id];
+      var k = order.indexOf(id);
+      if(k > -1) order.splice(k, 1);
+    }
+    function initList(vals){
+      var prev = null, i, id;
+      for(i=0;i<vals.length;i++){
+        id = alloc(vals[i]);
+        if(prev === null) head = id; else nodes[prev].next = id;
+        prev = id;
+      }
+    }
+    function byVal(v){
+      for(var i=0;i<order.length;i++) if(nodes[order[i]].val === v) return order[i];
+      return null;
+    }
+    function snap(o){
+      var reach = {}, chain = [], looped = false, c = head, guard = 0;
+      while(c !== null && guard < 40){
+        if(reach[c]){ looped = true; break; }
+        reach[c] = 1; chain.push(c); c = nodes[c].next; guard++;
+      }
+      var floats = [], lost = [], i, id, isPtr, k;
+      for(i=0;i<order.length;i++){
+        id = order[i];
+        if(reach[id]) continue;
+        isPtr = false;
+        for(k in ptrs) if(ptrs[k] === id) isPtr = true;
+        if(isPtr) floats.push(id); else lost.push(id);
+      }
+      var nCopy = {};
+      for(i=0;i<order.length;i++){ id = order[i]; nCopy[id] = {val:nodes[id].val, next:nodes[id].next}; }
+      var pCopy = {};
+      for(k in ptrs) pCopy[k] = ptrs[k];
+      steps.push({
+        kind:o.kind, line:o.line || 0, title:o.title, msg:o.msg, lab:o.lab || "",
+        nodes:nCopy, order:order.slice(), head:head, chain:chain, looped:looped,
+        floats:floats, lost:lost, ptrs:pCopy,
+        hot:o.hot || [], hotEdge:(o.hotEdge === undefined ? null : o.hotEdge),
+        writes:writes, quiz:o.quiz || null
+      });
+    }
+
+    var nu, n10, n20, n30;
+
+    if(level.t === "insHead"){
+      initList([12,34,56]);
+      snap({kind:"start", line:1, lab:"12→34→56",
+        title:"初始串列：12 → 34 → 56",
+        msg:"每個方塊是一節「<b>節點</b>」（node），想像成火車車廂：左格放貨物（數字 val），右格是<b>車鉤</b>（next 指標）——一張寫著「下一節停在記憶體哪裡」的地址條。<b>head</b> 不是車廂，只是一根記著「第一節在哪」的指標。最右邊的 <b>∅</b> 唸作 nullptr，「後面沒有了」。本關目標：把 <b>7</b> 插到最前面。"});
+      nu = alloc(7); ptrs.nu = nu;
+      snap({kind:"new", line:4, hot:[nu], lab:"new Node(7)",
+        title:"new Node(7)：蓋一節新車廂",
+        msg:"<b>new</b> 是向記憶體倉庫要一塊空地、蓋一節新車廂：裝進 7，車鉤先設 ∅（還沒鉤任何人）。上方的 <b>new</b> 標籤是變數 nu——一張抄著新車廂地址的便條。注意它的 @ 地址跟其他車廂完全不連續：串列的節點在記憶體裡是<b>散落</b>的，全靠指標串起來。",
+        quiz:{q:"要把 7 插到串列最前面，第一步該做什麼？", a:1, opts:[
+          {t:"先把 head 改指向新節點", s:"急著改指標"},
+          {t:"new Node(7)：先蓋新車廂", s:"要有車廂才能掛"},
+          {t:"把 12、34、56 都往後搬一格", s:"陣列的做法"}]}});
+      nodes[nu].next = head; writes++;
+      snap({kind:"link", line:5, hotEdge:nu, hot:[nu], lab:"7.next = 12",
+        title:"先接：newNode->next = head",
+        msg:"新車廂的車鉤，先鉤住目前的第一節 <b>12</b>。注意此刻 head 還是指著 12——列車從頭到尾沒有斷過，怎麼改都安全。",
+        quiz:{q:"新節點 7 的 next 該指向誰？", a:1, opts:[
+          {t:"∅，先留空", s:""},
+          {t:"現在的第一節 12", s:""},
+          {t:"最後一節 56", s:""}]}});
+      head = nu; writes++;
+      snap({kind:"link", line:6, hotEdge:"head", hot:[nu], lab:"head = 7",
+        title:"後改：head = newNode",
+        msg:"現在才動 head，把它改指向新車廂。<b>先接、後改</b>——開頭插入沒有「前一節」，所以第二根改的是 head 本人（精神跟第 6 行一樣）。兩根指標，一個元素都沒搬。",
+        quiz:{q:"新節點已經鉤好 12 了，最後一步是？", a:0, opts:[
+          {t:"head = newNode", s:""},
+          {t:"12->next = newNode", s:""},
+          {t:"delete newNode", s:""}]}});
+      delete ptrs.nu;
+      snap({kind:"done", line:7, lab:"7→12→34→56",
+        title:"完成：7 → 12 → 34 → 56",
+        msg:"開頭插入只改了 <b>2 根指標</b>，跟串列多長無關——O(1)。同一件事陣列得把每一個元素往後搬一格，O(n)。這就是鏈結串列存在的理由。",
+        quiz:{q:"這次開頭插入，總共改了幾根指標？", a:1, opts:[
+          {t:"跟串列長度一樣多", s:"O(n)？"},
+          {t:"2 根：newNode->next 和 head", s:"O(1)"},
+          {t:"1 根", s:""}]}});
+
+    } else if(level.t === "insMid"){
+      initList([10,20,30,40]);
+      n10 = byVal(10); n20 = byVal(20); n30 = byVal(30);
+      snap({kind:"start", line:1, lab:"10→20→30→40",
+        title:"初始串列：10 → 20 → 30 → 40",
+        msg:"目標：在 <b>20</b> 後面插入 <b>25</b>。串列沒有「直接跳到第 2 格」這種事——想站到 20 旁邊，只能派一根 <b>cur</b> 指標從 head 一節一節走過去。"});
+      ptrs.cur = n10;
+      snap({kind:"walk", line:17, hot:[n10], lab:"cur = 10",
+        title:"cur = head：從第一節出發",
+        msg:"cur 是一張<b>會移動的便條</b>，現在抄著 10 的地址。它不是車廂，只是「我正看著這一節」的記號。"});
+      ptrs.cur = n20;
+      snap({kind:"walk", line:17, hot:[n20], lab:"cur = 20",
+        title:"cur = cur->next：走到 20",
+        msg:"沿著 10 的車鉤走到 20。<b>cur = cur + 1 沒有用</b>——下一節不在隔壁，看每節上方的 @ 地址就知道它們在記憶體裡是跳著放的，只有車鉤知道路。到 20 了，走訪停止。",
+        quiz:{q:"cur 在 10，要走到下一節該寫哪一行？", a:0, opts:[
+          {t:"cur = cur->next", s:"沿車鉤走"},
+          {t:"cur = cur + 1", s:"陣列的直覺"},
+          {t:"cur = 20", s:"20 是值，不是地址"}]}});
+      nu = alloc(25); ptrs.nu = nu;
+      snap({kind:"new", line:4, hot:[nu], lab:"new Node(25)",
+        title:"new Node(25)：新車廂待命",
+        msg:"新車廂 25 蓋好了，先漂在半空（還沒接進列車），車鉤是 ∅。接下來要改兩根指標：25 的 next、20 的 next——<b>順序是本關的重點</b>。"});
+      nodes[nu].next = nodes[n20].next; writes++;
+      snap({kind:"link", line:5, hotEdge:nu, hot:[nu, n30], lab:"25.next = 30",
+        title:"先接：newNode->next = cur->next",
+        msg:"先接右邊：25 的車鉤鉤住 30。此刻 <b>30 同時被兩根指標記著</b>（20 的 next、25 的 next），右半段列車穩穩的——下一步怎麼改都不會弄丟東西。",
+        quiz:{q:"要改兩根指標（25 的 next、20 的 next）。先改哪一根才安全？", a:1, opts:[
+          {t:"cur->next = newNode：先把 20 鉤到 25", s:"先改左邊"},
+          {t:"newNode->next = cur->next：先把 25 鉤到 30", s:"先接右邊"},
+          {t:"都可以，結果一樣", s:"順序無所謂？"}]}});
+      nodes[n20].next = nu; writes++;
+      snap({kind:"link", line:6, hotEdge:n20, hot:[nu], lab:"20.next = 25",
+        title:"後改：cur->next = newNode",
+        msg:"現在才把 20 的車鉤從 30 改鉤到 25。25 正式進入列車：10→20→25→30→40。全程列車<b>沒有斷過一秒</b>。",
+        quiz:{q:"25 已經鉤好 30 了，下一步？", a:2, opts:[
+          {t:"delete 30", s:""},
+          {t:"newNode->next = 20", s:""},
+          {t:"cur->next = newNode：把 20 改鉤到 25", s:""}]}});
+      delete ptrs.cur; delete ptrs.nu;
+      snap({kind:"done", line:7, lab:"10→20→25→30→40",
+        title:"完成：兩行指標，搞定插入",
+        msg:"插入本身只有兩行、O(1)；貴的是<b>找位置</b>的走訪 O(n)。陣列剛好相反：找位置 O(1)，插入要搬移 O(n)。選哪個，取決於你的程式常做哪件事。下一關：看看這兩行順序接反的下場。",
+        quiz:{q:"整趟「中間插入」，哪一部分花 O(n)？", a:1, opts:[
+          {t:"改指標的那兩行", s:""},
+          {t:"用 cur 從頭走到 20 的走訪", s:""},
+          {t:"new Node(25)", s:""}]}});
+
+    } else if(level.t === "broken"){
+      initList([10,20,30,40]);
+      n20 = byVal(20);
+      nu = alloc(25); ptrs.cur = n20; ptrs.nu = nu;
+      snap({kind:"start", line:4, lab:"cur=20, new 25",
+        title:"反例實驗：故意把順序接反",
+        msg:"跟上一關一模一樣的起點：cur 已走到 20，新車廂 25 蓋好了。上一關說「先接後改」，這一關偏不——<b>先改 cur->next</b>，親眼看看會發生什麼。"});
+      nodes[n20].next = nu; writes++;
+      snap({kind:"error", line:6, hotEdge:n20, hot:[nu], lab:"20.next = 25（先改！）",
+        title:"斷鏈了！30 → 40 漂走",
+        msg:"20 的車鉤一改鉤 25，原本鉤著的 30 就<b>沒有任何指標記得</b>了。單向串列裡指標是唯一的線索——你沒有在別處抄過 30 的地址，放手就是永別。下面淡掉的那截列車，就是要不回來的記憶體（<b>memory leak</b>）。程式不會當掉，它只是安靜地漏。",
+        quiz:{q:"還沒設 newNode->next 就先做 cur->next = newNode，30 和 40 會怎樣？", a:1, opts:[
+          {t:"沒差，待會再接回來就好", s:""},
+          {t:"再也找不回來了", s:"沒人記得地址"},
+          {t:"程式立刻當掉", s:""}]}});
+      nodes[nu].next = nodes[n20].next; writes++;
+      snap({kind:"error", line:5, hotEdge:nu, hot:[nu], lab:"25.next = 25？！",
+        title:"雪上加霜：自己鉤自己",
+        msg:"太遲了。cur->next 在上一步已經被改成 25，所以這行等於 <b>25->next = 25</b>——車廂自己鉤住自己。上方那條紅色迴圈就是證據。",
+        quiz:{q:"這時才補做 newNode->next = cur->next。cur->next 現在是誰？", a:1, opts:[
+          {t:"30", s:""},
+          {t:"newNode 自己", s:""},
+          {t:"∅", s:""}]}});
+      snap({kind:"error", line:17, lab:"10→20→25→25→…",
+        title:"這條串列壞掉了",
+        msg:"現在走訪這條串列會 10→20→25→25→25… <b>無限迴圈</b>；30、40 則永遠漂著、還不掉。兩行一模一樣的程式只是對調順序，結果天差地遠——而且<b>編譯器完全不會報錯</b>，它只看語法，不懂你的列車。這就是「先接後斷」是鐵律的原因。",
+        quiz:{q:"要避免這場災難，正確順序是？", a:0, opts:[
+          {t:"先 newNode->next = cur->next，再 cur->next = newNode", s:"先接後改"},
+          {t:"先 cur->next = newNode，再補 newNode->next", s:"就是本關的慘劇"},
+          {t:"順序無所謂，編譯器會擋", s:""}]}});
+
+    } else if(level.t === "delMid"){
+      initList([8,15,23,42]);
+      var n8 = byVal(8), n15 = byVal(15), n23 = byVal(23);
+      snap({kind:"start", line:1, lab:"8→15→23→42",
+        title:"初始串列：8 → 15 → 23 → 42",
+        msg:"目標：刪掉 <b>23</b>。關鍵：要動手的其實是「指向 23 的那根指標」，而那根指標長在 <b>15</b> 身上——所以得先派 <b>prev</b>（前一節）走到 15。"});
+      ptrs.prev = n8;
+      snap({kind:"walk", line:17, hot:[n8], lab:"prev = 8",
+        title:"prev = head：從 8 出發",
+        msg:"prev（previous，前一節）出發。它要停的位置不是目標本身，而是<b>目標的前一節</b>。"});
+      ptrs.prev = n15;
+      snap({kind:"walk", line:17, hot:[n15], lab:"prev = 15",
+        title:"prev 停在 15",
+        msg:"停在 15。單向串列的車廂<b>不知道自己的前一節是誰</b>（車鉤只朝後），所以想改「指向我的那根指標」，一定要提前在前一節停下來。",
+        quiz:{q:"要刪 23，prev 該停在哪一節？", a:2, opts:[
+          {t:"23 自己", s:""},
+          {t:"42", s:""},
+          {t:"15：23 的前一節", s:"改的指標長在它身上"}]}});
+      ptrs.cur = n23;
+      snap({kind:"walk", line:11, hot:[n23], lab:"cur = 23",
+        title:"cur = prev->next：先記住要刪的 23",
+        msg:"先用 cur 抄下 23 的地址。不先抄，下一步指標一改，23 就找不到、也還不了記憶體了——跟搬家前先把舊鑰匙收好是同一件事。"});
+      nodes[n15].next = nodes[n23].next; writes++;
+      snap({kind:"cut", line:12, hotEdge:n15, hot:[n23], lab:"15.next = 42",
+        title:"跳過：prev->next = cur->next",
+        msg:"15 的車鉤跳過 23，直接鉤住 42。列車現在是 8→15→42，不再經過 23——但 23 還躺在記憶體裡，<b>cur 還牽著它</b>，所以它是浮動節點、不是垃圾。",
+        quiz:{q:"刪除 23，該改哪根指標？", a:0, opts:[
+          {t:"prev->next = cur->next：15 直接鉤到 42", s:""},
+          {t:"cur->next = ∅", s:"改它自己沒用"},
+          {t:"42->next = 15", s:"方向反了"}]}});
+      kill(n23); delete ptrs.cur;
+      snap({kind:"del", line:13, lab:"delete 23",
+        title:"delete cur：歸還記憶體",
+        msg:"<b>delete</b> 把 23 那塊記憶體還給倉庫。C++ 不會自動回收——忘了這行，刪一千次就漏一千塊。（Python、JavaScript 有垃圾回收器代勞，C++ 全靠自己記得。）",
+        quiz:{q:"指標改完、列車通了。結束了嗎？", a:1, opts:[
+          {t:"結束了，23 會自己消失", s:""},
+          {t:"還要 delete cur 把記憶體還給系統", s:""},
+          {t:"要把 42 往前搬一格", s:"陣列才要搬"}]}});
+      delete ptrs.prev;
+      snap({kind:"done", line:14, lab:"8→15→42",
+        title:"完成：8 → 15 → 42",
+        msg:"刪除中間節點：改 1 根指標＋1 次 delete，O(1)。陣列刪中間得把後面全部往前搬，O(n)。",
+        quiz:{q:"經典考題：刪掉 B（23）之後，A（15）的 next 指向誰？", a:0, opts:[
+          {t:"C，也就是 42", s:""},
+          {t:"∅", s:""},
+          {t:"還是 23", s:""}]}});
+
+    } else if(level.t === "delHead"){
+      initList([5,11,29]);
+      var n5 = byVal(5);
+      snap({kind:"start", line:1, lab:"5→11→29",
+        title:"初始串列：5 → 11 → 29",
+        msg:"目標：刪掉第一節 <b>5</b>。開頭沒有「前一節」，這次要動的是 head 本人。"});
+      ptrs.cur = n5;
+      snap({kind:"walk", line:11, hot:[n5], lab:"cur = 5",
+        title:"cur = head：先記住 5",
+        msg:"先抄下 5 的地址。等下 head 一移走，cur 就是我們找回 5、把記憶體還掉的<b>唯一線索</b>。",
+        quiz:{q:"可以直接 head = head->next，然後就不理 5 了嗎？", a:1, opts:[
+          {t:"可以，列車通了就好", s:""},
+          {t:"不行，5 會變成沒人記得的垃圾", s:"memory leak"}]}});
+      head = nodes[n5].next; writes++;
+      snap({kind:"cut", line:12, hotEdge:"head", hot:[n5], lab:"head = 11",
+        title:"head = head->next：head 往後移",
+        msg:"head 改指 11。5 脫離列車，但 cur 還牽著它——安全。（開頭沒有 prev，所以動的是 head；精神跟第 12 行「讓指標跳過要刪的節點」一樣。）"});
+      kill(n5); delete ptrs.cur;
+      snap({kind:"del", line:13, lab:"delete 5",
+        title:"delete cur：歸還 5",
+        msg:"歸還 5。順序很要緊：<b>先移 head、再 delete</b>。反過來的話，head 還指著已經還掉的地址，head->next 就是去翻已退租的房間——「use-after-free」，經典當機來源。",
+        quiz:{q:"如果順序反過來：先 delete 5，再 head = head->next 呢？", a:1, opts:[
+          {t:"結果一樣，順序無所謂", s:""},
+          {t:"head->next 會去讀已釋放的記憶體，行為不可預測", s:"use-after-free"},
+          {t:"11 會跟著被刪掉", s:""}]}});
+      snap({kind:"done", line:14, lab:"11→29",
+        title:"完成：11 → 29",
+        msg:"刪頭 O(1)。陣列刪開頭最貴（整排往前搬），串列刪開頭最便宜——兩種結構又一次完美互補。",
+        quiz:{q:"刪除開頭之後，新的第一節是？", a:0, opts:[
+          {t:"11", s:""},
+          {t:"29", s:""},
+          {t:"∅", s:""}]}});
+
+    } else if(level.t === "find"){
+      initList([6,14,17,30]);
+      var f6 = byVal(6), f14 = byVal(14), f17 = byVal(17);
+      snap({kind:"start", line:16, lab:"find(17)",
+        title:"目標：找出載著 17 的車廂",
+        msg:"陣列可以「直接看第 i 格」，串列不行——節點散落在記憶體各處，只有車鉤知道路。唯一的辦法：從 head 出發，<b>一節一節開箱檢查</b>。"});
+      ptrs.cur = f6;
+      snap({kind:"walk", line:17, hot:[f6], lab:"c = 6",
+        title:"c = head：從 6 出發",
+        msg:"檢查員 c 站上第一節。for 迴圈的三段話：c 從 head 出發；c 還不是 ∅ 就繼續；每圈 c = c->next 往後走。"});
+      ptrs.cur = f14;
+      snap({kind:"cmp", line:18, hot:[f14], lab:"6≠17 → 14",
+        title:"6 ≠ 17，走到 14",
+        msg:"開箱：6 不是 17，c = c->next 走到 14。<b>c++ 沒有用</b>——下一節不在隔壁（看 @ 地址），地址加一只會指到記憶體裡不知道什麼東西。",
+        quiz:{q:"6 不是 17。下一步？", a:0, opts:[
+          {t:"c = c->next：沿車鉤走到下一節", s:""},
+          {t:"c++：地址加一", s:"陣列的直覺"},
+          {t:"從尾巴倒著找", s:"單向串列走不回去"}]}});
+      ptrs.cur = f17;
+      snap({kind:"cmp", line:18, hot:[f17], lab:"14≠17 → 17",
+        title:"14 ≠ 17，走到 17",
+        msg:"還不是，再走一節。每走一節就是一次比對成本——成本跟位置成正比。"});
+      snap({kind:"done", line:18, hot:[f17], lab:"找到 17！",
+        title:"17 == 17，找到了！",
+        msg:"return c，把 17 那節的<b>地址</b>交回去。搜尋是串列的弱項：O(n)。<b>連二分搜尋都救不了它</b>——二分需要「跳到中間」，串列跳不了。這是它拿「插刪 O(1)」換來的代價。",
+        quiz:{q:"找到第 3 節的 17 花了 3 次比對。串列搜尋的複雜度是？", a:0, opts:[
+          {t:"O(n)：平均走一半、最壞走完整列", s:""},
+          {t:"O(1)：跟陣列取索引一樣快", s:""},
+          {t:"O(log n)：可以二分搜尋", s:"二分需要跳到中間"}]}});
+
+    } else if(level.t === "findX"){
+      initList([6,14,17,30]);
+      var g6 = byVal(6), g14 = byVal(14), g17 = byVal(17), g30 = byVal(30);
+      snap({kind:"start", line:16, lab:"find(99)",
+        title:"目標：找 99（其實不存在）",
+        msg:"這次找一個<b>不存在</b>的值，看看程式怎麼「安全地失敗」——這一半的劇本，跟找得到一樣重要。"});
+      ptrs.cur = g6;
+      snap({kind:"walk", line:17, hot:[g6], lab:"c = 6",
+        title:"c = head：老規矩，從頭走",
+        msg:"沒有捷徑。不管找什麼，都從第一節開始。"});
+      ptrs.cur = g14;
+      snap({kind:"cmp", line:18, hot:[g14], lab:"6≠99 → 14",
+        title:"6 ≠ 99，往後走",
+        msg:"不是，下一節。"});
+      ptrs.cur = g17;
+      snap({kind:"cmp", line:18, hot:[g17], lab:"14≠99 → 17",
+        title:"14 ≠ 99，往後走",
+        msg:"不是，下一節。"});
+      ptrs.cur = g30;
+      snap({kind:"cmp", line:18, hot:[g30], lab:"17≠99 → 30",
+        title:"17 ≠ 99，往後走",
+        msg:"不是，下一節。已經是最後一節車廂了。"});
+      ptrs.cur = "null";
+      snap({kind:"walk", line:17, lab:"c = ∅",
+        title:"30 ≠ 99，c 走到 ∅",
+        msg:"30 也不是，而 30 的車鉤是 ∅——所以 c = c->next 之後 c 變成 <b>nullptr</b>。for 的條件「c != nullptr」就是在防這一刻：少了它，下一圈的 c->val 就是<b>對空指標取值</b>，程式直接崩潰。∅ 不是裝飾，是安全網。",
+        quiz:{q:"c 現在是 nullptr。如果程式這時還去讀 c->val，會發生什麼？", a:1, opts:[
+          {t:"拿到 0", s:""},
+          {t:"程式當掉：對空指標取值", s:"segmentation fault"},
+          {t:"拿到最後一節的 30", s:""}]}});
+      snap({kind:"done", line:19, lab:"return nullptr",
+        title:"回報：查無此人",
+        msg:"return nullptr——呼叫的人拿到「空」，就知道 99 不在串列裡。<b>找不到必須走完整列才能確定</b>，這就是 O(n) 的最壞情況。",
+        quiz:{q:"find 找不到時，交回什麼？", a:1, opts:[
+          {t:"0", s:""},
+          {t:"nullptr：用「空」代表「沒有」", s:""},
+          {t:"最後一節 30 的地址", s:"會被誤認成找到了"}]}});
+    }
+
+    return steps;
+  }
+
+  /* ---------- 畫面層：主視覺（車廂 + SVG 箭頭 + 指標標籤） ---------- */
+  var NODE_W = 96, NODE_H = 54, GAP = 48, ROW0 = 36, ROW1 = 142, X0 = 10, HEAD_W = 54;
+  var PTR_ORDER = ["prev", "cur", "nu"];
+  var PTR_LABEL = {prev:"prev", cur:"cur", nu:"new"};
+
+  function paintStage(){
+    var st = S.steps[S.cur];
+    var stage = $("lstage");
+    var pos = {}, i, id;
+
+    /* 排位置：主列（head → chain → ∅），浮動與垃圾在下排 */
+    var x = X0 + HEAD_W + 36;
+    for(i=0;i<st.chain.length;i++){
+      pos[st.chain[i]] = {x:x, y:ROW0};
+      x += NODE_W + GAP;
+    }
+    var nullPos = null;
+    if(!st.looped){ nullPos = {x:x, y:ROW0}; x += 60 + GAP; }
+    var x1 = X0 + HEAD_W + 60;
+    var lower = st.floats.concat(st.lost);
+    for(i=0;i<lower.length;i++){
+      pos[lower[i]] = {x:x1, y:ROW1};
+      x1 += NODE_W + GAP;
+    }
+    var width = Math.max(x, x1, 560) + 10;
+
+    /* 指標標籤分配：id -> ["cur",...]，"null" 掛在 ∅ 上 */
+    var tags = {}, nullTags = [], p, tgt;
+    for(i=0;i<PTR_ORDER.length;i++){
+      p = PTR_ORDER[i];
+      if(!(p in st.ptrs)) continue;
+      tgt = st.ptrs[p];
+      if(tgt === "null"){ nullTags.push(p); }
+      else { if(!tags[tgt]) tags[tgt] = []; tags[tgt].push(p); }
+    }
+    function tagHtml(list){
+      var out = '<div class="ptags">';
+      for(var k=0;k<list.length;k++)
+        out += '<span class="ptag" data-p="' + list[k] + '">' + PTR_LABEL[list[k]] + '</span>';
+      return out + '</div>';
+    }
+
+    /* 邊（箭頭）收集 */
+    var edges = [];
+    function addEdge(sx, sy, tPos, fromUp, kindCls){
+      var ty = tPos.y + ((sy === tPos.y + 27) ? 27 : (sy < tPos.y ? 12 : 44));
+      if(sy === tPos.y + 27) ty = tPos.y + 27;
+      edges.push({sx:sx, sy:sy, tx:tPos.x - 3, ty:ty, cls:kindCls});
+    }
+    var lostMap = {};
+    for(i=0;i<st.lost.length;i++) lostMap[st.lost[i]] = 1;
+
+    if(st.head !== null && pos[st.head]){
+      addEdge(X0 + HEAD_W - 10, ROW0 + 27, pos[st.head], false,
+        st.hotEdge === "head" ? "hot" : "norm");
+    } else if(st.head === null && nullPos){
+      addEdge(X0 + HEAD_W - 10, ROW0 + 27, nullPos, false,
+        st.hotEdge === "head" ? "hot" : "norm");
+    }
+    var selfLoops = [];
+    for(i=0;i<st.order.length;i++){
+      id = st.order[i];
+      var nd = st.nodes[id];
+      if(!pos[id]) continue;
+      if(nd.next !== null && nd.next === id){
+        selfLoops.push(id);
+      } else if(nd.next !== null && pos[nd.next]){
+        addEdge(pos[id].x + NODE_W - 15, pos[id].y + 27, pos[nd.next], false,
+          st.hotEdge === id ? "hot" : (lostMap[id] ? "faint" : "norm"));
+      }
+    }
+    if(nullPos && st.chain.length){
+      var lastId = st.chain[st.chain.length - 1];
+      if(st.nodes[lastId].next === null){
+        addEdge(pos[lastId].x + NODE_W - 15, pos[lastId].y + 27, nullPos, false,
+          st.hotEdge === lastId ? "hot" : "norm");
+      }
+    }
+
+    /* 組 SVG */
+    var STROKE = {norm:"var(--ink-soft)", hot:"var(--accent)", faint:"var(--ink-faint)", bad:"var(--alarm)"};
+    var MARKER = {norm:"mA", hot:"mH", faint:"mF", bad:"mB"};
+    var svg = ['<svg class="ledges" width="' + width + '" height="226" aria-hidden="true">'];
+    svg.push('<defs>');
+    svg.push('<marker id="mA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--ink-soft)"/></marker>');
+    svg.push('<marker id="mH" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent)"/></marker>');
+    svg.push('<marker id="mF" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--ink-faint);opacity:.4"/></marker>');
+    svg.push('<marker id="mB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--alarm)"/></marker>');
+    svg.push('</defs>');
+    for(i=0;i<edges.length;i++){
+      var e = edges[i], d;
+      if(e.sy === e.ty) d = "M " + e.sx + " " + e.sy + " L " + e.tx + " " + e.ty;
+      else d = "M " + e.sx + " " + e.sy + " C " + (e.sx + 50) + " " + e.sy + " " +
+               (e.tx - 56) + " " + e.ty + " " + e.tx + " " + e.ty;
+      svg.push('<path d="' + d + '" fill="none" stroke="' + STROKE[e.cls] +
+        '" stroke-width="' + (e.cls === "hot" ? 2.6 : 2) + '"' +
+        (e.cls === "faint" ? ' opacity=".35"' : '') +
+        ' marker-end="url(#' + MARKER[e.cls] + ')"/>');
+    }
+    for(i=0;i<selfLoops.length;i++){
+      var sp = pos[selfLoops[i]];
+      svg.push('<path d="M ' + (sp.x + NODE_W - 15) + ' ' + sp.y + ' C ' +
+        (sp.x + NODE_W + 34) + ' ' + (sp.y - 34) + ' ' + (sp.x - 30) + ' ' + (sp.y - 34) +
+        ' ' + (sp.x + 10) + ' ' + sp.y +
+        '" fill="none" stroke="var(--alarm)" stroke-width="2.4" stroke-dasharray="5 4" marker-end="url(#mB)"/>');
+    }
+    svg.push('</svg>');
+
+    /* 組節點 DOM */
+    var html = [svg.join("")];
+    html.push('<div class="hstub' + (st.hotEdge === "head" ? ' is-hot' : '') +
+      '" style="left:' + X0 + 'px;top:' + ROW0 + 'px">head<small>指標</small></div>');
+    if(nullPos){
+      html.push('<div class="lnull" style="left:' + nullPos.x + 'px;top:' + nullPos.y + 'px">' +
+        (nullTags.length ? tagHtml(nullTags) : '') + '<b>∅</b><small>nullptr</small></div>');
+    }
+    var hotMap = {};
+    for(i=0;i<st.hot.length;i++) hotMap[st.hot[i]] = 1;
+    var lastChain = st.chain.length ? st.chain[st.chain.length - 1] : null;
+    for(i=0;i<st.order.length;i++){
+      id = st.order[i];
+      if(!pos[id]) continue;
+      var n = st.nodes[id];
+      var cellNext;
+      if(n.next !== null) cellNext = "•";
+      else cellNext = (id === lastChain && nullPos) ? "•" : "∅";
+      var cls = "lnode" + (hotMap[id] ? " is-hot" : "") + (lostMap[id] ? " is-lost" : "");
+      html.push('<div class="' + cls + '" style="left:' + pos[id].x + 'px;top:' + pos[id].y + 'px">' +
+        (tags[id] ? tagHtml(tags[id]) : '') +
+        '<div class="cells"><span class="val">' + n.val + '</span><span class="nxt">' + cellNext + '</span></div>' +
+        '<div class="addr">@' + ADDRS[(id - 1) % ADDRS.length] + '</div></div>');
+    }
+    stage.style.width = width + "px";
+    stage.innerHTML = html.join("");
+    $("stageNote").textContent = "長度 " + st.chain.length + (st.looped ? " · 迴圈！" : "");
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 統計 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", TONE[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j=1;j<=S.cur;j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", TONE[st.kind]);
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = st.lab;
+      var tail = document.createElement("span");
+      tail.className = "tail"; tail.textContent = "len " + st.chain.length;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur];
+    $("statLen").textContent = st.chain.length;
+    $("statWrites").textContent = st.writes;
+    $("statNodes").textContent = st.order.length;
+    $("statLost").textContent = st.lost.length;
+    $("statLostBox").setAttribute("data-k", st.lost.length ? "no" : "");
+    $("statNote").textContent = st.looped ? "迴圈！" : "";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintStage(); paintAlgo(); paintSay(); paintLog(); paintStats(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 1000);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 闖關 ---------- */
+  function nextQuizIndex(){
+    for(var j=S.cur+1;j<S.steps.length;j++) if(S.steps[j].quiz) return j;
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadLevel(S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    S.pendingIndex = ni;
+    var qz = S.steps[ni].quiz;
+    q.innerHTML = qz.q;
+    opts.innerHTML = "";
+    for(var i=0;i<qz.opts.length;i++){
+      (function(idx){
+        var o = qz.opts[idx];
+        var b = document.createElement("button");
+        b.className = "opt"; b.type = "button";
+        b.innerHTML = esc(o.t) + (o.s ? "<small>" + esc(o.s) + "</small>" : "");
+        b.addEventListener("click", function(){ answerQuiz(idx); });
+        opts.appendChild(b);
+      })(i);
+    }
+  }
+
+  function answerQuiz(idx){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0 || !S.steps[ni] || !S.steps[ni].quiz) return;
+    var st = S.steps[ni], qz = st.quiz;
+    var win = (idx === qz.a);
+
+    S.asked++;
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + esc(qz.opts[qz.a].t) + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 載入 ---------- */
+  function loadLevel(i){
+    stopPlay();
+    S.levelIdx = i;
+    S.steps = buildSteps(LEVELS[i]);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    render();
+    $("lrail").scrollLeft = 0;
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.c;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著畫面上的列車與指標，猜猜下一步該改哪根指標。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadLevel(S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

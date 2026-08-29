@@ -148,7 +148,7 @@
       <span class="sec-num">地圖</span>
       <div>
         <h2>全部遊戲</h2>
-        <p class="sub">灰色虛線是還沒做的。每一頁都是同樣的四段結構。</p>
+        <p class="sub">17 關全部可以玩。每一頁都是同樣的四段結構。</p>
       </div>
     </div>
     <div class="sec-body">
@@ -237,99 +237,108 @@
 
       <div class="group">
         <div class="group-head">
-          <h2>其他線性結構</h2><span class="rule"></span><span class="count">09 – 10 · 規劃中</span>
+          <h2>其他線性結構</h2><span class="rule"></span><span class="count">09 – 10 · 全部可玩</span>
         </div>
         <div class="cards">
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">09</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/09-circular-queue.html">
+            <div class="top"><span class="no">09</span><span class="state">可以玩</span></div>
             <h3>環形佇列排隊</h3>
-            <p>顧客進場離場，front 和 rear 兩根指標在圓環上追著跑。看清楚「滿了」和「空了」為什麼長得一樣，以及要怎麼分辨。</p>
-            <div class="tags"><span class="tag ds">環形佇列</span><span class="tag">入門</span></div>
-          </div>
+            <p>顧客進場離場，front 和 rear 兩根指標在圓環上追著跑。看清楚「滿了」和「空了」為什麼長得一樣，以及要怎麼分辨。附「猜下一步」闖關模式。</p>
+            <div class="tags"><span class="tag ds">環形佇列</span><span class="tag">入門</span><span class="tag">O(1)/操作</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">10</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/10-linked-list.html">
+            <div class="top"><span class="no">10</span><span class="state">可以玩</span></div>
             <h3>鏈結串列接龍</h3>
-            <p>拖節點、接指標，親手做插入與刪除。體驗一次「順序接錯就斷鏈」，就會記得為什麼要先接後斷。</p>
-            <div class="tags"><span class="tag ds">鏈結串列</span><span class="tag">入門</span></div>
-          </div>
+            <p>接指標，親手做插入與刪除。體驗一次「順序接錯就斷鏈」——後半條列車當場漂走變垃圾，就會記得為什麼要先接後斷。附「猜下一步」闖關模式。</p>
+            <div class="tags"><span class="tag ds">鏈結串列</span><span class="tag">入門</span><span class="tag">插入 O(1)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
         </div>
       </div>
 
       <div class="group">
         <div class="group-head">
-          <h2>樹</h2><span class="rule"></span><span class="count">11 – 13 · 規劃中</span>
+          <h2>樹</h2><span class="rule"></span><span class="count">11 – 13 · 全部可玩</span>
         </div>
         <div class="cards">
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">11</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/11-bst.html">
+            <div class="top"><span class="no">11</span><span class="state">可以玩</span></div>
             <h3>二元搜尋樹種樹</h3>
             <p>丟一個數字進去，看它一路比大小往下掉，最後長在哪個位置。刪除節點的三種情況也一步一步演。</p>
-            <div class="tags"><span class="tag ds">BST</span><span class="tag">中階</span></div>
-          </div>
+            <div class="tags"><span class="tag ds">BST</span><span class="tag">中階</span><span class="tag">平均 O(log n)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">12</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/12-tree-traversal.html">
+            <div class="top"><span class="no">12</span><span class="state">可以玩</span></div>
             <h3>走訪路線猜謎</h3>
             <p>前序、中序、後序、層序，同一棵樹四種走法。給你走訪結果，反推原本的樹長什麼樣。接在 04 呼叫堆疊後面剛剛好。</p>
-            <div class="tags"><span class="tag ds">樹走訪</span><span class="tag">中階</span></div>
-          </div>
+            <div class="tags"><span class="tag ds">樹走訪</span><span class="tag">中階</span><span class="tag">O(n)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">13</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/13-heap.html">
+            <div class="top"><span class="no">13</span><span class="state">可以玩</span></div>
             <h3>堆積上浮下沉</h3>
-            <p>插入時往上浮、刪除時往下沉。看陣列和樹形圖同步變化，理解「用陣列存樹」這件事。</p>
-            <div class="tags"><span class="tag ds">Heap</span><span class="tag">中階</span></div>
-          </div>
+            <p>插入時往上浮、刪除時往下沉。看陣列和樹形圖同步變化，理解「用陣列存樹」這件事。附 O(n) buildHeap 與逐一插入的當場對比。</p>
+            <div class="tags"><span class="tag ds">Heap</span><span class="tag">中階</span><span class="tag">O(log n)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
         </div>
       </div>
 
       <div class="group">
         <div class="group-head">
-          <h2>排序與搜尋</h2><span class="rule"></span><span class="count">14 – 16 · 規劃中</span>
+          <h2>排序與搜尋</h2><span class="rule"></span><span class="count">14 – 16 · 全部可玩</span>
         </div>
         <div class="cards">
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">14</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/14-sorting-arena.html">
+            <div class="top"><span class="no">14</span><span class="state">可以玩</span></div>
             <h3>排序競技場</h3>
             <p>氣泡、選擇、插入、合併、快速排序同時開跑，比較次數與交換次數即時計分。看見 O(n²) 和 O(n log n) 的差距。</p>
             <div class="tags"><span class="tag ds">排序</span><span class="tag">中階</span></div>
-          </div>
+            <span class="go">開始玩 →</span>
+          </a>
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">15</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/15-binary-search.html">
+            <div class="top"><span class="no">15</span><span class="state">可以玩</span></div>
             <h3>二分搜尋猜數字</h3>
-            <p>1 到 1000，你來猜，電腦也來猜。用次數證明為什麼每次砍一半只要 10 次。</p>
-            <div class="tags"><span class="tag ds">二分搜尋</span><span class="tag">入門</span></div>
-          </div>
+            <p>1 到 1000，你來猜，電腦也來猜。用次數證明為什麼每次砍一半只要 10 次。附 lo/mid/hi 三指標的排序陣列演示，含「找不到」的收斂過程。</p>
+            <div class="tags"><span class="tag ds">二分搜尋</span><span class="tag">入門</span><span class="tag">O(log n)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">16</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/16-hash-table.html">
+            <div class="top"><span class="no">16</span><span class="state">可以玩</span></div>
             <h3>雜湊表大碰撞</h3>
             <p>同一個格子擠進兩筆資料怎麼辦。鏈結法和開放定址法並排比較，看載入因子怎麼拖垮效能。</p>
-            <div class="tags"><span class="tag ds">Hash Table</span><span class="tag">中階</span></div>
-          </div>
+            <div class="tags"><span class="tag ds">Hash Table</span><span class="tag">中階</span><span class="tag">平均 O(1)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
         </div>
       </div>
 
       <div class="group">
         <div class="group-head">
-          <h2>圖</h2><span class="rule"></span><span class="count">17 · 規劃中</span>
+          <h2>圖</h2><span class="rule"></span><span class="count">17 · 可以玩</span>
         </div>
         <div class="cards">
 
-          <div class="card is-soon">
-            <div class="top"><span class="no">17</span><span class="state">規劃中</span></div>
+          <a class="card is-live" href="games/17-dijkstra.html">
+            <div class="top"><span class="no">17</span><span class="state">可以玩</span></div>
             <h3>最短路徑派遣</h3>
             <p>Dijkstra 一步一步鬆弛。看優先佇列怎麼決定下一個要展開哪個點 —— 就是把 07 迷宮的佇列升級。</p>
-            <div class="tags"><span class="tag ds">Dijkstra</span><span class="tag">進階</span></div>
-          </div>
+            <div class="tags"><span class="tag ds">Dijkstra</span><span class="tag">進階</span><span class="tag">O((V+E) log V)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
         </div>
       </div>

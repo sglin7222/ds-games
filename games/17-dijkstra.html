@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>最短路徑派遣 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用：加權圖 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺。 */
+
+.gbox{overflow-x:auto;padding:2px}
+svg.graph{display:block;width:100%;max-width:660px;margin:0 auto;height:auto}
+
+/* 邊 */
+.edge{stroke:var(--line);stroke-width:2.5;
+  transition:stroke var(--dur),stroke-width var(--dur)}
+.edge.tree{stroke:color-mix(in srgb, var(--jade) 55%, var(--line));stroke-width:3.5}
+.edge.hot{stroke:var(--accent);stroke-width:5;stroke-dasharray:7 5;
+  animation:dashmove .6s linear infinite}
+.edge.path{stroke:var(--jade);stroke-width:5.5}
+@keyframes dashmove{to{stroke-dashoffset:-12}}
+
+/* 邊上的權重數字 */
+.wlab{font-family:var(--font-mono);font-size:12px;font-weight:700;fill:var(--ink-soft);
+  text-anchor:middle;paint-order:stroke;stroke:var(--surface);stroke-width:4px}
+.wlab.hot{fill:var(--accent);font-size:14px}
+.wlab.path{fill:var(--jade)}
+
+/* 節點 */
+.nd circle{fill:var(--surface-2);stroke:var(--line);stroke-width:2;
+  transition:fill var(--dur),stroke var(--dur)}
+.nd .nid{font-family:var(--font-mono);font-size:14px;font-weight:700;
+  fill:var(--ink);text-anchor:middle}
+.nd .rlab{font-family:var(--font-sans);font-size:10px;font-weight:600;
+  fill:var(--ink-faint);text-anchor:middle}
+.nd.qd circle{fill:var(--accent-soft);stroke:var(--accent)}
+.nd.set circle{fill:var(--jade-soft);stroke:var(--jade)}
+.nd.set .nid{fill:var(--jade)}
+.nd.cur circle{fill:var(--accent);stroke:var(--accent)}
+.nd.cur .nid{fill:var(--surface)}
+.nd.touch circle{stroke:var(--accent);stroke-width:3.5}
+.nd.staled circle{stroke:var(--alarm);stroke-dasharray:5 3}
+.nd.onpath circle{stroke:var(--jade);stroke-width:3.5}
+
+/* 節點上方的 dist 值 */
+.dlab{font-family:var(--font-mono);font-size:13px;font-weight:700;fill:var(--ink-faint);
+  text-anchor:middle;paint-order:stroke;stroke:var(--surface);stroke-width:4px}
+.dlab.known{fill:var(--ink)}
+.dlab.fixed{fill:var(--jade)}
+.dlab.bump{fill:var(--accent);transform-box:fill-box;transform-origin:center;
+  animation:bump .55s ease}
+@keyframes bump{0%{transform:scale(1.7)}100%{transform:scale(1)}}
+
+/* 圖例 */
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+  font-size:11.5px;color:var(--ink-soft)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);
+  background:var(--surface-2)}
+.legend i.l-set{background:var(--jade-soft);border-color:var(--jade)}
+.legend i.l-cur{background:var(--accent);border-color:var(--accent)}
+.legend i.l-qd{background:var(--accent-soft);border-color:var(--accent)}
+.legend i.l-edge{border-radius:3px;height:5px;background:var(--accent);border:0;margin-top:5px}
+.legend i.l-path{border-radius:3px;height:5px;background:var(--jade);border:0;margin-top:5px}
+
+/* 優先佇列面板 */
+.pqv{display:flex;flex-direction:column;gap:3px;max-height:236px;overflow-y:auto;
+  background:var(--sunken);border-radius:8px;padding:8px;
+  font-family:var(--font-mono);font-size:12px}
+.pqi{display:flex;align-items:center;gap:8px;padding:4px 9px;border-radius:5px;
+  background:var(--surface-2);color:var(--ink-soft);font-weight:700}
+.pqi .pr{color:var(--accent)}
+.pqi.next{background:var(--accent);color:var(--surface)}
+.pqi.next .pr{color:var(--surface)}
+.pqi.stale{opacity:.62}
+.pqi.stale .pairtxt{text-decoration:line-through}
+.pqi .st-tag{margin-left:auto;font-size:9.5px;letter-spacing:.08em;color:var(--alarm);font-weight:700}
+.pqi.next .st-tag{color:var(--surface)}
+.pqi.tagline{background:transparent;color:var(--ink-faint);justify-content:center;font-weight:500}
+
+/* dist / parent 表 */
+.dtbl table{font-size:12.5px}
+.dtbl td,.dtbl th{padding:5px 10px}
+.dtbl tr.cur td{background:var(--accent-soft)}
+.dtbl tr.set td.stt{color:var(--jade);font-weight:700}
+.dtbl td.chg{color:var(--accent);font-weight:700}
+
+/* 起終點選擇 */
+.pick{display:flex;align-items:center;gap:6px}
+.pick label{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+
+/* 03 段的小示意圖 */
+.mini{display:block;width:100%;max-width:480px;margin:6px auto;height:auto}
+.mini line{stroke:var(--line);stroke-width:2.5}
+.mini line.fast{stroke:var(--jade);stroke-width:4}
+.mini line.slow{stroke:var(--alarm);stroke-width:4;stroke-dasharray:6 4}
+.mini circle{fill:var(--surface-2);stroke:var(--line);stroke-width:2}
+.mini text{font-family:var(--font-mono);font-size:12px;font-weight:700;
+  fill:var(--ink);text-anchor:middle}
+.mini text.w{fill:var(--ink-soft);paint-order:stroke;stroke:var(--surface);stroke-width:4px}
+.mini text.cap{font-family:var(--font-sans);font-weight:600;font-size:11px;fill:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">17 · Dijkstra</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 17 · Dijkstra Shortest Path</p>
+    <h1>最短路徑派遣</h1>
+    <p class="lede">07 關的迷宮裡每一步成本都一樣，普通佇列「先到先服務」就能保證最短。現在每條路有不同的權重——先到的不一定最快。把佇列升級成<b>優先佇列</b>，永遠先處理「目前已知最快抵達」的點，就是 Dijkstra。看它怎麼一步一步鬆弛、一個一個把節點「出爐」。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>優先佇列 Priority Queue</b></div>
+      <div class="fact"><span>難度</span><b>進階</b></div>
+      <div class="fact"><span>時間</span><b>O((V+E) log V)</b></div>
+      <div class="fact"><span>空間</span><b>O(V+E)</b></div>
+      <div class="fact"><span>先備知識</span><b>07 迷宮 BFS、佇列</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上是一張<b>有權重的地圖</b>：圓圈是地點（節點），連線是道路（邊），線上的數字是走那段路要花的時間（權重）。每個節點上方有一個數字，是「目前已知最快幾分鐘能到這裡」——一開始除了起點是 0，其他全是 ∞（還不知道怎麼去）。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>，也可以換<b>起點／終點</b>。</li>
+            <li>按 <b>下一步</b> 一格一格走，看三塊畫面同步變化：地圖上的顏色、右邊的優先佇列、dist/parent 表。</li>
+            <li>特別注意佇列裡出現「<b>過期</b>」條目的時刻——那是本關最精華的一幕。</li>
+            <li>隨時 <b>上一步</b> 倒回去反覆看。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你猜：下一個取出誰？這條邊鬆弛後 dist 變多少？這張條目過期了嗎？</li>
+            <li>答對得分，<b>連續答對</b>額外加分；答錯立刻說明理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>為什麼 BFS 在加權圖上會答錯</b> —— 邊數最少 ≠ 總時間最短。第 2 關就是專門設計來讓 BFS 出糗的反例。</li>
+            <li><b>優先佇列是什麼</b> —— 一種「永遠讓最小的排最前面」的候位名單。把 07 關的普通佇列換成它，BFS 就升級成 Dijkstra。</li>
+            <li><b>鬆弛（relax）</b> —— 「發現更快的走法就更新筆記」這個動作的正式名字。整個演算法就是不停地鬆弛。</li>
+            <li><b>lazy deletion（過期條目）</b> —— dist 被更新後，佇列裡的舊條目不用刪，取出時認出它過期、跳過就好。</li>
+            <li><b>貪心為什麼是對的</b> —— 為什麼被取出的節點 dist 就此定案、永不再變。</li>
+            <li><b>負權重為什麼會壞掉</b> —— Dijkstra 的保證建立在「路只會越走越長」上。</li>
+            <li><b>複雜度 O((V+E) log V)</b> —— log 是優先佇列收的手續費。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用演示模式走完第 1 關<b>教學小圖</b>（會遇到兩次過期條目），再玩第 2 關 <b>BFS 陷阱圖</b>看清楚為什麼要升級佇列，最後切闖關模式挑戰第 3 關。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看優先佇列怎麼決定下一個展開誰。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <div class="pick">
+          <label for="selStart">起點</label>
+          <select id="selStart" aria-label="起點"></select>
+          <label for="selGoal">終點</label>
+          <select id="selGoal" aria-label="終點"></select>
+        </div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">加權地圖</h3>
+            <span class="panel-note" id="graphNote"></span>
+          </div>
+
+          <div class="gbox">
+            <svg class="graph" id="graph" viewBox="0 0 520 300" aria-label="加權圖"></svg>
+          </div>
+
+          <div class="legend">
+            <span><i class="l-cur"></i>正在展開</span>
+            <span><i class="l-set"></i>已出爐（定案）</span>
+            <span><i class="l-qd"></i>在佇列裡</span>
+            <span><i></i>未探索</span>
+            <span><i class="l-edge"></i>正被鬆弛的邊</span>
+            <span><i class="l-path"></i>最短路徑</span>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">優先佇列 (dist, 節點)</h3>
+              <span class="panel-note" id="pqNote">最小在最上</span>
+            </div>
+            <div class="pqv" id="pqv"></div>
+            <div class="stats">
+              <div class="stat"><div class="k">取出次數</div><div class="v" id="statPop">0</div></div>
+              <div class="stat" data-k="no"><div class="k">過期跳過</div><div class="v" id="statStale">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">鬆弛成功</div><div class="v" id="statRelax">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">已出爐</div><div class="v" id="statSet">0</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">dist / parent 表</h3>
+              <span class="panel-note" id="dtNote"></span>
+            </div>
+            <div class="tablewrap dtbl">
+              <table>
+                <thead><tr><th class="mono">點</th><th class="mono">dist</th><th class="mono">parent</th><th>狀態</th></tr></thead>
+                <tbody id="dtb"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O((V+E) log V)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉之後的演算法本體。跟 07 關的 BFS 對照著看：整體骨架幾乎一樣，差別只在容器從 <code>deque</code> 換成 <code>priority_queue</code>、多了一張 dist 筆記、以及一行「過期就跳過」：</p>
+                <pre class="code">#include &lt;vector&gt;
+#include &lt;queue&gt;
+#include &lt;utility&gt;
+#include &lt;climits&gt;
+using namespace std;
+
+const int INF = INT_MAX;
+
+<i>// g[u] = {{v, w}, ...}：u 的每個鄰居 v 與那條邊的權重 w</i>
+vector&lt;int&gt; dijkstra(int n, const vector&lt;vector&lt;pair&lt;int,int&gt;&gt;&gt;&amp; g,
+                     int s, vector&lt;int&gt;&amp; parent) {
+    vector&lt;int&gt; dist(n, INF);
+    parent.assign(n, -1);
+    dist[s] = 0;
+
+    <i>// pair 比大小時先比第一個數字 → 放 (dist, 節點)，</i>
+    <i>// greater&lt;&gt; 讓「最小的排最前面」：永遠先處理已知最快抵達的點</i>
+    priority_queue&lt;pair&lt;int,int&gt;, vector&lt;pair&lt;int,int&gt;&gt;,
+                   greater&lt;pair&lt;int,int&gt;&gt;&gt; pq;
+    pq.push({0, s});
+
+    while (!pq.empty()) {
+        auto [d, u] = pq.top(); pq.pop();
+        <b>if (d &gt; dist[u]) continue;</b>            <i>// 過期條目 → 跳過（lazy deletion）</i>
+        for (auto [v, w] : g[u]) {
+            if (dist[u] + w &lt; dist[v]) {      <i>// 鬆弛：發現更快的走法</i>
+                dist[v] = dist[u] + w;
+                parent[v] = u;
+                pq.push({dist[v], v});        <i>// 發新票；舊票不用刪</i>
+            }
+        }
+    }
+    return dist;                              <i>// 路徑本身沿 parent 回溯（見第 03 段）</i>
+}</pre>
+        <p>二十行出頭。遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「BFS 為什麼不夠用」走到完整的 Dijkstra，每個判斷為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一張地圖：<b>節點</b>是地點，<b>邊</b>是兩地之間的道路，每條邊有一個<b>權重</b>——走那段路要花的時間（或油錢、過路費，總之是成本）。從起點出發，找出到每個地點的<b>最省時走法</b>。導航軟體、網路封包路由、遊戲 AI 找路，核心都是這一題。</p>
+        <p>先把幾個會一直出現的詞用白話講清楚：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">術語</th><th>白話</th><th>生活比喻</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">權重 weight</td><td>走這條邊要付出的成本</td><td>這段路要開幾分鐘</td></tr>
+              <tr><td class="mono">dist 表</td><td>目前已知從起點到每個點的最短距離</td><td>你筆記本上寫的「到 X 最快 n 分鐘」；∞ 表示還完全不知道怎麼去</td></tr>
+              <tr><td class="mono">parent 表</td><td>最快走法裡，每個點的上一站</td><td>「要到 X，先到 Y 再走過去」的那個 Y</td></tr>
+              <tr><td class="mono">鬆弛 relax</td><td>發現經過某點繞過去更快，就更新 dist 和 parent</td><td>發現更快的走法，把筆記擦掉重寫</td></tr>
+              <tr><td class="mono">優先佇列</td><td>永遠讓「數值最小的」排在最前面的候位名單</td><td>急診檢傷：不是先來先看，是病情最急的先看</td></tr>
+              <tr><td class="mono">出爐 settled</td><td>某個點被取出且有效，dist 從此定案</td><td>這家的最短路線蓋章確認，之後不會再改</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：拿 07 關的 BFS 直接來用，會答錯</h3>
+        <p><a href="07-bfs-maze.html">07 關</a>證明過：BFS 保證最短。但那個保證有一行小字——<b>「每一步成本都一樣」時才成立</b>。BFS 數的是「經過幾條邊」，不是「總共花多少時間」。看這張圖：</p>
+        <svg class="mini" viewBox="0 0 480 190" aria-label="BFS 答錯的反例">
+          <line class="slow" x1="60" y1="110" x2="240" y2="40"/>
+          <line class="slow" x1="240" y1="40" x2="420" y2="110"/>
+          <line class="fast" x1="60" y1="110" x2="160" y2="160"/>
+          <line class="fast" x1="160" y1="160" x2="250" y2="160"/>
+          <line class="fast" x1="250" y1="160" x2="340" y2="160"/>
+          <line class="fast" x1="340" y1="160" x2="420" y2="110"/>
+          <text class="w" x="150" y="62">5</text>
+          <text class="w" x="335" y="62">5</text>
+          <text class="w" x="100" y="148">1</text>
+          <text class="w" x="205" y="150">1</text>
+          <text class="w" x="295" y="150">1</text>
+          <text class="w" x="390" y="148">1</text>
+          <circle cx="60"  cy="110" r="16"/><text x="60"  y="115">S</text>
+          <circle cx="240" cy="40"  r="16"/><text x="240" y="45">A</text>
+          <circle cx="160" cy="160" r="16"/><text x="160" y="165">B</text>
+          <circle cx="250" cy="160" r="16"/><text x="250" y="165">C</text>
+          <circle cx="340" cy="160" r="16"/><text x="340" y="165">D</text>
+          <circle cx="420" cy="110" r="16"/><text x="420" y="115">G</text>
+          <text class="cap" x="150" y="22">BFS 選這條：只有 2 條邊，但要 5+5 = 10</text>
+          <text class="cap" x="250" y="186">正解是這條：4 條邊，卻只要 1+1+1+1 = 4</text>
+        </svg>
+        <ul class="bullets no">
+          <li><b>BFS 的答案：S → A → G</b> —— 只經過 2 條邊，BFS 覺得它「最短」，但總時間是 10。</li>
+          <li><b>真正的最短：S → B → C → D → G</b> —— 經過 4 條邊，總時間只要 4。邊數多，反而快。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">普通佇列「先到先服務」，可是在加權圖上<b>先到的不一定最快</b>。我們需要的不是「先發現誰就先處理誰」，而是「<b>目前已知最快抵達的那個點</b>先處理」——這正是優先佇列做的事。上面的第 2 關就是這張圖，親手跑一次看 Dijkstra 怎麼避開陷阱。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：取出的那一刻，dist 就定案了</h3>
+        <p>Dijkstra 是一個<b>貪心</b>演算法：每一輪都挑「目前已知 dist 最小」的點 u 出爐，並且大膽宣布——u 的 dist 從此不會再變小了。憑什麼？</p>
+        <ol class="steps">
+          <li>假設有一條「更快到 u」的路存在。這條路一定得先經過某個<b>還沒出爐</b>的點 x，再繞到 u。</li>
+          <li>但 u 是目前佇列裡 dist 最小的，所以 dist[x] ≥ dist[u]。</li>
+          <li>權重都不是負的，路只會越走越長：經過 x 繞到 u 至少要 dist[x] + (x 到 u 的路程) ≥ dist[u]。<b>繞路不可能更快</b>——矛盾，所以更快的路不存在。</li>
+        </ol>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">「每次都先處理目前最快的」不是隨便貪，是因為<b>其他任何走法都得先經過一個至少一樣遠的點</b>。這個保證只需要一個前提：權重不是負的。第 3 步用到了它——這也預告了下面「負權重會壞掉」那一段。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <p>準備 dist 表（起點 0、其他 ∞）、parent 表，和一個裝 <code>(dist, 節點)</code> 的優先佇列，先放入 (0, 起點)。然後重複：</p>
+        <ol class="steps">
+          <li><b>取出最小</b> —— 從優先佇列拿出 dist 最小的條目 (d, u)。</li>
+          <li><b>驗票</b> —— 如果 d 比筆記上的 dist[u] 大，這是張<b>過期舊票</b>（後來已經發現更快走法），直接跳過，回到第 1 步。</li>
+          <li><b>出爐</b> —— 否則 u 的 dist 定案。逐一檢查 u 的每條邊 u–v（權重 w）。</li>
+          <li><b>鬆弛</b> —— 若 dist[u] + w &lt; dist[v]：更新 dist[v]、記 parent[v] = u、把新條目 (dist[v], v) 放進佇列。不比較快就什麼都不做。</li>
+          <li>佇列空了就結束。要走到終點的完整路線，從終點沿 parent 一路回溯到起點（跟 07 關一模一樣的招）。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">第 2 步的<b>驗票</b>。dist 被鬆弛更新後，佇列裡還躺著它的舊條目——C++ 的 <code>priority_queue</code> 沒辦法進去改或刪，所以標準做法是<b>放著不管，取出時再認出它過期</b>（lazy deletion，懶惰刪除）。忘了這一行，同一個點會被重複展開，答案通常還是對的但效率變差；在別的變形題裡甚至會直接算錯。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：教學小圖（A 到 F）</h3>
+        <p>考試在紙上追蹤 Dijkstra，就是畫這張表——跟遊戲右側的兩個面板一模一樣。佇列裡的條目由小到大排：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">輪</th><th class="mono">取出</th><th>驗票</th><th>做了什麼</th><th class="mono">dist (A B C D E F)</th><th class="mono">佇列（處理後）</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0</td><td class="mono">—</td><td>—</td><td>初始化，放入 (0,A)</td><td class="mono">0 ∞ ∞ ∞ ∞ ∞</td><td class="mono">(0,A)</td></tr>
+              <tr><td class="mono">1</td><td class="mono">(0,A)</td><td style="color:var(--jade);font-weight:700">有效</td><td>鬆弛 B→2、C→5</td><td class="mono">0 2 5 ∞ ∞ ∞</td><td class="mono">(2,B) (5,C)</td></tr>
+              <tr><td class="mono">2</td><td class="mono">(2,B)</td><td style="color:var(--jade);font-weight:700">有效</td><td>鬆弛 C→3（2+1，比 5 快！）、D→6</td><td class="mono">0 2 3 6 ∞ ∞</td><td class="mono">(3,C) (5,C) (6,D)</td></tr>
+              <tr><td class="mono">3</td><td class="mono">(3,C)</td><td style="color:var(--jade);font-weight:700">有效</td><td>鬆弛 E→5</td><td class="mono">0 2 3 6 5 ∞</td><td class="mono">(5,C) (5,E) (6,D)</td></tr>
+              <tr><td class="mono">4</td><td class="mono">(5,C)</td><td style="color:var(--alarm);font-weight:700">過期！</td><td>dist[C] 早就是 3 —— 跳過</td><td class="mono">不變</td><td class="mono">(5,E) (6,D)</td></tr>
+              <tr><td class="mono">5</td><td class="mono">(5,E)</td><td style="color:var(--jade);font-weight:700">有效</td><td>D：5+1=6 沒更快，不動；鬆弛 F→11</td><td class="mono">0 2 3 6 5 11</td><td class="mono">(6,D) (11,F)</td></tr>
+              <tr><td class="mono">6</td><td class="mono">(6,D)</td><td style="color:var(--jade);font-weight:700">有效</td><td>鬆弛 F→9（6+3，比 11 快！）</td><td class="mono">0 2 3 6 5 9</td><td class="mono">(9,F) (11,F)</td></tr>
+              <tr><td class="mono">7</td><td class="mono">(9,F)</td><td style="color:var(--jade);font-weight:700">有效</td><td>終點出爐，dist[F] = 9 定案</td><td class="mono">0 2 3 6 5 9</td><td class="mono">(11,F)</td></tr>
+              <tr><td class="mono">8</td><td class="mono">(11,F)</td><td style="color:var(--alarm);font-weight:700">過期！</td><td>dist[F] 早就是 9 —— 跳過，佇列空，結束</td><td class="mono">—</td><td class="mono" style="color:var(--ink-faint)">（空）</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>最後沿 parent 回溯：F ← D ← B ← A，最短路徑 <b>A → B → D → F，總長 9</b>。注意第 2 輪：C 先被 A 標成 5，後來被 B 鬆弛成 3——佇列裡那張 (5,C) 舊票沒被刪，第 4 輪才被驗出過期。</p>
+      </div>
+
+      <div class="block">
+        <h3>負權重為什麼會壞掉</h3>
+        <p>想像三個點：A–B 權重 2，A–C 權重 5，C–B 權重 <b>−4</b>（走這段路反而倒賺時間，現實少見，但匯率換匯、某些成本模型會出現）。</p>
+        <ul class="bullets no">
+          <li>Dijkstra 從 A 出發，第二輪就把 B 以 dist = 2 <b>出爐定案</b>——因為 2 比 5 小。</li>
+          <li>但真正的最短是 A → C → B：5 + (−4) = <b>1</b>。B 已經出爐，永遠不會再被更新——答案錯了。</li>
+          <li>壞掉的原因就在「關鍵觀察」的第 3 步：貪心的證明用了「<b>路只會越走越長</b>」。負權重讓繞路可能更快，整個證明垮掉。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">記住</span>
+          <span class="txt">有負權邊 → 不能用 Dijkstra，要換 <b>Bellman-Ford</b>（慢一點，但允許負權，還能偵測負環）。第 04 段的延伸挑戰會帶你寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O((V+E) log V)</b> —— V 是節點數、E 是邊數。每條邊最多造成一次成功鬆弛、往佇列塞一個條目，佇列裡最多約 E 個條目，每次放入／取出要 O(log) 整理堆（heap）。白話：比 BFS 的 O(V+E) 多付一個 log，是優先佇列「隨時保持最小在最上面」收的手續費。</li>
+          <li><b>空間 O(V+E)</b> —— 鄰接串列 O(V+E)、dist 與 parent 各 O(V)、佇列最壞 O(E)。</li>
+          <li><b>教學版注意</b> —— 本頁的 JS 用「每次取出前排序整個陣列」模擬優先佇列，好懂但慢；真正的 <code>std::priority_queue</code> 是二元堆，每次操作只要 O(log n)。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「Dijkstra 就是 BFS」</b> —— 反過來說才對：<b>BFS 是 Dijkstra 在「所有權重都是 1」時的特例</b>。權重全一樣時，優先佇列的行為恰好退化成普通佇列，兩者走訪順序一致。權重一不一樣，勝負立判——見第 2 關。</li>
+          <li><b>「dist 被更新過就是最終答案」</b> —— 不是。dist 在出爐前可能被鬆弛好幾次（教學小圖的 C：∞ → 5 → 3）。<b>被取出且驗票有效</b>那一刻才定案。</li>
+          <li><b>「發現更短路要去佇列裡改掉舊條目」</b> —— 不用，也很難（<code>std::priority_queue</code> 根本不提供）。直接塞新條目，舊的取出時跳過——lazy deletion。</li>
+          <li><b>「優先佇列裡面是完全排好序的」</b> —— 不是。堆（heap）只保證<b>最上面那個是最小的</b>，其餘只是「大致有序」。遊戲面板把內容整個排好給你看，是為了教學方便。</li>
+          <li><b>「有負權邊照樣能跑」</b> —— 程式跑得完、還會給你一個數字，但可能是錯的（見上面的反例）。錯得不吭聲的程式最危險。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>和 01 關一樣：使用者按「下一步」之前，整趟 Dijkstra 已經<b>全部跑完</b>，每一步存成一張完整快照。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 + 起點/終點 <small>節點、邊、權重</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps() <small>把整趟 Dijkstra 跑完</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是 dist / parent / 佇列 的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反向鬆弛」這種恐怖東西。</li>
+          <li><b>畫面函式變單純</b> —— 同一個 step 一定畫出同樣的畫面，不依賴之前發生過什麼。</li>
+          <li><b>演算法與畫面分離</b> —— buildSteps 裡沒有半行畫面程式碼，抽出來就是純 Dijkstra。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步都複製一份 dist、parent、settled、佇列，記憶體大約 O(步數 × V)。教學規模（十個節點）毫無問題，真實工程不會這樣寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps(lv, s, g)</td><td>唯一真正跑 Dijkstra 的地方。輸入圖與起終點，輸出步驟陣列。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：關卡、起終點、第幾步、模式、分數。全站只有這一份。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintGraph / paintPQ<br>paintTable / paintAlgo<br>paintSay / paintProgress</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td><td>出題、對答案、計分。它不碰演算法，只是「先不給看下一步」。</td></tr>
+              <tr><td><b>載入</b></td><td class="mono">loadLevel / rebuild<br>setMode / buildGraphSVG</td><td>換關卡、換起終點、換模式，重建 SVG 與 steps 並歸零。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto_(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintGraph<small>節點/邊/dist 標籤</small></div>
+            <div class="node">paintPQ<small>優先佇列</small></div>
+            <div class="node">paintTable<small>dist/parent 表</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintProgress<small>進度條</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:    <i>// start / pop / stale / relax / keep / done → 決定顏色與徽章</i>
+  <b>line</b>:    <i>// 演算法要高亮第幾行</i>
+  <b>u, v, w</b>: <i>// 正在展開的點 / 正被鬆弛的鄰居 / 邊的權重</i>
+  <b>ei</b>:      <i>// 正被鬆弛的邊是第幾條 → 地圖上加粗閃爍</i>
+  <b>dist</b>:    <i>// dist 表快照 → 節點上方的數字、右側表格</i>
+  <b>parent</b>:  <i>// parent 表快照 → 最短路徑樹的邊、回溯路徑</i>
+  <b>settled</b>: <i>// 誰已出爐 → 節點換完成色</i>
+  <b>pq</b>:      <i>// 佇列快照（排好序）→ 右側面板；過期與否用 d &gt; dist[節點] 現場判斷</i>
+  <b>cnt</b>:     <i>// 累計統計：取出 / 過期 / 鬆弛 / 出爐</i>
+  <b>title, msg</b>: <i>// 說明面板文字</i>
+}</pre>
+        <p>注意 <code>dist</code>、<code>pq</code> 都是<b>快照</b>不是參考——每一步都複製新陣列，這是「可以自由倒退」的底氣。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加一張新地圖</td><td><code>LEVELS</code> 陣列加一筆（節點座標＋邊清單）</td><td>幾行</td></tr>
+              <tr><td>改某條邊的權重</td><td><code>LEVELS</code> 裡那條邊的第三個數字</td><td>1 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>改成有向圖</td><td><code>buildSteps()</code> 建鄰接串列時拿掉反向那一筆</td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次全站生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作 Dijkstra 最短路徑。
+
+輸入格式：
+n = 6（節點 0~5），起點 s = 0
+edges = { {0,1,2}, {0,2,5}, {1,2,1}, {1,3,4},
+          {2,4,2}, {4,3,1}, {3,5,3}, {4,5,6} }   // {u, v, w} 無向邊
+
+要求：
+1. 用鄰接串列 vector&lt;vector&lt;pair&lt;int,int&gt;&gt;&gt; 存圖
+2. 用 std::priority_queue + greater&lt;&gt; 做最小堆，放 (dist, node)
+3. 一定要有「過期條目跳過」那一行（lazy deletion），並加註解說明
+4. 同時維護 parent[]，寫一個函式印出 0 到 5 的完整路徑
+5. 對上面的資料，答案應該是 dist[5] = 9、路徑 0→1→3→5
+
+寫完後告訴我：為什麼取出的節點 dist 就定案了？
+用「其他路都得經過 dist 更大的點」解釋給我聽。</pre>
+        <h4>延伸挑戰一：讓 Dijkstra 壞掉</h4>
+        <pre class="code">1. 造一張含負權邊的小圖（3~4 個節點就夠），
+   讓 Dijkstra 給出錯誤答案
+2. 手算出正確答案，指出 Dijkstra 錯在哪一步（哪個點太早出爐）
+3. 改寫成 Bellman-Ford（V-1 輪、每輪鬆弛所有邊），驗證答案變對
+4. 回答：Bellman-Ford 慢在哪？什麼時候值得付這個代價？</pre>
+        <h4>延伸挑戰二：升級成 A*</h4>
+        <pre class="code">1. 在格子地圖上跑 Dijkstra（每格是節點，相鄰格有邊）
+2. 把優先佇列的鍵從 dist[v] 換成 dist[v] + h(v)，
+   h(v) = v 到終點的曼哈頓距離（估計還要多遠）
+3. 比較兩者展開的節點數——A* 應該少很多
+4. 回答：h 要滿足什麼條件（不高估），A* 才保證最短？
+   如果 h 恆為 0，A* 會退化成什麼？</pre>
+        <h4>延伸挑戰三：一題三解</h4>
+        <pre class="code">同一張加權圖，分別用三種方法求起點到所有點的距離：
+1. BFS（假裝權重不存在）    → 哪些點的答案是錯的？
+2. Dijkstra                → 標準答案
+3. 把每條權重 w 的邊拆成 w 條權重 1 的邊再跑 BFS
+   → 答案對了！但代價是什麼？（節點數變多少？）
+回答：第 3 種做法說明了 BFS 和 Dijkstra 什麼關係？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 17 最短路徑派遣</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  var LEVELS = [
+    { name:"教學小圖", vb:"0 0 520 300",
+      nodes:[["A",60,150],["B",180,60],["C",180,240],["D",320,60],["E",320,240],["F",455,150]],
+      edges:[["A","B",2],["A","C",5],["B","C",1],["B","D",4],["C","E",2],["E","D",1],["D","F",3],["E","F",6]],
+      start:"A", goal:"F" },
+    { name:"BFS 陷阱圖", vb:"0 0 520 300",
+      nodes:[["S",50,170],["A",255,55],["B",160,250],["C",260,250],["D",360,250],["G",470,170]],
+      edges:[["S","A",5],["A","G",5],["S","B",1],["B","C",1],["C","D",1],["D","G",1]],
+      start:"S", goal:"G" },
+    { name:"城市路網", vb:"0 0 560 330",
+      nodes:[["A",50,165],["B",165,75],["C",165,265],["D",285,165],["E",395,75],["F",395,265],["G",515,165],["H",285,42],["I",285,292]],
+      edges:[["A","B",3],["A","C",2],["B","D",4],["C","D",7],["B","H",2],["H","E",3],["D","E",2],["D","F",4],["C","I",3],["I","F",5],["E","G",5],["F","G",2],["E","F",1]],
+      start:"A", goal:"G" }
+  ];
+
+  var CODE = [
+    "vector<int> dijkstra(int n, Graph& g, int s) {",
+    "    vector<int> dist(n, INF), parent(n, -1);",
+    "    dist[s] = 0;",
+    "    priority_queue< pair<int,int>,",
+    "        vector<pair<int,int>>,",
+    "        greater<pair<int,int>> > pq;",
+    "    pq.push({0, s});",
+    "    while (!pq.empty()) {",
+    "        auto [d, u] = pq.top(); pq.pop();",
+    "        if (d > dist[u]) continue;   // 過期舊票",
+    "        for (auto [v, w] : g[u]) {",
+    "            if (dist[u] + w < dist[v]) {",
+    "                dist[v] = dist[u] + w;   // 鬆弛",
+    "                parent[v] = u;",
+    "                pq.push({dist[v], v});",
+    "            }",
+    "        }",
+    "    }",
+    "    return dist;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "這是「派遣機器」的開頭。給它三樣東西：節點總數 n、地圖 g（每個點連到哪些鄰居、路上要花多久）、起點編號 s。跑完它會吐回一排整數（vector<int> 就是「一排整數格子」）——到每個點的最短時間。",
+    "準備兩張筆記，各 n 格：dist＝「目前已知到每個點最快幾分鐘」，全部先填 INF（一個大到不像話的數，代表 ∞＝還完全不知道怎麼去）；parent＝「最快走法裡每個點的上一站」，先填 -1（還沒有上一站）。",
+    "起點到自己不用走，最快時間是 0。這是整張 dist 表唯一確定的起始值。",
+    "開始宣告主角「優先佇列」pq——一種特別的候位名單：不管你什麼順序放進去，它永遠讓「最小的」排在最前面。就像急診檢傷，不是先來先看，是最急的先看。pair<int,int> 是「把兩個整數綁成一個小包裹」，我們放 (dist, 節點編號)——把距離放前面，是因為 pair 比大小時先比第一個數字。",
+    "這一行是告訴優先佇列「內部用什麼容器裝東西」——照抄 vector<pair<int,int>> 即可，幾乎永遠都是這樣寫。",
+    "greater<> 是比較規則：「越小的越優先」。C++ 的優先佇列預設是大的優先（最大堆），跟我們要的相反，所以必須特別交代這一句，把它變成「最小的在最上面」（最小堆）。三行合起來就是標準的最小堆寫法，背下來就好。",
+    "把第一張票 (0, 起點) 放進候位名單：「起點，已知 0 分鐘可到」。演算法從這裡正式開始。",
+    "「while 迴圈」＝只要條件成立就一直重複。empty＝空的，! 唸作「不是」。整句：只要名單裡還有票，就繼續處理。",
+    "top＝看名單最前面（最小）的那張票，pop＝把它拿走。auto [d, u] 是「讓電腦自己認型別，並把包裹拆開」：d＝票上寫的距離，u＝哪個節點。這就是「下一個展開誰」的答案——永遠是目前已知最快抵達的點。",
+    "驗票！如果票上的 d 比筆記 dist[u] 大，代表這是張過期舊票——在它排隊期間，我們已經發現了到 u 更快的走法、也發過新票了。continue＝跳過這張，直接回第 8 行抽下一張。舊票不用刪、也刪不掉，取出來認出它再丟，這招叫 lazy deletion（懶惰刪除）。",
+    "u 驗票通過，它的 dist 從此定案（出爐）。接著把 u 的每條邊拿出來看：v＝邊那頭的鄰居，w＝這條邊的權重（走這段路要花的時間）。",
+    "鬆弛檢查：「先到 u、再走這條邊過去 v」總共 dist[u] + w 分鐘——有沒有比筆記上的 dist[v] 快？",
+    "有更快！把筆記擦掉重寫：dist[v] 更新成新的、更小的值。這個「發現更快走法就更新筆記」的動作，正式名字叫「鬆弛（relax）」——整個 Dijkstra 就是不停地做這件事。",
+    "順手記下：到 v 的最快走法，上一站是 u。之後想畫出完整路線，就從終點沿著 parent 一路回頭走。",
+    "替 v 發一張新票 (新dist, v) 放進候位名單。注意：v 的舊票可能還躺在名單裡，我們不理它——等它被抽到時，第 10 行的驗票會把它攔下來。",
+    "鬆弛的 if 到此結束（這個 } 只是標記「上面那段的範圍到這裡」）。沒有更快就什麼都不做，直接看下一條邊。",
+    "u 的所有邊都看完了。",
+    "while 的結尾：自動回到第 8 行，再抽下一張票，直到名單全空。",
+    "名單空了＝每個到得了的點都出爐了。把整張 dist 筆記交回去——上面就是起點到每一個點的最短時間。",
+    "整台派遣機器到此結束。"
+  ];
+
+  var BADGE = {start:"START", pop:"POP MIN", stale:"STALE", relax:"RELAX", keep:"KEEP", done:"DONE"};
+  var SAYK  = {start:"start", pop:"ok", stale:"no", relax:"hot", keep:"start", done:"done"};
+
+  var $ = function(id){ return document.getElementById(id); };
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var mk = function(tag, attrs){
+    var e = document.createElementNS(SVGNS, tag);
+    for(var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  };
+  var fmtD = function(d){ return d === Infinity ? "∞" : String(d); };
+
+  /* ---------- 2. 狀態 ---------- */
+  var S = {
+    levelIdx:0, startId:"", goalId:"",
+    steps:[], cur:0, mode:"demo", playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0,
+    pendingIndex:-1, pendingKey:"", pendingLabel:""
+  };
+  /* 目前關卡的圖（載入時建好） */
+  var G = { ids:[], idx:{}, pos:[], edges:[], edgeEls:[], wEls:[], ndEls:[], dEls:[], rEls:[] };
+
+  /* ---------- 3. 資料層：把整趟 Dijkstra 跑完 ---------- */
+  function buildSteps(lv, sIdx, gIdx){
+    var n = G.ids.length, i, j;
+    var adj = [];
+    for(i=0;i<n;i++) adj.push([]);
+    for(i=0;i<lv.edges.length;i++){
+      var a = G.idx[lv.edges[i][0]], b = G.idx[lv.edges[i][1]], w = lv.edges[i][2];
+      adj[a].push({v:b, w:w, ei:i});
+      adj[b].push({v:a, w:w, ei:i});
+    }
+    for(i=0;i<n;i++) adj[i].sort(function(x,y){ return x.v - y.v; });
+
+    var dist = [], parent = [], settled = [];
+    for(i=0;i<n;i++){ dist.push(Infinity); parent.push(-1); settled.push(false); }
+    var pq = [];
+    var cnt = {pop:0, stale:0, relax:0, set:0};
+    var cmp = function(x,y){ return (x[0]-y[0]) || (x[1]-y[1]); };
+    var steps = [];
+
+    function push(kind, line, extra){
+      var st = {
+        kind:kind, line:line,
+        dist:dist.slice(), parent:parent.slice(), settled:settled.slice(),
+        pq:pq.slice().sort(cmp),
+        cnt:{pop:cnt.pop, stale:cnt.stale, relax:cnt.relax, set:cnt.set}
+      };
+      for(var k in extra) st[k] = extra[k];
+      steps.push(st);
+    }
+
+    dist[sIdx] = 0;
+    pq.push([0, sIdx]);
+    push("start", 7, {
+      title:"初始化：dist[" + G.ids[sIdx] + "] = 0，其他全部 ∞",
+      msg:"把第一張票 <b>(0, " + G.ids[sIdx] + ")</b> 放進優先佇列。∞ 的意思是「還完全不知道怎麼去」。目標：找出到 <b>" + G.ids[gIdx] + "</b> 的最快走法。"
+    });
+
+    while(pq.length){
+      pq.sort(cmp);
+      var top = pq.shift();
+      var d = top[0], u = top[1];
+      cnt.pop++;
+
+      if(d > dist[u]){
+        cnt.stale++;
+        push("stale", 10, { u:u, d:d,
+          title:"過期舊票 (" + d + ", " + G.ids[u] + ") —— 跳過",
+          msg:"票上寫 " + d + "，但筆記早就更新成 dist[" + G.ids[u] + "] = <b>" + fmtD(dist[u]) + "</b>。這是張排隊期間被新走法淘汰的舊票 —— 不展開、直接丟掉。這就是 <b>lazy deletion</b>：舊票不刪，抽到再認出來。"
+        });
+        continue;
+      }
+
+      settled[u] = true;
+      cnt.set++;
+      push("pop", 9, { u:u, d:d,
+        title:"取出最小 (" + d + ", " + G.ids[u] + ") —— " + G.ids[u] + " 出爐",
+        msg:"優先佇列裡最小的條目。<b>dist[" + G.ids[u] + "] = " + d + " 從此定案</b>，不會再變小（其他任何走法都得先經過 dist 更大的點）。接著逐一檢查它的每條邊。"
+      });
+
+      for(j=0;j<adj[u].length;j++){
+        var e = adj[u][j], v = e.v, w = e.w;
+        var cand = dist[u] + w;
+        if(cand < dist[v]){
+          var oldD = dist[v];
+          dist[v] = cand;
+          parent[v] = u;
+          pq.push([cand, v]);
+          cnt.relax++;
+          push("relax", 13, { u:u, v:v, w:w, ei:e.ei, oldD:oldD, newD:cand,
+            title:"鬆弛成功：dist[" + G.ids[v] + "] " + fmtD(oldD) + " → " + cand,
+            msg:"經 " + G.ids[u] + " 走過去只要 <b>" + dist[u] + " + " + w + " = " + cand + "</b>，比原本的 <b>" + fmtD(oldD) + "</b> 快 —— 更新筆記、記 parent[" + G.ids[v] + "] = " + G.ids[u] + "，發新票 <b>(" + cand + ", " + G.ids[v] + ")</b> 進佇列。" + (oldD !== Infinity ? "舊票不刪，之後抽到會被驗出過期。" : "")
+          });
+        } else {
+          push("keep", 12, { u:u, v:v, w:w, ei:e.ei,
+            title:"檢查邊 " + G.ids[u] + "–" + G.ids[v] + "：不用更新",
+            msg: settled[v]
+              ? G.ids[v] + " 已經<b>出爐</b>（dist = " + dist[v] + " 定案），繞經 " + G.ids[u] + " 要 " + dist[u] + " + " + w + " = " + cand + "，不可能更快 —— 不動。"
+              : "經 " + G.ids[u] + " 走過去要 <b>" + dist[u] + " + " + w + " = " + cand + "</b>，沒有比筆記上的 <b>" + fmtD(dist[v]) + "</b> 快 —— 筆記不動，也不發新票。"
+          });
+        }
+      }
+    }
+
+    /* 回溯到終點的路徑 */
+    var pathN = [], pathE = [], ok = (dist[gIdx] !== Infinity);
+    if(ok){
+      var cur = gIdx;
+      while(cur !== sIdx && cur !== -1){
+        pathN.push(cur);
+        var p = parent[cur];
+        if(p !== -1){
+          var ka = Math.min(cur,p), kb = Math.max(cur,p);
+          for(i=0;i<lv.edges.length;i++){
+            var ia = G.idx[lv.edges[i][0]], ib = G.idx[lv.edges[i][1]];
+            if(Math.min(ia,ib) === ka && Math.max(ia,ib) === kb){ pathE.push(i); break; }
+          }
+        }
+        cur = p;
+      }
+      pathN.push(sIdx);
+      pathN.reverse();
+    }
+    var pathStr = pathN.map(function(x){ return G.ids[x]; }).join(" → ");
+    push("done", 19, { pathN:pathN, pathE:pathE, goalD:dist[gIdx],
+      title: ok ? "完成！到 " + G.ids[gIdx] + " 最短 " + dist[gIdx] : "完成！但到不了 " + G.ids[gIdx],
+      msg: ok
+        ? "佇列空了，所有到得了的點都出爐。從終點沿 parent 回溯：<b>" + pathStr + "</b>，總長 <b>" + dist[gIdx] + "</b>。綠色粗線就是這條最短路徑。"
+        : "佇列空了，但 dist[" + G.ids[gIdx] + "] 仍是 ∞ —— 起點和終點之間沒有任何路相連。"
+    });
+    return steps;
+  }
+
+  /* ---------- 4. 畫面層 ---------- */
+
+  /* 建 SVG（換關卡時重建一次） */
+  function buildGraphSVG(){
+    var lv = LEVELS[S.levelIdx];
+    var svg = $("graph");
+    svg.setAttribute("viewBox", lv.vb);
+    svg.innerHTML = "";
+    G.edgeEls = []; G.wEls = []; G.ndEls = []; G.dEls = []; G.rEls = [];
+    var i;
+    for(i=0;i<lv.edges.length;i++){
+      var a = G.pos[G.idx[lv.edges[i][0]]], b = G.pos[G.idx[lv.edges[i][1]]];
+      var ln = mk("line", {x1:a.x, y1:a.y, x2:b.x, y2:b.y, "class":"edge"});
+      svg.appendChild(ln);
+      G.edgeEls.push(ln);
+    }
+    for(i=0;i<lv.edges.length;i++){
+      var p1 = G.pos[G.idx[lv.edges[i][0]]], p2 = G.pos[G.idx[lv.edges[i][1]]];
+      var t = mk("text", {x:(p1.x+p2.x)/2, y:(p1.y+p2.y)/2 + 4, "class":"wlab"});
+      t.textContent = lv.edges[i][2];
+      svg.appendChild(t);
+      G.wEls.push(t);
+    }
+    for(i=0;i<G.ids.length;i++){
+      var pos = G.pos[i];
+      var g = mk("g", {"class":"nd"});
+      g.appendChild(mk("circle", {cx:pos.x, cy:pos.y, r:17}));
+      var nid = mk("text", {x:pos.x, y:pos.y + 5, "class":"nid"});
+      nid.textContent = G.ids[i];
+      g.appendChild(nid);
+      var dl = mk("text", {x:pos.x, y:pos.y - 25, "class":"dlab"});
+      dl.textContent = "∞";
+      g.appendChild(dl);
+      var rl = mk("text", {x:pos.x, y:pos.y + 34, "class":"rlab"});
+      g.appendChild(rl);
+      svg.appendChild(g);
+      G.ndEls.push(g); G.dEls.push(dl); G.rEls.push(rl);
+    }
+    $("graphNote").textContent = G.ids.length + " 節點 · " + lv.edges.length + " 邊";
+  }
+
+  function paintGraph(){
+    var st = S.steps[S.cur], lv = LEVELS[S.levelIdx];
+    var i, sIdx = G.idx[S.startId], gIdx = G.idx[S.goalId];
+
+    /* 最短路徑樹的邊（parent 關係） */
+    var treeE = {};
+    for(i=0;i<st.parent.length;i++){
+      if(st.parent[i] === -1) continue;
+      var ka = Math.min(i, st.parent[i]), kb = Math.max(i, st.parent[i]);
+      for(var e=0;e<lv.edges.length;e++){
+        var ia = G.idx[lv.edges[e][0]], ib = G.idx[lv.edges[e][1]];
+        if(Math.min(ia,ib) === ka && Math.max(ia,ib) === kb){ treeE[e] = 1; break; }
+      }
+    }
+    var pathE = {};
+    if(st.kind === "done" && st.pathE) for(i=0;i<st.pathE.length;i++) pathE[st.pathE[i]] = 1;
+
+    for(i=0;i<G.edgeEls.length;i++){
+      var cls = "edge";
+      if(treeE[i]) cls += " tree";
+      if((st.kind === "relax" || st.kind === "keep") && st.ei === i) cls += " hot";
+      if(pathE[i]) cls += " path";
+      G.edgeEls[i].setAttribute("class", cls);
+      var wc = "wlab";
+      if((st.kind === "relax" || st.kind === "keep") && st.ei === i) wc += " hot";
+      if(pathE[i]) wc += " path";
+      G.wEls[i].setAttribute("class", wc);
+    }
+
+    var pathN = {};
+    if(st.kind === "done" && st.pathN) for(i=0;i<st.pathN.length;i++) pathN[st.pathN[i]] = 1;
+
+    /* 有有效票的節點（在佇列裡等待） */
+    var queued = {};
+    for(i=0;i<st.pq.length;i++)
+      if(st.pq[i][0] === st.dist[st.pq[i][1]]) queued[st.pq[i][1]] = 1;
+
+    for(i=0;i<G.ndEls.length;i++){
+      var nc = "nd";
+      if(st.settled[i]) nc += " set";
+      else if(queued[i]) nc += " qd";
+      if((st.kind === "pop" || st.kind === "relax" || st.kind === "keep") && st.u === i) nc += " cur";
+      if(st.kind === "relax" && st.v === i) nc += " touch";
+      if(st.kind === "stale" && st.u === i) nc += " staled";
+      if(pathN[i]) nc += " onpath";
+      G.ndEls[i].setAttribute("class", nc);
+
+      var dl = G.dEls[i];
+      dl.textContent = fmtD(st.dist[i]);
+      var dc = "dlab";
+      if(st.settled[i]) dc += " fixed";
+      else if(st.dist[i] !== Infinity) dc += " known";
+      if(st.kind === "relax" && st.v === i && !reduce) dc += " bump";
+      dl.setAttribute("class", dc);
+
+      G.rEls[i].textContent = (i === sIdx) ? "起點" : (i === gIdx) ? "終點" : "";
+    }
+  }
+
+  function paintPQ(){
+    var st = S.steps[S.cur], host = $("pqv");
+    host.innerHTML = "";
+    if(st.pq.length === 0){
+      var e = document.createElement("div");
+      e.className = "pqi tagline";
+      e.textContent = (st.kind === "done") ? "（空 —— 演算法結束）" : "（空）";
+      host.appendChild(e);
+    }
+    for(var i=0;i<st.pq.length;i++){
+      var d = st.pq[i][0], node = st.pq[i][1];
+      var stale = (d > st.dist[node]);
+      var row = document.createElement("div");
+      row.className = "pqi" + (i === 0 ? " next" : "") + (stale ? " stale" : "");
+      var pr = document.createElement("span");
+      pr.className = "pr"; pr.textContent = "(" + d + ", " + G.ids[node] + ")";
+      var tx = document.createElement("span");
+      tx.className = "pairtxt";
+      tx.textContent = (i === 0 ? "← 下一個取出" : "");
+      row.appendChild(pr); row.appendChild(tx);
+      if(stale){
+        var tg = document.createElement("span");
+        tg.className = "st-tag";
+        tg.textContent = "過期 dist=" + fmtD(st.dist[node]);
+        row.appendChild(tg);
+      }
+      host.appendChild(row);
+    }
+    $("pqNote").textContent = st.pq.length + " 條目";
+    $("statPop").textContent = st.cnt.pop;
+    $("statStale").textContent = st.cnt.stale;
+    $("statRelax").textContent = st.cnt.relax;
+    $("statSet").textContent = st.cnt.set;
+  }
+
+  function paintTable(){
+    var st = S.steps[S.cur], tb = $("dtb");
+    tb.innerHTML = "";
+    for(var i=0;i<G.ids.length;i++){
+      var tr = document.createElement("tr");
+      var isCur = (st.kind === "pop" || st.kind === "relax" || st.kind === "keep") && st.u === i;
+      if(isCur) tr.className = "cur";
+      else if(st.settled[i]) tr.className = "set";
+
+      var td1 = document.createElement("td");
+      td1.className = "mono"; td1.textContent = G.ids[i];
+      var td2 = document.createElement("td");
+      td2.className = "mono" + ((st.kind === "relax" && st.v === i) ? " chg" : "");
+      td2.textContent = fmtD(st.dist[i]);
+      var td3 = document.createElement("td");
+      td3.className = "mono" + ((st.kind === "relax" && st.v === i) ? " chg" : "");
+      td3.textContent = (st.parent[i] === -1) ? "—" : G.ids[st.parent[i]];
+      var td4 = document.createElement("td");
+      td4.className = "stt";
+      td4.textContent = st.settled[i] ? "已出爐 ✓"
+        : (st.dist[i] !== Infinity ? "排隊中" : "未探索");
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
+      tb.appendChild(tr);
+    }
+    $("dtNote").textContent = "出爐 " + st.cnt.set + " / " + G.ids.length;
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", SAYK[kind] || kind);
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintGraph(); paintPQ(); paintTable(); paintAlgo(); paintSay(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 5. 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ S.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 6. 闖關 ---------- */
+  function nextQuizIndex(){
+    return (S.cur + 1 < S.steps.length) ? S.cur + 1 : -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ rebuild(); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni], prevSt = S.steps[ni-1];
+    S.pendingIndex = ni;
+    opts.innerHTML = "";
+    var i;
+
+    if(st.kind === "pop"){
+      /* 題型一：下一個從優先佇列取出的是誰？ */
+      var cand = [], seen = {};
+      for(i=0;i<prevSt.pq.length && cand.length < 4;i++){
+        var nd = prevSt.pq[i][1];
+        if(!seen[nd]){ seen[nd] = 1; cand.push(nd); }
+      }
+      if(cand.length < 2){
+        for(i=0;i<G.ids.length && cand.length < 2;i++)
+          if(!seen[i]){ seen[i] = 1; cand.push(i); }
+      }
+      cand.sort(function(a,b){ return a-b; });
+      q.innerHTML = "優先佇列裡有 " + prevSt.pq.length + " 個條目。下一個被取出（dist 最小）的<b>節點</b>是誰？";
+      S.pendingKey = "n" + st.u;
+      S.pendingLabel = G.ids[st.u];
+      for(i=0;i<cand.length;i++){
+        var bestD = Infinity, j;
+        for(j=0;j<prevSt.pq.length;j++)
+          if(prevSt.pq[j][1] === cand[i] && prevSt.pq[j][0] < bestD) bestD = prevSt.pq[j][0];
+        addOpt(opts, G.ids[cand[i]], bestD === Infinity ? "" : "票面 " + bestD, "n" + cand[i]);
+      }
+    } else if(st.kind === "stale"){
+      /* 題型二：這個條目是不是過期的？ */
+      q.innerHTML = "取出最小條目 <b>(" + st.d + ", " + G.ids[st.u] + ")</b>。筆記上 dist[" + G.ids[st.u] + "] = <b>" + fmtD(prevSt.dist[st.u]) + "</b>。這張票該怎麼處理？";
+      S.pendingKey = "stale";
+      S.pendingLabel = "過期，直接跳過";
+      addOpt(opts, "有效，展開 " + G.ids[st.u], "VALID", "fresh");
+      addOpt(opts, "過期，直接跳過", "STALE", "stale");
+    } else if(st.kind === "relax" || st.kind === "keep"){
+      /* 題型三：這條邊鬆弛後 dist 會變多少？ */
+      var cd = prevSt.dist[st.u] + st.w;
+      q.innerHTML = "檢查邊 <b>" + G.ids[st.u] + "–" + G.ids[st.v] + "</b>（權重 " + st.w + "）。dist[" + G.ids[st.u] + "] = " + prevSt.dist[st.u] + "，dist[" + G.ids[st.v] + "] 目前是 <b>" + fmtD(prevSt.dist[st.v]) + "</b>。鬆弛之後 dist[" + G.ids[st.v] + "] 會是？";
+      if(st.kind === "relax"){
+        S.pendingKey = "new";
+        S.pendingLabel = "更新成 " + cd;
+      } else {
+        S.pendingKey = "keep";
+        S.pendingLabel = "維持 " + fmtD(prevSt.dist[st.v]) + " 不變";
+      }
+      addOpt(opts, "更新成 " + cd, prevSt.dist[st.u] + "+" + st.w, "new");
+      addOpt(opts, "維持 " + fmtD(prevSt.dist[st.v]) + " 不變", "原本比較快", "keep");
+      if(st.w !== cd && st.w !== prevSt.dist[st.v])
+        addOpt(opts, "更新成 " + st.w, "只看這條邊？", "wrong");
+    } else if(st.kind === "done"){
+      var gd = st.goalD;
+      if(gd === Infinity){
+        q.innerHTML = "佇列空了。到終點 <b>" + S.goalId + "</b> 的最短距離是？";
+        S.pendingKey = "inf"; S.pendingLabel = "∞（到不了）";
+        addOpt(opts, "∞（到不了）", "", "inf");
+        addOpt(opts, "0", "", "zero");
+      } else {
+        q.innerHTML = "佇列空了，全部出爐。到終點 <b>" + S.goalId + "</b> 的最短距離是？";
+        S.pendingKey = "right"; S.pendingLabel = String(gd);
+        var vals = [gd, gd+2, Math.max(0, gd-1)];
+        var used = {};
+        vals.sort(function(a,b){ return a-b; });
+        for(i=0;i<vals.length;i++){
+          if(used[vals[i]]) continue;
+          used[vals[i]] = 1;
+          addOpt(opts, String(vals[i]), "", vals[i] === gd ? "right" : "no" + i);
+        }
+      }
+    } else {
+      /* start 之類：直接看下一步 */
+      q.textContent = "準備好了，看第一步。";
+      var go = document.createElement("button");
+      go.className = "btn btn-primary"; go.type = "button"; go.textContent = "看下一步 →";
+      go.addEventListener("click", function(){ goto_(ni); });
+      opts.appendChild(go);
+      S.pendingKey = "";
+    }
+  }
+
+  function addOpt(host, label, sub, key){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.innerHTML = "";
+    b.appendChild(document.createTextNode(label));
+    var sm = document.createElement("small");
+    sm.textContent = sub || " ";
+    b.appendChild(sm);
+    b.addEventListener("click", function(){ answerQuiz(key); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(ans){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0 || !S.pendingKey) return;
+    var st = S.steps[ni];
+    var win = (ans === S.pendingKey);
+
+    S.asked++;
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + S.pendingLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 7. 載入 ---------- */
+  function rebuild(){
+    stopPlay();
+    var lv = LEVELS[S.levelIdx];
+    S.steps = buildSteps(lv, G.idx[S.startId], G.idx[S.goalId]);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    render();
+  }
+
+  function loadLevel(i){
+    stopPlay();
+    S.levelIdx = i;
+    var lv = LEVELS[i];
+    G.ids = []; G.idx = {}; G.pos = [];
+    for(var j=0;j<lv.nodes.length;j++){
+      G.ids.push(lv.nodes[j][0]);
+      G.idx[lv.nodes[j][0]] = j;
+      G.pos.push({x:lv.nodes[j][1], y:lv.nodes[j][2]});
+    }
+    S.startId = lv.start;
+    S.goalId = lv.goal;
+    buildGraphSVG();
+    paintChips();
+    paintSelects();
+    rebuild();
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code");
+      code.textContent = lv.nodes.length + "點" + lv.edges.length + "邊";
+      var sp = document.createElement("span"); sp.textContent = lv.name;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function paintSelects(){
+    var s1 = $("selStart"), s2 = $("selGoal");
+    s1.innerHTML = ""; s2.innerHTML = "";
+    for(var i=0;i<G.ids.length;i++){
+      var o1 = document.createElement("option");
+      o1.value = G.ids[i]; o1.textContent = G.ids[i];
+      var o2 = document.createElement("option");
+      o2.value = G.ids[i]; o2.textContent = G.ids[i];
+      s1.appendChild(o1); s2.appendChild(o2);
+    }
+    s1.value = S.startId;
+    s2.value = S.goalId;
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著地圖與右邊的優先佇列，猜猜下一步會發生什麼。連續答對會加分。");
+      renderQuiz();
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 8. 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", rebuild);
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("selStart").addEventListener("change", function(){
+    S.startId = this.value;
+    if(S.startId === S.goalId){
+      /* 起終點相同時，把終點挪到別的節點 */
+      for(var i=0;i<G.ids.length;i++)
+        if(G.ids[i] !== S.startId){ S.goalId = G.ids[i]; break; }
+      $("selGoal").value = S.goalId;
+    }
+    rebuild();
+  });
+  $("selGoal").addEventListener("change", function(){
+    S.goalId = this.value;
+    if(S.startId === S.goalId){
+      for(var i=0;i<G.ids.length;i++)
+        if(G.ids[i] !== S.goalId){ S.startId = G.ids[i]; break; }
+      $("selStart").value = S.startId;
+    }
+    rebuild();
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 9. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

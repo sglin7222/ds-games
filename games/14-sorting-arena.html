@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>排序競技場 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式（排序競技場獨有的視覺） ============ */
+
+/* 單獨模式:大柱狀圖 */
+.chart{display:flex;align-items:flex-end;gap:6px;height:248px;
+  padding:12px 10px 6px;background:var(--sunken);
+  border:1px dashed var(--line);border-radius:8px}
+.bbar{flex:1 1 0;min-width:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;gap:3px}
+.bbar .v{font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums}
+.bbar i{display:block;width:100%;background:var(--surface);
+  border:1.5px solid var(--line);border-radius:5px 5px 2px 2px;
+  transition:height var(--dur),background var(--dur),border-color var(--dur)}
+.bbar .ix{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint)}
+.bbar[data-state="cmp"] i{background:var(--accent-soft);border-color:var(--accent)}
+.bbar[data-state="cmp"] .v{color:var(--accent);font-weight:700}
+.bbar[data-state="swap"] i{background:var(--accent);border-color:var(--accent)}
+.bbar[data-state="swap"] .v{color:var(--accent);font-weight:700}
+.bbar[data-state="done"] i{background:var(--jade);border-color:var(--jade)}
+.bbar[data-state="done"] .v{color:var(--jade)}
+.bbar[data-state="soft"] i{background:var(--jade-soft);border-color:var(--jade)}
+.bbar[data-state="pivot"] i{background:var(--alarm-soft);border-color:var(--alarm)}
+.bbar[data-state="pivot"] .v{color:var(--alarm);font-weight:700}
+.bbar[data-state="min"] i{background:var(--alarm-soft);border-color:var(--alarm)}
+.bbar[data-state="min"] .v{color:var(--alarm);font-weight:700}
+.bbar[data-state="key"] i{background:var(--accent);border-color:var(--accent);border-style:dashed}
+.bbar.dim{opacity:.3}
+
+/* 圖例 */
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink-soft)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:12px;height:12px;border-radius:3px;
+  background:var(--surface);border:1.5px solid var(--line)}
+.legend i[data-k="cmp"]{background:var(--accent-soft);border-color:var(--accent)}
+.legend i[data-k="swap"]{background:var(--accent);border-color:var(--accent)}
+.legend i[data-k="done"]{background:var(--jade);border-color:var(--jade)}
+.legend i[data-k="soft"]{background:var(--jade-soft);border-color:var(--jade)}
+.legend i[data-k="pivot"]{background:var(--alarm-soft);border-color:var(--alarm)}
+.legend i[data-k="dim"]{opacity:.3}
+
+/* 競技模式:五個小柱狀圖並排 */
+.race{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}
+.mini{background:var(--surface);border:1.5px solid var(--line-soft);border-radius:8px;
+  padding:10px;display:flex;flex-direction:column;gap:6px;
+  transition:border-color var(--dur)}
+.mini.is-done{border-color:var(--jade)}
+.mhead{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.mhead b{font-size:13px;font-weight:800}
+.mhead span{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);
+  white-space:nowrap}
+.mini.is-done .mhead span{color:var(--jade);font-weight:700}
+.mchart{display:flex;align-items:flex-end;gap:2px;height:84px;
+  padding:4px;background:var(--sunken);border-radius:6px}
+.mchart b{flex:1 1 0;min-width:0;display:block;background:var(--surface);
+  border:1px solid var(--line);border-radius:2px 2px 0 0}
+.mchart b[data-state="cmp"]{background:var(--accent-soft);border-color:var(--accent)}
+.mchart b[data-state="swap"]{background:var(--accent);border-color:var(--accent)}
+.mchart b[data-state="done"]{background:var(--jade);border-color:var(--jade)}
+.mchart b[data-state="soft"]{background:var(--jade-soft);border-color:var(--jade)}
+.mchart b[data-state="pivot"],.mchart b[data-state="min"]{background:var(--alarm-soft);border-color:var(--alarm)}
+.mchart b[data-state="key"]{background:var(--accent);border-color:var(--accent)}
+.mstat{font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums}
+
+/* 記分板 */
+.board{display:flex;flex-direction:column;gap:6px}
+.brow{display:flex;align-items:center;gap:8px;padding:7px 10px;
+  background:var(--sunken);border-radius:7px;font-size:12.5px}
+.brow.is-done{background:var(--jade-soft)}
+.brow .rk{flex:0 0 16px;font-family:var(--font-mono);font-size:12px;font-weight:700;
+  color:var(--ink-faint);text-align:center}
+.brow b{flex:1;font-size:12.5px}
+.brow .bc{font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.brow .fin{font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+  color:var(--jade);white-space:nowrap}
+.brow .fin.run{color:var(--ink-faint);font-weight:500}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">14 · 排序</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 14 · Sorting Arena</p>
+    <h1>排序競技場</h1>
+    <p class="lede">氣泡、選擇、插入、合併、快速排序同時開跑，比較次數與交換次數即時計分。同一份資料，五種排法，一步一步看誰在做白工、誰在偷跑——親眼看見 O(n²) 和 O(n log n) 的差距。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>陣列 + 五種排序</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>O(n log n) ~ O(n²)</b></div>
+      <div class="fact"><span>空間</span><b>O(1) ~ O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列、迴圈、遞迴</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上是一排高矮不一的柱子，每根柱子就是一個數字。排序就是把柱子由矮到高排好——你會看到每一次「比較」（把兩根放在一起看誰高）和每一次「交換」（兩根互換位置）。</p>
+          <h4>演示模式（單獨看一個演算法）</h4>
+          <ol class="steps">
+            <li>挑一個<b>演算法</b>（氣泡／選擇／插入／合併／快速）和一組<b>資料</b>。</li>
+            <li>按 <b>下一步</b> 一格一格走：橘色＝正在比較，實心橘＝正在交換或搬移，綠色＝已經就定位、永遠不再動。</li>
+            <li>右邊計數器即時累加<b>比較次數</b>和<b>交換／搬移次數</b>，下方 C++ 程式逐行高亮。</li>
+          </ol>
+          <h4>闖關模式（猜下一步）</h4>
+          <ol class="steps">
+            <li>每走到關鍵處先<b>不給答案</b>，由你猜：下一步比較哪兩根？會不會交換？這一輪誰就定位？</li>
+            <li>答對得分、連對加分；答錯立刻解釋為什麼。建議先選「迷你 8 根」資料。</li>
+          </ol>
+          <h4>競技模式（本關重頭戲）</h4>
+          <ol class="steps">
+            <li>五個演算法拿到<b>同一份資料</b>，五個小柱狀圖並排同時開跑。</li>
+            <li>每按一次「下一步」大家各走一步（或按播放齊跑），右側記分板即時排名比較次數，誰先排完誰亮<b>完賽</b>。</li>
+            <li>換「完全逆序」再跑一次，看氣泡排序被海放；換「幾乎排好」，看插入排序反殺。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>五個經典排序的動作本質</b> —— 氣泡＝相鄰互換讓大的往右浮；選擇＝每輪挑最小的放定位；插入＝像整理撲克牌把新牌插進排好的左手；合併＝兩疊排好的牌合成一疊；快速＝選一個基準值把大家分成兩堆。</li>
+            <li><b>比較與交換是兩回事</b> —— 選擇排序比較很多、交換卻只有 n−1 次；插入排序用「搬移」不用「交換」。計數器會讓你看見差別。</li>
+            <li><b>O(n²) 和 O(n log n) 差多少</b> —— 不是背出來的，是記分板上一翻兩瞪眼的數字。</li>
+            <li><b>資料長相決定勝負</b> —— 幾乎排好時插入排序接近 O(n)；完全逆序時氣泡排序最慘；已排好＋固定 pivot 會讓快速排序退化。</li>
+            <li><b>穩定性</b> —— 同分的人保不保持原本順序？為什麼合併穩定、選擇不穩定。</li>
+            <li><b>為什麼 O(n log n) 是比較排序的極限</b> —— 每次比較最多把可能性砍一半。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用演示模式看完<b>氣泡</b>和<b>插入</b>建立直覺 → 切競技模式跑「隨機」和「完全逆序」感受差距 → 最後用「迷你 8 根」玩闖關模式驗收。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選演算法與資料 → 一步一步走 → 看計數器怎麼跳。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+          <button class="mode-btn" data-mode="race" role="tab" aria-selected="false">競技模式</button>
+        </div>
+        <span class="panel-note" id="modeNote">單獨演一個演算法，程式逐行高亮</span>
+      </div>
+
+      <div class="bar" id="algoBar">
+        <span class="bar-label">演算法</span>
+        <div class="chips" id="algoChips"></div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">資料</span>
+        <div class="chips" id="chips"></div>
+        <button class="btn" id="btnReseed" type="button">↺ 重骰資料</button>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title" id="mainTitle">柱狀圖</h3>
+            <span class="panel-note" id="chartNote"></span>
+          </div>
+
+          <div id="soloWrap">
+            <div class="chart" id="chart"></div>
+            <div class="legend" style="margin-top:8px">
+              <span><i data-k="cmp"></i>比較中</span>
+              <span><i data-k="swap"></i>交換／搬移</span>
+              <span><i data-k="done"></i>就定位</span>
+              <span><i data-k="soft"></i>暫時排好</span>
+              <span><i data-k="pivot"></i>pivot／最小候選</span>
+              <span><i data-k="dim"></i>不在處理範圍</span>
+            </div>
+          </div>
+
+          <div id="raceWrap" style="display:none">
+            <div class="race" id="race"></div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="ctl"><label>速度</label><input type="range" id="spd" min="0" max="95" value="60"></div>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個演算法開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel" id="statsPanel">
+            <div class="panel-head">
+              <h3 class="panel-title">計數器</h3>
+              <span class="panel-note">即時累加</span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="hot"><div class="k">比較次數</div><div class="v" id="sCmp">0</div></div>
+              <div class="stat"><div class="k">交換／搬移</div><div class="v" id="sSwp">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">已就定位</div><div class="v" id="sLock">0</div></div>
+            </div>
+            <div class="callout" style="padding:11px 13px">
+              <span class="tag">白話</span>
+              <span class="txt" style="font-size:12.5px"><b>比較</b>＝把兩個數字放在一起看誰大；<b>交換</b>＝兩個互換位置；<b>搬移</b>＝把一個數字複製到隔壁格。排序的成本就是這些動作的總和。</span>
+            </div>
+          </div>
+
+          <div class="panel" id="boardPanel" style="display:none">
+            <div class="panel-head">
+              <h3 class="panel-title">記分板</h3>
+              <span class="panel-note">比較次數排名</span>
+            </div>
+            <div class="board" id="board"></div>
+            <div class="callout" data-k="key" style="padding:11px 13px">
+              <span class="tag">看點</span>
+              <span class="txt" style="font-size:12.5px">比較次數<b>少</b>的排前面。誰先走完自己的步驟，誰先亮<b>完賽</b>。</span>
+            </div>
+          </div>
+
+          <div class="panel" id="logPanel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title" id="algoTitle">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note" id="algoNote"></span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，「競技場」的本體就是這樣：同一份資料各跑一次、每個比較和交換都計數。這裡放氣泡（O(n²) 代表）對決快速（O(n log n) 代表），其餘三個在上面的演算法面板都有完整程式：</p>
+                <pre class="code">#include &lt;cstdio&gt;
+#include &lt;cstdlib&gt;
+#include &lt;ctime&gt;
+
+long long C = 0, M = 0;                          <i>// C = 比較次數、M = 交換次數</i>
+bool lt(int x, int y) { C++; return x &lt; y; }     <i>// 所有比較都經過這裡，順便計數</i>
+void sw(int &amp;x, int &amp;y) { int t=x; x=y; y=t; M++; }
+
+void bubbleSort(int a[], int n) {
+    for (int i = 0; i &lt; n - 1; i++)
+        for (int j = 0; j &lt; n - 1 - i; j++)
+            if (lt(a[j + 1], a[j])) sw(a[j], a[j + 1]);
+}
+void quickSort(int a[], int L, int R) {
+    if (L &gt;= R) return;
+    int p = a[R], i = L - 1;
+    for (int j = L; j &lt; R; j++)
+        if (lt(a[j], p)) sw(a[++i], a[j]);
+    sw(a[i + 1], a[R]);
+    quickSort(a, L, i);  quickSort(a, i + 2, R);
+}
+int main() {
+    srand((unsigned)time(0));
+    int x[14], y[14];
+    for (int i = 0; i &lt; 14; i++) x[i] = y[i] = rand() % 30 + 1;   <i>// 同一份資料</i>
+
+    C = M = 0; bubbleSort(x, 14);
+    printf("氣泡：比較 %lld 次、交換 %lld 次\n", C, M);
+    C = M = 0; quickSort(y, 0, 13);
+    printf("快速：比較 %lld 次、交換 %lld 次\n", C, M);
+}</pre>
+        <p>n = 14 看起來差距還不大；把 14 改成 10000 再跑一次，氣泡的比較次數大約是 5000 萬，快速大約 15 萬——這就是第 03 段要講的事。</p>
+      </div>
+    </div>
+  </section>
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「排序是什麼」走到「為什麼有的排法天生就快」，中間每一步為什麼非要不可。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一排數字，把它們由小到大重新排好。聽起來只有一題，其實資料的「長相」會讓同一個演算法表現天差地遠——所以本關的資料集不是隨便選的，每一組都是為了讓某個演算法現出原形：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>資料集</th><th class="mono">長相</th><th>誰佔便宜</th><th>誰吃虧</th></tr></thead>
+            <tbody>
+              <tr><td><b>隨機亂序</b></td><td class="mono">17, 3, 28, 9, …</td><td>合併、快速（平均 O(n log n)）</td><td>三個 O(n²) 選手</td></tr>
+              <tr><td><b>幾乎排好</b></td><td class="mono">2, 4, 8, 6, 10, …</td><td style="color:var(--jade);font-weight:700">插入（接近 O(n)）、氣泡（提前收工）</td><td>選擇（照樣全掃）、固定 pivot 的快速</td></tr>
+              <tr><td><b>完全逆序</b></td><td class="mono">30, 28, 26, …</td><td>合併（照常 n log n）</td><td style="color:var(--alarm);font-weight:700">氣泡（每一對都要換，最壞情況）</td></tr>
+              <tr><td><b>大量重複</b></td><td class="mono">14, 6, 22, 14, 6, …</td><td>看穩定性的好教材</td><td>單邊分堆的快速</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：「反正都能排好，誰做都差不多」</h3>
+        <p>五個演算法最後都會把柱子排好，看結果完全分不出高下。差別全部藏在<b>過程的成本</b>裡——這正是競技模式存在的理由。用 n = 14 的完全逆序資料實際數一次：</p>
+        <ul class="bullets no">
+          <li><b>氣泡排序</b> —— 比較 91 次、交換 91 次：每一對相鄰柱子都是錯的，每一次比較都得動手。</li>
+          <li><b>選擇排序</b> —— 比較 91 次、但交換只有 13 次：它比較不省，交換卻極省。「比較次數」和「交換次數」是兩種不同的成本。</li>
+            <li><b>合併排序</b> —— 比較 30 次上下就結束：它根本不跟你玩相鄰互換，直接把問題切半。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">n = 14 時是 91 比 30；n = 10000 時是 <b>5000 萬比 13 萬</b>。演算法的差距不是快一點點，是隨著資料變大<b>拉開到不能忽視</b>。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：比較是唯一的資訊來源，別浪費它</h3>
+        <p>排序演算法唯一能問的問題是「這兩個數字誰大？」。快慢的分水嶺，就在<b>每一次比較換到多少資訊</b>：</p>
+        <ul class="bullets">
+          <li><b>O(n²) 三兄弟</b> —— 氣泡每次比較最多修正「一對相鄰的錯誤」；逆序資料有 n(n−1)/2 對錯誤，所以至少要做 n(n−1)/2 次修正。一次比較，只換到一格進展。</li>
+          <li><b>合併排序</b> —— 比較的對象是「兩疊已經排好的牌」的頂端。一次比較就確定一張牌的最終去向，而且兩疊排好這件事本身就是之前比較攢下來的資訊，完全沒有浪費。</li>
+          <li><b>快速排序</b> —— 一輪分堆用 n 次比較，就讓「左邊全部小於 pivot、右邊全部不小於」同時成立——一次掃描，全場的相對位置資訊都有了進帳。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">快的演算法不是「手腳比較快」，而是<b>把之前比較過的結果記住、重複利用</b>（排好的子堆、pivot 兩側的關係）；慢的演算法每輪都把大部分資訊丟掉重來。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>五位選手：各自的一句話與生活比喻</h3>
+        <ol class="steps">
+          <li><b>氣泡排序 Bubble</b> —— 反覆走訪相鄰兩根，左比右大就交換；每輪最大的「浮」到最右邊。比喻：一排人兩兩比身高，高的往右換，最高的一輪就換到底。</li>
+          <li><b>選擇排序 Selection</b> —— 每輪把剩下的<b>全部看完</b>挑出最小的，放到左邊定位。比喻：從整副牌裡每次挑出最小的一張，依序疊成新的一疊。</li>
+          <li><b>插入排序 Insertion</b> —— 左手的牌永遠排好；每次抽一張新牌，從右往左找位置插進去。比喻：<b>整理撲克牌</b>，人類本能就是這樣排的。</li>
+          <li><b>合併排序 Merge</b> —— 把整排切半再切半，小到一張自然排好；然後<b>兩疊已排好的牌合成一疊</b>：每次只比兩疊頂端，小的先放下。</li>
+          <li><b>快速排序 Quick</b> —— 選一個基準值 pivot，一輪掃描把「比它小的」全趕到左邊，pivot 就定位；左右兩堆各自重複同一招。比喻：老師說「比 160 矮的站左邊」，一聲令下全班分成兩隊。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">合併排序的 <code>a[i] &lt;= a[j]</code> 那個<b>等號</b>：一樣大時要拿左邊的，穩定性就靠它。寫成 <code>&lt;</code> 也能排好，但同分的順序會亂掉。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：插入排序 <code>[5, 2, 4, 6, 1, 3]</code></h3>
+        <p>考試在紙上追蹤時就畫這張表。「手上的牌」是抽出來的 key，粗體是這一輪剛插好的位置：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">輪 i</th><th class="mono">手上的牌</th><th>往左比了誰</th><th class="mono">搬移</th><th class="mono">結果</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td class="mono">2</td><td>5&gt;2 → 挪</td><td class="mono">1</td><td class="mono"><b>2</b> 5 4 6 1 3</td></tr>
+              <tr><td class="mono">2</td><td class="mono">4</td><td>5&gt;4 → 挪；2≤4 → 停</td><td class="mono">1</td><td class="mono">2 <b>4</b> 5 6 1 3</td></tr>
+              <tr><td class="mono">3</td><td class="mono">6</td><td>5≤6 → 停（原地不動）</td><td class="mono">0</td><td class="mono">2 4 5 <b>6</b> 1 3</td></tr>
+              <tr><td class="mono">4</td><td class="mono">1</td><td>6,5,4,2 全部&gt;1 → 挪到最左</td><td class="mono">4</td><td class="mono"><b>1</b> 2 4 5 6 3</td></tr>
+              <tr><td class="mono">5</td><td class="mono">3</td><td>6,5,4 → 挪；2≤3 → 停</td><td class="mono">3</td><td class="mono">1 2 <b>3</b> 4 5 6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>總共比較 12 次、搬移 9 次。注意第 3 輪：資料本來就對，成本幾乎是零——把整排都「幾乎排好」，每一輪都像第 3 輪，整趟就接近 O(n)。這就是插入排序的主場。</p>
+      </div>
+
+      <div class="block">
+        <h3>五演算法比較總表</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>演算法</th><th class="mono">最好</th><th class="mono">平均</th><th class="mono">最壞</th><th class="mono">額外空間</th><th>穩定？</th></tr></thead>
+            <tbody>
+              <tr><td><b>氣泡</b></td><td class="mono" style="color:var(--jade)">O(n)</td><td class="mono">O(n²)</td><td class="mono" style="color:var(--alarm)">O(n²)</td><td class="mono">O(1)</td><td style="color:var(--jade);font-weight:700">穩定</td></tr>
+              <tr><td><b>選擇</b></td><td class="mono">O(n²)</td><td class="mono">O(n²)</td><td class="mono">O(n²)</td><td class="mono">O(1)</td><td style="color:var(--alarm);font-weight:700">不穩定</td></tr>
+              <tr><td><b>插入</b></td><td class="mono" style="color:var(--jade)">O(n)</td><td class="mono">O(n²)</td><td class="mono" style="color:var(--alarm)">O(n²)</td><td class="mono">O(1)</td><td style="color:var(--jade);font-weight:700">穩定</td></tr>
+              <tr><td><b>合併</b></td><td class="mono">O(n log n)</td><td class="mono">O(n log n)</td><td class="mono" style="color:var(--jade)">O(n log n)</td><td class="mono">O(n)</td><td style="color:var(--jade);font-weight:700">穩定</td></tr>
+              <tr><td><b>快速</b></td><td class="mono">O(n log n)</td><td class="mono">O(n log n)</td><td class="mono" style="color:var(--alarm)">O(n²)</td><td class="mono">O(log n)</td><td style="color:var(--alarm);font-weight:700">不穩定</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="bullets">
+          <li><b>穩定性白話版</b> —— 兩個「同分」的元素，排完之後保不保持原本的前後順序？想像班級名單先按<b>名字</b>排好、再按<b>成績</b>排：穩定排序會讓同分的人仍照名字順序排列，不穩定排序會把他們打亂。先後套用兩次排序的需求（先按日期、再按類別）非穩定不可。</li>
+          <li><b>選擇排序為什麼不穩定</b> —— 「把最小的換過來」那一下交換是跳著換的，可能把某個同分元素越過它的同伴丟到後面。</li>
+          <li><b>合併的代價</b> —— 三欄都是 O(n log n) 很漂亮，但要 O(n) 的暫存盒；快速平均一樣快又幾乎不用額外空間，所以實務更常見。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>為什麼 O(n log n) 是「用比較來排序」的極限</h3>
+        <p>直觀版，不用任何數學符號也能懂：</p>
+        <ol class="steps">
+          <li>n 個不同的數字，可能的排列順序有 n! 種（14 個數字就是 871 億種）。排序前，正確答案藏在這 n! 種裡的其中一種。</li>
+          <li>每問一次「A 和 B 誰大？」，答案只有兩種，所以<b>最多</b>把「還有可能的排列」砍成一半。</li>
+          <li>要從 n! 種砍到只剩 1 種，至少要砍 log₂(n!) 次——這個數大約就是 n log n。砍得再聰明也不能更少，因為一次比較就是只有兩種答案。</li>
+        </ol>
+        <div class="callout" data-k="key">
+          <span class="tag">邊界</span>
+          <span class="txt">這個極限只管「靠比較」的排序。如果數字範圍很小，計數排序（Counting Sort）根本不比較、直接數每個值出現幾次，可以到 O(n+k)——它繞過了規則，不是打破了規則。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度：n² 和 n log n 是從哪裡長出來的</h3>
+        <ul class="bullets">
+          <li><b>O(n²)</b> —— 「n 輪 × 每輪掃 n 個」的結構：氣泡與選擇的雙層巢狀迴圈（迴圈裡面又包一個迴圈，外圈每走一步、內圈就得從頭跑完一遍）。1+2+…+(n−1) = n(n−1)/2，量級就是 n²。</li>
+          <li><b>O(n log n)</b> —— 「切半」只能切 log₂n 層（14 根切 4 層就見底），每一層的合併或分堆總工作量是 n，相乘得 n log n。</li>
+          <li><b>空間</b> —— 氣泡／選擇／插入原地交換 O(1)；合併要一個跟資料一樣大的暫存盒 O(n)；快速的額外空間是遞迴呼叫疊起來的深度，平均 O(log n)。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「快速排序永遠最快」</b> —— 反例：資料<b>已經排好</b>＋固定拿最右邊當 pivot。每輪分堆一邊全空、一邊 n−1 個，切半變成削皮，直接退化成 O(n²)。所以工業級的快排會隨機選 pivot，或用三數取中，C++ 的 <code>std::sort</code> 甚至會在偵測到退化時切換成堆積排序（introsort）。</li>
+          <li><b>「O(n²) 的排序都是垃圾」</b> —— n 很小（十幾個）或資料幾乎排好時，插入排序常常是實測最快的。所以 <code>std::sort</code> 和 Python 的 timsort 都在小段落改用插入排序收尾。</li>
+          <li><b>「比較次數少＝一定比較快」</b> —— 還要看交換／搬移成本和快取行為。選擇排序交換極少，若「搬動一個元素」非常昂貴（例如大結構），它反而有戲。</li>
+          <li><b>「排好了它自己會知道」</b> —— 只有氣泡（靠 swapped 旗子）和插入天生會提早收工；選擇和固定寫法的合併、快速，資料排好了照樣把全部工作做完。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己加第六種排序。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放——競技場也一樣</h3>
+        <p>五個演算法各自先<b>一口氣跑完</b>，把每一步的完整柱狀圖快照存進自己的 steps 陣列；畫面只負責把「第 N 步」畫出來。競技模式沒有任何並行魔法——只是五份 steps 陣列<b>共用同一個進度數字 T</b>，每按一步大家的游標一起 +1，誰的陣列先走到底誰完賽。</p>
+        <div class="arch">
+          <div class="node" data-k="in">同一份資料 <small>data = [17, 3, 28, …]</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildBubble / buildSelection / buildInsertion / buildMerge / buildQuick <small>各自把整趟排序跑完</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">5 份 steps[] <small>每一格都是當下柱狀圖的完整快照＋累計計數</small></div>
+          <div class="arrow"></div>
+          <div class="node">單獨模式畫 steps[S.cur]；競技模式畫 5 份 steps[min(T, 終點)]</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 「倒轉一次交換」不用寫任何反向邏輯。</li>
+          <li><b>計數器不用重算</b> —— 每個 step 都帶著當下累計的 cmp／swp，跳到任何一步數字都對。</li>
+          <li><b>競技模式幾乎免費</b> —— 演算法函式一行都不用改，只是同時讀五份陣列。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步存一份陣列快照，記憶體 O(步數 × n)。教學規模（n ≤ 16、幾百步）完全沒問題，真實工程不會這樣寫。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildBubble … buildQuick</td><td>唯一真正跑演算法的地方。輸入陣列，輸出步驟快照陣列；互相完全獨立。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：資料、模式、單獨模式的 steps 與 cur、競技模式的 race（五份 steps＋進度 T）、分數。全站只有這一份。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintChart / paintRace / paintBoard<br>paintAlgo / paintStats / paintSay / paintLog</td><td>各自只讀「目前那一步」，畫自己那一塊，彼此不互相呼叫。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只改一個數字（S.cur 或 race.T），然後呼叫 render()。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td><td>題目在 buildSteps 時就掛在 step 上（step.quiz），這裡只負責出題、對答案、計分。</td></tr>
+              <tr><td><b>載入</b></td><td class="mono">loadLevel / setAlgo / setMode</td><td>換資料、換演算法、換模式，重建 steps 並歸零。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto_(k) 或 race.T++ <small>只改一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintChart<small>大柱狀圖</small></div>
+            <div class="node">paintRace<small>五個小圖</small></div>
+            <div class="node">paintBoard<small>記分板</small></div>
+            <div class="node">paintAlgo<small>C++ 高亮行</small></div>
+            <div class="node">paintStats<small>計數器</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:  <i>// start / pass / cmp / swap / keep / shift / place / take / pick / lock / done</i>
+         <i>// → 決定柱子顏色、徽章文字、說明面板底色</i>
+  <b>arr</b>:   <i>// 這一步「動作做完之後」的整排柱子快照 → 柱狀圖直接畫這個</i>
+  <b>hi</b>:    <i>// 目前高亮的柱子索引（比較中的兩根、被搬動的那根）</i>
+  <b>done</b>:  <i>// 已就定位的索引集合 → 綠色柱子</i>
+  <b>min / pivot / key / soft / range</b>: <i>// 各演算法專屬記號：最小候選、基準值、</i>
+         <i>// 手上的牌、暫時排好的前綴、目前處理的區段（範圍外變淡）</i>
+  <b>cmp</b>, <b>swp</b>:  <i>// 到這一步為止的累計比較數、交換／搬移數 → 計數器與記分板</i>
+  <b>line</b>:  <i>// C++ 要高亮第幾行（每個演算法有自己的 CODE 陣列）</i>
+  <b>title</b>, <b>msg</b>: <i>// 說明面板的標題與內文</i>
+  <b>quiz</b>:  <i>// 闖關題（可有可無）：{ q, opts, ans, ansLabel }</i>
+}</pre>
+        <p>注意 <code>arr</code> 是<b>快照</b>不是參考——每一步都複製一份新陣列。這是「可以自由倒退、跳到任何一步」的底氣。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>改柱子數量（12～16）</td><td><code>LEVELS</code> 裡各 <code>make()</code> 的 n</td><td>1 行</td></tr>
+              <tr><td>加一組資料集</td><td><code>LEVELS</code> 陣列加一筆 <code>{n, tag, make}</code></td><td>幾行</td></tr>
+              <tr><td>加第六種排序（例如希爾排序）</td><td><code>ALGOS</code> 加一組 <code>{name, code, doc, build}</code>，並在 <code>ALGO_ORDER</code> 補上名字——競技場自動多一位選手</td><td>一個函式</td></tr>
+              <tr><td>改自動播放速度範圍</td><td><code>delayMs()</code> 裡的公式</td><td>1 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次全站生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作氣泡、選擇、插入、合併、快速五種排序，
+全部透過同一個計數函式做比較（每次比較 cmpCnt++、每次交換/搬移 movCnt++）。
+
+步驟：
+1. 五個函式吃同一種介面：sort(vector&lt;int&gt;&amp; a)
+2. 寫隨機測試：1000 組隨機陣列，驗證五個函式輸出完全相同、且真的排好
+3. 對 n = 1000 的三種資料（隨機／已排好／完全逆序）各跑一次，
+   印出一張 5×3 的表：每格是「比較次數 / 搬移次數」
+4. 把 n 提高到 100000，只跑合併和快速，實測耗時
+
+寫完後回答：
+- 表格裡哪一格最出乎你意料？為什麼？
+- 選擇排序的比較次數為什麼三種資料都一模一樣？
+- 已排好的資料上，插入排序的比較次數是多少？這說明了什麼？</pre>
+
+        <h4>延伸挑戰一：親手弄壞快速排序</h4>
+        <pre class="code">我的快速排序固定拿最右邊當 pivot。請：
+1. 構造一組 n = 2000 的測資讓它退化到 O(n²)，用計數器證明
+2. 改成「隨機選 pivot」再跑同一組測資，比較次數差多少？
+3. 再構造一組「全部相同的值」的測資——隨機 pivot 救得了它嗎？
+   如果救不了，查一下三路切分（3-way partition）並實作
+最後用一句話說明：std::sort 為什麼要做成 introsort（快排+堆積+插入的混合體）？</pre>
+
+        <h4>延伸挑戰二：穩定性的現場證據</h4>
+        <pre class="code">做一個 struct { int score; char name; } 的陣列，
+例如 {90,'A'} {85,'B'} {90,'C'} {85,'D'}（分數有同分）。
+
+1. 用「只比 score」的選擇排序排一次，印出 name 順序
+2. 用「只比 score」的合併排序排一次，印出 name 順序
+3. 指出哪一個把同分的 A/C 或 B/D 順序弄反了，
+   並對照程式碼指出「弄反」發生在哪一行（提示：跳著交換的那一下）
+4. 說明：如果要「先按名字排、再按分數排」得到名字有序的同分群，
+   第二次排序為什麼非用穩定排序不可？</pre>
+
+        <h4>延伸挑戰三：混合排序（實務的樣子）</h4>
+        <pre class="code">實作一個 hybridSort：
+- 區段長度 &gt; 16 時用快速排序分堆
+- 區段長度 ≤ 16 時改用插入排序收尾
+用 n = 100000 的隨機資料實測，跟純快速排序比耗時與比較次數。
+回答：為什麼小段落插入排序反而划算？（提示：常數成本、幾乎排好）</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 14 排序競技場</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+<script>
+(function(){
+  "use strict";
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+
+  /* ---------- 五個演算法的 C++ 與逐行白話 ---------- */
+
+  var CODE_BUBBLE = [
+    "void bubbleSort(int a[], int n) {",
+    "    for (int i = 0; i < n - 1; i++) {",
+    "        bool swapped = false;",
+    "        for (int j = 0; j < n - 1 - i; j++) {",
+    "            if (a[j] > a[j + 1]) {",
+    "                swap(a[j], a[j + 1]);",
+    "                swapped = true;",
+    "            }",
+    "        }",
+    "        if (!swapped) break;",
+    "    }",
+    "}"
+  ];
+  var DOC_BUBBLE = [
+    "「排序機器」的開頭：把一整排數字（陣列 a）和它的長度 n 交給這台機器，它會直接在原本那排數字上動手，把它們由小到大排好（void 就是「不吐回答案、直接改」的意思）。",
+    "外層迴圈：整套「從頭掃到尾」的動作要重複很多輪。每跑完一輪，就有一個最大的數字沉到最右邊，所以最多 n−1 輪一定排完。",
+    "準備一面小旗子 swapped，先放下（false）。這一輪裡只要發生過任何一次交換，就把旗子舉起來。它是第 10 行「提前收工」的依據。",
+    "內層迴圈：j 從最左邊出發，一路走到「還沒排好的區域」的邊界。注意右邊界每輪縮短一格（n−1−i），因為右邊已經就定位的柱子不用再看。",
+    "比較：左邊的 a[j] 是不是比右邊的 a[j+1] 大？「比較」就是把兩個數字放在一起看誰大——這是排序唯一的資訊來源。",
+    "交換：左比右大，順序錯了，兩個互換位置（你站我的位置、我站你的）。大的數字因此往右冒一格，像氣泡往水面浮。",
+    "把旗子舉起來，記錄「這一輪有動過手」。",
+    "if 的結尾（這個大括號只是標記上面那段到此為止）。",
+    "內層迴圈結尾：j 走到底，這一輪最大的數字已經被一路推到最右邊，從此就定位。",
+    "檢查旗子：整輪下來一次都沒交換，代表每對相鄰數字順序都對——整排已經排好，直接收工（break＝跳出迴圈）。這就是氣泡排序在「幾乎排好」的資料上跑很快的原因。",
+    "外層迴圈結尾，回到第 2 行進行下一輪。",
+    "整台機器結束，陣列已由小到大排好。"
+  ];
+
+  var CODE_SELECT = [
+    "void selectionSort(int a[], int n) {",
+    "    for (int i = 0; i < n - 1; i++) {",
+    "        int minIdx = i;",
+    "        for (int j = i + 1; j < n; j++) {",
+    "            if (a[j] < a[minIdx]) {",
+    "                minIdx = j;",
+    "            }",
+    "        }",
+    "        swap(a[i], a[minIdx]);",
+    "    }",
+    "}"
+  ];
+  var DOC_SELECT = [
+    "選擇排序機器：給它一排數字 a 和長度 n，它直接在上面把數字由小到大排好。",
+    "外層迴圈：i 代表「現在要填第幾格」。每一輪從剩下的數字中挑出最小的放到第 i 格。填到倒數第二格時最後一格自動正確，所以只要 n−1 輪。",
+    "先假設第 i 格自己就是最小的，把它的位置記在 minIdx（最小值候選人）。",
+    "內層迴圈：j 從 i 的右邊出發，把剩下的每一個數字都看過一遍——這就是「選擇」：全部看完才敢說誰最小。",
+    "比較：a[j] 有沒有比目前的候選人 a[minIdx] 更小？",
+    "有！換人：把候選人改成 j。注意這裡只是「記住位置」，還不搬動任何數字。",
+    "if 結尾。",
+    "內層迴圈結尾：全部看完，minIdx 現在指著剩餘數字中真正最小的那一個。",
+    "交換：把最小的數字換到第 i 格，這一格從此就定位。整輪只交換這一次——所以選擇排序「比較很多、交換極少」。",
+    "外層迴圈結尾，i 往右移一格，繼續填下一格。",
+    "機器結束，排好了。"
+  ];
+
+  var CODE_INSERT = [
+    "void insertionSort(int a[], int n) {",
+    "    for (int i = 1; i < n; i++) {",
+    "        int key = a[i];",
+    "        int j = i - 1;",
+    "        while (j >= 0 && a[j] > key) {",
+    "            a[j + 1] = a[j];",
+    "            j--;",
+    "        }",
+    "        a[j + 1] = key;",
+    "    }",
+    "}"
+  ];
+  var DOC_INSERT = [
+    "插入排序機器：像整理手上的撲克牌——左手的牌永遠保持排好，右手每次抽一張新牌插進正確位置。",
+    "外層迴圈：i 從第 1 格開始（第 0 格自己一張牌，天生就是排好的）。每輪抽一張新牌來插。",
+    "把第 i 格的數字抽出來拿在手上，取名 key。它原來的格子概念上先空著。",
+    "j 指著手上這張牌左邊的第一張，準備一路往左找插入點。",
+    "只要還沒到最左端（j≥0）、而且左邊那張牌 a[j] 比手上的 key 大，就要繼續往左找。這裡的比較就是在問「這張牌該插在你的前面還是後面？」",
+    "把比較大的 a[j] 往右挪一格，幫手上的牌騰出空位。注意這是「搬移」不是交換——只朝一個方向移動，所以比氣泡的成對交換省力。",
+    "j 往左走一格，繼續跟更左邊的牌比。",
+    "while 結尾：停下來的原因只有兩種——碰到不比 key 大的牌，或已經到最左端。",
+    "把手上的 key 放進騰出來的空位 a[j+1]。左手的牌又全部排好了。",
+    "外層迴圈結尾，抽下一張牌。",
+    "機器結束。如果原本就幾乎排好，每張牌幾乎不用挪，整趟接近 O(n)——這是插入排序的主場。"
+  ];
+
+  var CODE_MERGE = [
+    "void mergeSort(int a[], int L, int R) {",
+    "    if (L >= R) return;",
+    "    int M = (L + R) / 2;",
+    "    mergeSort(a, L, M);",
+    "    mergeSort(a, M + 1, R);",
+    "    int tmp[16], i = L, j = M + 1, k = 0;",
+    "    while (i <= M && j <= R) {",
+    "        if (a[i] <= a[j]) tmp[k++] = a[i++];",
+    "        else              tmp[k++] = a[j++];",
+    "    }",
+    "    while (i <= M) tmp[k++] = a[i++];",
+    "    while (j <= R) tmp[k++] = a[j++];",
+    "    for (k = 0; k < R - L + 1; k++)",
+    "        a[L + k] = tmp[k];",
+    "}"
+  ];
+  var DOC_MERGE = [
+    "合併排序機器：負責把 a 的第 L 格到第 R 格排好。它會自己呼叫自己（遞迴）——把大問題切成小問題，小到不能再切時答案自然出現。",
+    "只剩一格（或沒有格子）的段落，天生就是排好的，直接返回。這是遞迴的終點。",
+    "找出中間點 M，準備把這一段對半切。",
+    "遞迴：先請「另一台自己」把左半段 a[L..M] 排好。",
+    "遞迴：再把右半段 a[M+1..R] 排好。走完這一行之後，左右兩半各自都排好了——像兩疊各自排好的牌。",
+    "準備一個暫存盒 tmp 和三根指頭：i 指左疊最上面、j 指右疊最上面、k 指暫存盒的下一個空位。",
+    "只要兩疊都還有牌，就重複做第 8～9 行。",
+    "比較兩疊最上面的牌：左邊小（或一樣大）就拿左邊的放進暫存盒，i 往後移。用 ≤ 而不是 ＜，是為了讓一樣大的牌保持原本的左右順序——「穩定」就靠這個等號。",
+    "否則拿右邊的，j 往後移。",
+    "while 結尾。",
+    "右疊拿完了，左疊剩下的直接依序倒進暫存盒（它們本來就排好）。",
+    "或者左疊拿完了，右疊剩下的直接倒進去。",
+    "合併完成，暫存盒裡就是排好的完整段落。準備搬回原位。",
+    "一格一格把暫存盒的內容搬回 a[L..R]。每一次搬動就是計數器上的「搬移」。",
+    "機器結束。每一「層」合併只碰每個數字一次，而層數只有 log n 層，所以總共 O(n log n)。"
+  ];
+
+  var CODE_QUICK = [
+    "void quickSort(int a[], int L, int R) {",
+    "    if (L >= R) return;",
+    "    int pivot = a[R], i = L - 1;",
+    "    for (int j = L; j < R; j++) {",
+    "        if (a[j] < pivot) {",
+    "            i++;",
+    "            swap(a[i], a[j]);",
+    "        }",
+    "    }",
+    "    swap(a[i + 1], a[R]);",
+    "    quickSort(a, L, i);",
+    "    quickSort(a, i + 2, R);",
+    "}"
+  ];
+  var DOC_QUICK = [
+    "快速排序機器：負責把 a[L..R] 排好，同樣用遞迴（自己呼叫自己）。",
+    "只剩一格或沒有格子，直接返回——那一格已經自動在正確位置上。",
+    "選最右邊的數字當 pivot（基準值），並準備一道「小牆」i：牆的左邊（含 i）只放比 pivot 小的數字，一開始牆在 L 的左邊、裡面是空的。",
+    "j 從 L 走到 R−1，把 pivot 以外的每個數字看一遍，決定它該站牆的哪一邊。",
+    "比較：a[j] 比 pivot 小嗎？",
+    "小 → 牆往右推一格，騰出牆內的新位置。",
+    "把 a[j] 換進牆內。這樣牆左邊永遠都是「比 pivot 小」的成員（有時會跟自己交換，位置不變但牆有推進）。",
+    "if 結尾。",
+    "for 結尾：掃完後，牆左邊全是小於 pivot 的，牆右邊全是不小於 pivot 的。",
+    "把 pivot 換到牆右邊第一格（i+1）。此刻它左邊全比它小、右邊全不比它小——pivot 永遠就定位，之後不再動。",
+    "遞迴：把 pivot 左邊那一堆排好。",
+    "遞迴：把 pivot 右邊那一堆排好。每個數字在自己那堆裡繼續分堆，平均 log n 層就分完。",
+    "機器結束。注意：如果資料已經排好又固定拿最右邊當 pivot，每次分堆會一邊全空、一邊 n−1 個，退化成 O(n²)——第 03 段的重點誤解。"
+  ];
+
+  var ALGO_ORDER = ["bubble","selection","insertion","merge","quick"];
+  var ALGOS = {
+    bubble:    {n:"氣泡排序", en:"Bubble",    big:"O(n²) · 穩定",       code:CODE_BUBBLE, doc:DOC_BUBBLE, build:buildBubble},
+    selection: {n:"選擇排序", en:"Selection", big:"O(n²) · 不穩定",     code:CODE_SELECT, doc:DOC_SELECT, build:buildSelection},
+    insertion: {n:"插入排序", en:"Insertion", big:"O(n²)·最好O(n)·穩定", code:CODE_INSERT, doc:DOC_INSERT, build:buildInsertion},
+    merge:     {n:"合併排序", en:"Merge",     big:"O(n log n) · 穩定",  code:CODE_MERGE, doc:DOC_MERGE, build:buildMerge},
+    quick:     {n:"快速排序", en:"Quick",     big:"平均O(n log n)·最壞O(n²)", code:CODE_QUICK, doc:DOC_QUICK, build:buildQuick}
+  };
+
+  /* ---------- 資料集 ---------- */
+  function shuffle(arr){
+    for(var i=arr.length-1;i>0;i--){
+      var r=Math.floor(Math.random()*(i+1)), t=arr[i]; arr[i]=arr[r]; arr[r]=t;
+    }
+    return arr;
+  }
+  function pool(n){
+    var v=[], k;
+    for(k=2;k<=30;k+=2) v.push(k);
+    shuffle(v);
+    return v.slice(0,n);
+  }
+  function mkRandom(n){ return pool(n); }
+  function mkNearly(n){
+    var a=pool(n).sort(function(x,y){return x-y;});
+    for(var t=0;t<2;t++){
+      var p=1+Math.floor(Math.random()*(n-2));
+      var tmp=a[p]; a[p]=a[p+1]; a[p+1]=tmp;
+    }
+    return a;
+  }
+  function mkReverse(n){ return pool(n).sort(function(x,y){return y-x;}); }
+  function mkDup(n){
+    var vals=[6,14,22,28], a=[];
+    for(var i=0;i<n;i++) a.push(vals[Math.floor(Math.random()*vals.length)]);
+    return a;
+  }
+  var LEVELS = [
+    {tag:"n=14", n:"隨機亂序",   make:function(){ return mkRandom(14); }},
+    {tag:"n=14", n:"幾乎排好（插入的主場）", make:function(){ return mkNearly(14); }},
+    {tag:"n=14", n:"完全逆序（氣泡最壞）",   make:function(){ return mkReverse(14); }},
+    {tag:"n=14", n:"大量重複值", make:function(){ return mkDup(14); }},
+    {tag:"n=8",  n:"迷你亂序（闖關推薦）",   make:function(){ return mkRandom(8); }}
+  ];
+
+  /* ---------- 狀態（全站唯一一份） ---------- */
+  var S = {
+    data:[], levelIdx:-1, algo:"bubble", mode:"demo",
+    steps:[], cur:0,
+    race:null,               /* {steps:{演算法:steps[]}, T, maxT} */
+    playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* ---------- 闖關題工廠（題目在 build 時就掛在 step 上） ---------- */
+  function ynQuiz(yes, q, yLabel, nLabel){
+    return {q:q, ans:yes?"Y":"N", ansLabel:yes?yLabel:nLabel,
+      opts:[{label:yLabel, sub:"YES", key:"Y"}, {label:nLabel, sub:"NO", key:"N"}]};
+  }
+  function idxQuiz(q, correct, n, arr){
+    var picks=[correct], guard=0;
+    while(picks.length<3 && guard++<60){
+      var c=Math.floor(Math.random()*n);
+      if(picks.indexOf(c)<0) picks.push(c);
+    }
+    shuffle(picks);
+    var opts=picks.map(function(p){
+      return {label:"第 "+p+" 根", sub:(arr?("a["+p+"]="+arr[p]):("index "+p)), key:"I"+p};
+    });
+    return {q:q, ans:"I"+correct, ansLabel:"第 "+correct+" 根", opts:opts};
+  }
+  function pairQuiz(q, i, j, n){
+    var list=[[i,j]], guard=0;
+    while(list.length<3 && guard++<80){
+      var a2=Math.floor(Math.random()*(n-1)), b2=a2+1, dup=false;
+      for(var t=0;t<list.length;t++) if(list[t][0]===a2 && list[t][1]===b2) dup=true;
+      if(!dup) list.push([a2,b2]);
+    }
+    shuffle(list);
+    var opts=list.map(function(p){
+      return {label:"第 "+p[0]+" 根和第 "+p[1]+" 根", sub:"a["+p[0]+"] vs a["+p[1]+"]", key:"P"+p[0]+"-"+p[1]};
+    });
+    return {q:q, ans:"P"+i+"-"+j, ansLabel:"第 "+i+" 根和第 "+j+" 根", opts:opts};
+  }
+  function lrQuiz(left, lv, rv){
+    return {q:"左疊頂端是 <b>"+lv+"</b>、右疊頂端是 <b>"+rv+"</b> —— 哪一張先放進暫存盒？",
+      ans:left?"L":"R", ansLabel:left?("左邊的 "+lv):("右邊的 "+rv),
+      opts:[{label:"左邊的 "+lv, sub:"a[i] <= a[j]", key:"L"},
+            {label:"右邊的 "+rv, sub:"a[j] < a[i]", key:"R"}]};
+  }
+
+  function clone(m){ var o={}, k; for(k in m) o[k]=1; return o; }
+
+  /* ---------- 資料層：五個演算法各自把整趟跑完 ---------- */
+  function buildBubble(src){
+    var a=src.slice(), n=a.length, steps=[], cmp=0, swp=0, done={};
+    function put(o){
+      o.arr=a.slice(); o.cmp=cmp; o.swp=swp; o.done=clone(done);
+      if(o.hi==null)o.hi=null; if(o.min==null)o.min=-1; if(o.pivot==null)o.pivot=-1;
+      if(o.key==null)o.key=-1; if(o.soft==null)o.soft=null; if(o.range==null)o.range=null;
+      steps.push(o);
+    }
+    put({kind:"start", line:1, title:"氣泡排序開始",
+      msg:"由左往右反覆看<b>相鄰兩根</b>：左比右高就交換。每一輪結束，最高的那根一定被推到最右邊。"});
+    for(var i=0;i<n-1;i++){
+      var swapped=false, bound=n-1-i;
+      put({kind:"pass", line:2, title:"第 "+(i+1)+" 輪開始",
+        msg:"這一輪 j 從第 0 根比到第 "+(bound-1)+" 根就好——"+(i===0?"第一輪要看完整排。":"右邊已有 "+i+" 根就定位，不用再看。")});
+      for(var j=0;j<bound;j++){
+        cmp++;
+        var pq=(j===bound-1)? pairQuiz("這一輪的<b>最後一次</b>比較是哪兩根？（右邊就定位的不用再比）", j, j+1, n) : null;
+        put({kind:"cmp", hi:[j,j+1], line:5, quiz:pq, title:"比較 a["+j+"] 和 a["+(j+1)+"]",
+          msg:"左邊 <b>"+a[j]+"</b> 和右邊 <b>"+a[j+1]+"</b> 誰大？（第 "+cmp+" 次比較）"});
+        if(a[j]>a[j+1]){
+          var t=a[j]; a[j]=a[j+1]; a[j+1]=t; swp++; swapped=true;
+          put({kind:"swap", hi:[j,j+1], line:6,
+            quiz:ynQuiz(true, "剛比較了 <b>"+a[j+1]+"</b>（左）和 <b>"+a[j]+"</b>（右）——會交換嗎？", "會，左比右大", "不會，順序正確"),
+            title:"交換", msg:"左邊 <b>"+a[j+1]+"</b> 比右邊 <b>"+a[j]+"</b> 大，順序錯了——互換。大的往右浮一格。"});
+        } else {
+          put({kind:"keep", hi:[j,j+1], line:5,
+            quiz:ynQuiz(false, "剛比較了 <b>"+a[j]+"</b>（左）和 <b>"+a[j+1]+"</b>（右）——會交換嗎？", "會，左比右大", "不會，順序正確"),
+            title:"不交換", msg:"左邊 <b>"+a[j]+"</b> 沒有比右邊 <b>"+a[j+1]+"</b> 大，順序正確，不動，j 往右走。"});
+        }
+      }
+      done[n-1-i]=1;
+      put({kind:"lock", hi:[n-1-i], line:9,
+        quiz:idxQuiz("這一輪結束後，哪一根柱子<b>就定位</b>（永遠不再動）？", n-1-i, n, a),
+        title:"第 "+(n-1-i)+" 根就定位",
+        msg:"這一輪最大的 <b>"+a[n-1-i]+"</b> 已被一路推到第 "+(n-1-i)+" 格，從此不再動（變綠色）。"});
+      if(!swapped){
+        for(var k2=0;k2<n-1-i;k2++) done[k2]=1;
+        put({kind:"lock", line:10, title:"提前收工",
+          msg:"這一輪<b>一次交換都沒發生</b>——每對相鄰柱子順序都對，代表整排已經排好了。swapped 旗子沒舉起來，直接 break 離開。這是氣泡在「幾乎排好」的資料上快的原因。"});
+        break;
+      }
+    }
+    for(var d=0;d<n;d++) done[d]=1;
+    put({kind:"done", line:12, title:"排序完成",
+      msg:"全部就定位。總計比較 <b>"+cmp+"</b> 次、交換 <b>"+swp+"</b> 次。"});
+    return steps;
+  }
+
+  function buildSelection(src){
+    var a=src.slice(), n=a.length, steps=[], cmp=0, swp=0, done={};
+    function put(o){
+      o.arr=a.slice(); o.cmp=cmp; o.swp=swp; o.done=clone(done);
+      if(o.hi==null)o.hi=null; if(o.min==null)o.min=-1; if(o.pivot==null)o.pivot=-1;
+      if(o.key==null)o.key=-1; if(o.soft==null)o.soft=null; if(o.range==null)o.range=null;
+      steps.push(o);
+    }
+    put({kind:"start", line:1, title:"選擇排序開始",
+      msg:"每一輪把剩下的柱子<b>全部看完</b>，挑出最小的，換到最左邊的空位就定位。"});
+    for(var i=0;i<n-1;i++){
+      var minIdx=i;
+      put({kind:"pass", line:3, min:minIdx, title:"第 "+(i+1)+" 輪：先假設 a["+i+"] 最小",
+        msg:"要填第 <b>"+i+"</b> 格了。先讓 a["+i+"]=<b>"+a[i]+"</b> 當「最小候選人」（紅框），再把右邊全部看一遍。"});
+      for(var j=i+1;j<n;j++){
+        cmp++;
+        var pq=(j===i+1)? pairQuiz("這一輪從哪兩根<b>開始</b>比？", i, i+1, n) : null;
+        put({kind:"cmp", hi:[j], min:minIdx, line:5, quiz:pq, title:"比較 a["+j+"] 和候選人",
+          msg:"a["+j+"]=<b>"+a[j]+"</b> 有沒有比目前候選人 a["+minIdx+"]=<b>"+a[minIdx]+"</b> 小？"});
+        if(a[j]<a[minIdx]){
+          minIdx=j;
+          put({kind:"swap", hi:[j], min:minIdx, line:6,
+            quiz:ynQuiz(true, "a["+j+"]=<b>"+a[j]+"</b> 比目前候選人小嗎？要換人嗎？", "要，換 a["+j+"] 當候選人", "不用，候選人不變"),
+            title:"換候選人", msg:"<b>"+a[j]+"</b> 更小——最小候選人改成第 "+j+" 根。注意只是記住位置，還沒搬動任何柱子。"});
+        } else {
+          put({kind:"keep", hi:[j], min:minIdx, line:5,
+            quiz:ynQuiz(false, "a["+j+"]=<b>"+a[j]+"</b> 比目前候選人 <b>"+a[minIdx]+"</b> 小嗎？要換人嗎？", "要，換 a["+j+"] 當候選人", "不用，候選人不變"),
+            title:"候選人不變", msg:"<b>"+a[j]+"</b> 沒有更小，候選人仍是第 "+minIdx+" 根的 <b>"+a[minIdx]+"</b>。"});
+        }
+      }
+      var pre=a.slice(), mq=idxQuiz("全部看完了——這一輪<b>真正最小</b>的是哪一根（要被換到第 "+i+" 格）？", minIdx, n, pre);
+      var t=a[i]; a[i]=a[minIdx]; a[minIdx]=t; swp++; done[i]=1;
+      put({kind:"lock", hi:[i,minIdx], line:9, quiz:mq,
+        title:"最小的 "+a[i]+" 就定位到第 "+i+" 格",
+        msg:"把最小的 <b>"+a[i]+"</b> 換到第 "+i+" 格，就定位。整輪比較 "+(n-1-i)+" 次、卻只交換這 1 次——選擇排序「比較多、交換少」。"});
+    }
+    for(var d=0;d<n;d++) done[d]=1;
+    put({kind:"done", line:11, title:"排序完成",
+      msg:"全部就定位。總計比較 <b>"+cmp+"</b> 次、交換只有 <b>"+swp+"</b> 次——但比較次數跟資料排不排好無關，永遠是 n(n−1)/2。"});
+    return steps;
+  }
+
+  function buildInsertion(src){
+    var a=src.slice(), n=a.length, steps=[], cmp=0, swp=0, done={};
+    function put(o){
+      o.arr=a.slice(); o.cmp=cmp; o.swp=swp; o.done=clone(done);
+      if(o.hi==null)o.hi=null; if(o.min==null)o.min=-1; if(o.pivot==null)o.pivot=-1;
+      if(o.key==null)o.key=-1; if(o.soft==null)o.soft=null; if(o.range==null)o.range=null;
+      steps.push(o);
+    }
+    put({kind:"start", line:1, title:"插入排序開始", soft:0,
+      msg:"像整理撲克牌：左手（淡綠區）永遠排好。第 0 根自己一根，天生就是排好的。"});
+    for(var i=1;i<n;i++){
+      var key=a[i], j=i-1, hole=i;
+      put({kind:"pick", line:3, key:i, soft:i-1, title:"抽出第 "+i+" 根：key = "+key,
+        msg:"把 a["+i+"]=<b>"+key+"</b> 抽出來拿在手上（虛線橘框是它留下的洞），往左找它該插的位置。"});
+      while(j>=0){
+        cmp++;
+        put({kind:"cmp", hi:[j], key:hole, soft:i-1, line:5, title:"比較 a["+j+"] 和手上的 "+key,
+          msg:"左手牌 a["+j+"]=<b>"+a[j]+"</b> 比手上的 <b>"+key+"</b> 大嗎？大就要往右挪。"});
+        if(a[j]>key){
+          a[j+1]=a[j]; swp++;
+          put({kind:"shift", hi:[j,j+1], key:j, soft:i-1, line:6,
+            quiz:ynQuiz(true, "a["+j+"]=<b>"+a[j+1]+"</b> 比手上的 <b>"+key+"</b> 大嗎？要往右挪嗎？", "大，往右挪一格", "不大，停下來插牌"),
+            title:"把 "+a[j+1]+" 往右挪", msg:"<b>"+a[j+1]+"</b> 比 <b>"+key+"</b> 大，往右搬一格幫手上的牌騰位置（這是「搬移」，計入計數器）。洞移到第 "+j+" 格。"});
+          hole=j; j--;
+        } else {
+          put({kind:"keep", hi:[j], key:hole, soft:i-1, line:5,
+            quiz:ynQuiz(false, "a["+j+"]=<b>"+a[j]+"</b> 比手上的 <b>"+key+"</b> 大嗎？要往右挪嗎？", "大，往右挪一格", "不大，停下來插牌"),
+            title:"停：找到插入點", msg:"a["+j+"]=<b>"+a[j]+"</b> 沒有比 <b>"+key+"</b> 大——插入點就在它右邊，不用再往左了。"});
+          break;
+        }
+      }
+      if(j<0){
+        put({kind:"keep", key:hole, soft:i-1, line:5, title:"到最左端了",
+          msg:"一路挪到最左端都沒人比 <b>"+key+"</b> 小——手上的牌是目前最小的，插在第 0 格。"});
+      }
+      var slot=j+1;
+      a[slot]=key; swp++;
+      put({kind:"place", hi:[slot], soft:i, line:9,
+        quiz:idxQuiz("手上的 <b>"+key+"</b> 要放回哪一格？", slot, n, null),
+        title:"把 "+key+" 插進第 "+slot+" 格",
+        msg:"key=<b>"+key+"</b> 放進空位 a["+slot+"]。左手的 "+(i+1)+" 根牌又全部排好了（淡綠）。"});
+    }
+    for(var d=0;d<n;d++) done[d]=1;
+    put({kind:"done", line:11, title:"排序完成",
+      msg:"全部排好。總計比較 <b>"+cmp+"</b> 次、搬移 <b>"+swp+"</b> 次——資料越接近排好，這兩個數字越小。"});
+    return steps;
+  }
+
+  function buildMerge(src){
+    var a=src.slice(), n=a.length, steps=[], cmp=0, swp=0, done={};
+    function put(o){
+      o.arr=a.slice(); o.cmp=cmp; o.swp=swp; o.done=clone(done);
+      if(o.hi==null)o.hi=null; if(o.min==null)o.min=-1; if(o.pivot==null)o.pivot=-1;
+      if(o.key==null)o.key=-1; if(o.soft==null)o.soft=null; if(o.range==null)o.range=null;
+      steps.push(o);
+    }
+    put({kind:"start", line:1, title:"合併排序開始",
+      msg:"先切半再切半，小到一根自然排好；然後把兩疊<b>已排好的牌</b>合成一疊。畫面變淡的柱子＝不在目前處理的區段。"});
+    function ms(L,R){
+      if(L>=R) return;
+      var M=(L+R)>>1;
+      put({kind:"pass", range:[L,R], line:3, title:"切半：a["+L+".."+R+"]",
+        msg:"把 a["+L+".."+R+"] 切成左半 a["+L+".."+M+"] 和右半 a["+(M+1)+".."+R+"]，各自先排好再合併。"});
+      ms(L,M); ms(M+1,R);
+      var tmp=[], i=L, j=M+1;
+      put({kind:"pass", range:[L,R], line:6, title:"開始合併 a["+L+".."+M+"] + a["+(M+1)+".."+R+"]",
+        msg:"左右兩疊各自已排好。準備暫存盒 tmp，每次只比<b>兩疊頂端</b>，小的先放下。"});
+      while(i<=M && j<=R){
+        cmp++;
+        put({kind:"cmp", range:[L,R], hi:[i,j], line:8, title:"比較兩疊頂端",
+          msg:"左疊頂端 a["+i+"]=<b>"+a[i]+"</b>、右疊頂端 a["+j+"]=<b>"+a[j]+"</b>——小的先進暫存盒。"});
+        if(a[i]<=a[j]){
+          tmp.push(a[i]);
+          put({kind:"take", range:[L,R], hi:[i], line:8, quiz:lrQuiz(true, a[i], a[j]),
+            title:"拿左邊的 "+a[i],
+            msg:"<b>"+a[i]+"</b> ≤ <b>"+a[j]+"</b>，左邊先放。一樣大時也拿左邊——這個等號保住了<b>穩定性</b>。"});
+          i++;
+        } else {
+          tmp.push(a[j]);
+          put({kind:"take", range:[L,R], hi:[j], line:9, quiz:lrQuiz(false, a[i], a[j]),
+            title:"拿右邊的 "+a[j],
+            msg:"<b>"+a[j]+"</b> 比較小，右邊先放進暫存盒。"});
+          j++;
+        }
+      }
+      while(i<=M){
+        tmp.push(a[i]);
+        put({kind:"take", range:[L,R], hi:[i], line:11, title:"右疊空了，直接搬左疊",
+          msg:"右疊拿完了。左疊剩下的本來就排好，<b>"+a[i]+"</b> 直接倒進暫存盒，不用再比。"});
+        i++;
+      }
+      while(j<=R){
+        tmp.push(a[j]);
+        put({kind:"take", range:[L,R], hi:[j], line:12, title:"左疊空了，直接搬右疊",
+          msg:"左疊拿完了。右疊剩下的 <b>"+a[j]+"</b> 直接倒進暫存盒。"});
+        j++;
+      }
+      for(var k=0;k<tmp.length;k++){
+        a[L+k]=tmp[k]; swp++;
+        put({kind:"place", range:[L,R], hi:[L+k], line:14, title:"搬回 a["+(L+k)+"] = "+tmp[k],
+          msg:"暫存盒第 "+k+" 張（<b>"+tmp[k]+"</b>）搬回 a["+(L+k)+"]。每一次搬回都計一次「搬移」。"});
+      }
+    }
+    ms(0,n-1);
+    for(var d=0;d<n;d++) done[d]=1;
+    put({kind:"done", line:15, title:"排序完成",
+      msg:"全部合併完成。總計比較 <b>"+cmp+"</b> 次、搬移 <b>"+swp+"</b> 次——不管資料多亂，都是 O(n log n)。"});
+    return steps;
+  }
+
+  function buildQuick(src){
+    var a=src.slice(), n=a.length, steps=[], cmp=0, swp=0, done={};
+    function put(o){
+      o.arr=a.slice(); o.cmp=cmp; o.swp=swp; o.done=clone(done);
+      if(o.hi==null)o.hi=null; if(o.min==null)o.min=-1; if(o.pivot==null)o.pivot=-1;
+      if(o.key==null)o.key=-1; if(o.soft==null)o.soft=null; if(o.range==null)o.range=null;
+      steps.push(o);
+    }
+    put({kind:"start", line:1, title:"快速排序開始",
+      msg:"選一個 pivot（基準值，紅框），把「比它小的」全趕到左邊，pivot 就定位；左右兩堆各自重複同一招。"});
+    function qs(L,R){
+      if(L>R) return;
+      if(L===R){
+        done[L]=1;
+        put({kind:"lock", hi:[L], line:2, title:"a["+L+"] 單獨一根，自動就定位",
+          msg:"這個區段只剩 <b>"+a[L]+"</b> 一根——左右鄰居都已就定位，它自動正確（遞迴的終點）。"});
+        return;
+      }
+      var pv=a[R], i=L-1;
+      put({kind:"pass", range:[L,R], pivot:R, line:3, title:"處理 a["+L+".."+R+"]：pivot = "+pv,
+        msg:"選最右邊的 a["+R+"]=<b>"+pv+"</b> 當基準值。接下來 j 從 "+L+" 掃到 "+(R-1)+"，比 pivot 小的趕到左邊。"});
+      for(var j=L;j<R;j++){
+        cmp++;
+        put({kind:"cmp", range:[L,R], pivot:R, hi:[j], line:5, title:"a["+j+"] 和 pivot 比",
+          msg:"a["+j+"]=<b>"+a[j]+"</b> 比 pivot <b>"+pv+"</b> 小嗎？小就換進左邊的「小牆」內。"});
+        if(a[j]<pv){
+          i++;
+          var same=(i===j), t=a[i]; a[i]=a[j]; a[j]=t; swp++;
+          put({kind:"swap", range:[L,R], pivot:R, hi:[i,j], line:7,
+            quiz:ynQuiz(true, "a["+j+"]=<b>"+a[i]+"</b> 比 pivot <b>"+pv+"</b> 小嗎？會被換到左邊嗎？", "會，換進牆內", "不會，留在原地"),
+            title:same?("牆推進到第 "+i+" 格"):("把 "+a[i]+" 換進牆內"),
+            msg:same
+              ? "<b>"+a[i]+"</b> 比 pivot 小。它剛好就站在牆邊，跟自己交換、位置不變，但「小牆」推進到第 "+i+" 格。"
+              : "<b>"+a[i]+"</b> 比 pivot 小，跟 a["+j+"] 互換，收進牆內。牆左邊（0.."+i+"）現在全是小於 "+pv+" 的。"});
+        } else {
+          put({kind:"keep", range:[L,R], pivot:R, hi:[j], line:5,
+            quiz:ynQuiz(false, "a["+j+"]=<b>"+a[j]+"</b> 比 pivot <b>"+pv+"</b> 小嗎？會被換到左邊嗎？", "會，換進牆內", "不會，留在原地"),
+            title:a[j]+" 留在右邊", msg:"<b>"+a[j]+"</b> 不比 pivot 小，留在牆的右邊，j 繼續往前。"});
+        }
+      }
+      var lq=idxQuiz("掃完了——pivot <b>"+pv+"</b> 會落腳在哪一格（牆右邊第一格）？", i+1, n, null);
+      var t2=a[i+1]; a[i+1]=a[R]; a[R]=t2; swp++; done[i+1]=1;
+      put({kind:"lock", range:[L,R], hi:[i+1], line:10, quiz:lq,
+        title:"pivot "+pv+" 就定位到第 "+(i+1)+" 格",
+        msg:"把 pivot 換到牆右邊第一格。此刻它左邊全比它小、右邊全不比它小——<b>"+pv+"</b> 永遠就定位。剩下左右兩堆各自再玩一次。"});
+      qs(L,i); qs(i+2,R);
+    }
+    qs(0,n-1);
+    for(var d=0;d<n;d++) done[d]=1;
+    put({kind:"done", line:13, title:"排序完成",
+      msg:"全部就定位。總計比較 <b>"+cmp+"</b> 次、交換 <b>"+swp+"</b> 次。試試「幾乎排好」的資料——固定 pivot 的它會開始吃苦頭。"});
+    return steps;
+  }
+
+  /* ---------- 畫面層 ---------- */
+  var BADGE = {start:"START", pass:"ROUND", cmp:"比較", swap:"交換", keep:"不動",
+               shift:"右移", place:"寫入", take:"取牌", pick:"抽牌", lock:"定位", done:"DONE"};
+  var KMAP  = {start:"start", pass:"start", cmp:"hot", swap:"hot", keep:"",
+               shift:"hot", place:"hot", take:"hot", pick:"hot", lock:"done", done:"done"};
+
+  function barState(st, idx){
+    if(st.done[idx]) return "done";
+    var inHi = st.hi && st.hi.indexOf(idx)>=0;
+    if(inHi && (st.kind==="swap"||st.kind==="place"||st.kind==="shift"||st.kind==="take")) return "swap";
+    if(idx===st.min) return "min";
+    if(idx===st.pivot) return "pivot";
+    if(idx===st.key) return "key";
+    if(inHi) return "cmp";
+    if(st.soft!=null && idx<=st.soft) return "soft";
+    return "";
+  }
+
+  function paintChart(){
+    var st=S.steps[S.cur], arr=st.arr, max=1, i, html=[];
+    for(i=0;i<arr.length;i++) if(arr[i]>max) max=arr[i];
+    for(i=0;i<arr.length;i++){
+      var dim=(st.range && !st.done[i] && (i<st.range[0]||i>st.range[1])) ? " dim" : "";
+      var h=Math.max(8, Math.round(arr[i]/max*178));
+      html.push('<div class="bbar'+dim+'" data-state="'+barState(st,i)+'">'+
+        '<span class="v">'+arr[i]+'</span>'+
+        '<i style="height:'+h+'px"></i>'+
+        '<span class="ix">'+i+'</span></div>');
+    }
+    $("chart").innerHTML=html.join("");
+    $("chartNote").textContent = ALGOS[S.algo].n+" · n = "+arr.length;
+  }
+
+  function raceCursor(k){
+    var stps=S.race.steps[k];
+    return Math.min(S.race.T, stps.length-1);
+  }
+
+  function paintRace(){
+    var html=[], idx, i;
+    for(idx=0;idx<ALGO_ORDER.length;idx++){
+      var k=ALGO_ORDER[idx], stps=S.race.steps[k], cur=raceCursor(k), st=stps[cur];
+      var fin=(cur===stps.length-1);
+      var arr=st.arr, max=1, bars=[];
+      for(i=0;i<arr.length;i++) if(arr[i]>max) max=arr[i];
+      for(i=0;i<arr.length;i++){
+        bars.push('<b data-state="'+barState(st,i)+'" style="height:'+Math.max(4,Math.round(arr[i]/max*70))+'px"></b>');
+      }
+      html.push('<div class="mini'+(fin?" is-done":"")+'">'+
+        '<div class="mhead"><b>'+ALGOS[k].n+'</b><span>'+(fin?"✓ 完賽":("第 "+cur+" 步"))+'</span></div>'+
+        '<div class="mchart">'+bars.join("")+'</div>'+
+        '<div class="mstat">比較 '+st.cmp+' · 動 '+st.swp+'</div></div>');
+    }
+    $("race").innerHTML=html.join("");
+    paintBoard();
+  }
+
+  function paintBoard(){
+    var rows=[], idx;
+    for(idx=0;idx<ALGO_ORDER.length;idx++){
+      var k=ALGO_ORDER[idx], stps=S.race.steps[k], cur=raceCursor(k), st=stps[cur];
+      rows.push({name:ALGOS[k].n, cmp:st.cmp, swp:st.swp,
+                 fin:cur===stps.length-1, total:stps.length-1});
+    }
+    rows.sort(function(x,y){ return x.cmp-y.cmp; });
+    var html=[];
+    for(idx=0;idx<rows.length;idx++){
+      var r=rows[idx];
+      html.push('<div class="brow'+(r.fin?" is-done":"")+'">'+
+        '<span class="rk">'+(idx+1)+'</span><b>'+r.name+'</b>'+
+        '<span class="bc">比 '+r.cmp+'</span><span class="bc">動 '+r.swp+'</span>'+
+        (r.fin ? '<span class="fin">完賽 '+r.total+' 步</span>'
+               : '<span class="fin run">跑步中</span>')+
+        '</div>');
+    }
+    $("board").innerHTML=html.join("");
+  }
+
+  function paintRaceSay(){
+    var finished=[], leader=null, idx;
+    for(idx=0;idx<ALGO_ORDER.length;idx++){
+      var k=ALGO_ORDER[idx], stps=S.race.steps[k], cur=raceCursor(k), st=stps[cur];
+      if(cur===stps.length-1) finished.push(ALGOS[k].n+"（"+(stps.length-1)+" 步）");
+      if(leader===null || st.cmp<leader.cmp) leader={name:ALGOS[k].n, cmp:st.cmp};
+    }
+    var el=$("say");
+    if(S.race.T>=S.race.maxT){
+      el.setAttribute("data-k","done");
+      $("sayBadge").textContent="DONE";
+      $("sayTitle").textContent="全員完賽";
+      $("sayText").innerHTML="完賽順序看記分板。換一組資料（尤其「完全逆序」和「幾乎排好」）再跑一次，排名會洗牌。";
+    } else if(S.race.T===0){
+      el.setAttribute("data-k","start");
+      $("sayBadge").textContent="START";
+      $("sayTitle").textContent="五位選手就位，同一份資料";
+      $("sayText").innerHTML="按「下一步」大家各走一步，或按「自動播放」齊跑。";
+    } else {
+      el.setAttribute("data-k","hot");
+      $("sayBadge").textContent="RACE";
+      $("sayTitle").textContent="第 "+S.race.T+" 步";
+      $("sayText").innerHTML="目前比較次數最少：<b>"+leader.name+"</b>（"+leader.cmp+" 次）。"+
+        (finished.length ? " 已完賽："+finished.join("、")+"。" : "");
+    }
+  }
+
+  function renderAlgoPanel(){
+    var A=ALGOS[S.algo], ol=$("algo"), all=$("algoAll"), i;
+    ol.innerHTML="";
+    for(i=0;i<A.code.length;i++){
+      var li=document.createElement("li");
+      li.textContent=A.code[i];
+      ol.appendChild(li);
+    }
+    all.innerHTML="";
+    for(i=0;i<A.code.length;i++){
+      var row=document.createElement("li");
+      var no=document.createElement("span"); no.className="no"; no.textContent=i+1;
+      var src=document.createElement("span"); src.className="src"; src.textContent=A.code[i].trim();
+      var doc=document.createElement("span"); doc.className="doc"; doc.textContent=A.doc[i]||"";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+    $("algoTitle").textContent="演算法（C++）— "+A.n+" "+A.en+" Sort";
+    $("algoNote").textContent=A.big;
+  }
+
+  function paintAlgo(){
+    var line=S.steps[S.cur].line, lis=$("algo").children, rows=$("algoAll").children, i;
+    for(i=0;i<lis.length;i++) lis[i].classList.toggle("is-now",(i+1)===line);
+    for(i=0;i<rows.length;i++) rows[i].classList.toggle("is-now",(i+1)===line);
+    var A=ALGOS[S.algo], box=$("algoDoc");
+    if(line>=1 && line<=A.doc.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent="行 "+line;
+      $("algoDocTxt").textContent=A.doc[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent="—";
+      $("algoDocTxt").textContent="按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function clearAlgoHi(){
+    var lis=$("algo").children, rows=$("algoAll").children, i;
+    for(i=0;i<lis.length;i++) lis[i].classList.remove("is-now");
+    for(i=0;i<rows.length;i++) rows[i].classList.remove("is-now");
+    var box=$("algoDoc");
+    box.classList.add("idle");
+    $("algoDocLn").textContent="—";
+    $("algoDocTxt").textContent="競技模式不逐行高亮（五個同時跑）。想逐行看，切回演示模式。上面顯示的是「"+ALGOS[S.algo].n+"」的程式。";
+  }
+
+  function paintStats(){
+    var st=S.steps[S.cur], c=0, k;
+    for(k in st.done) c++;
+    $("sCmp").textContent=st.cmp;
+    $("sSwp").textContent=st.swp;
+    $("sLock").textContent=c;
+  }
+
+  function paintSay(){
+    var st=S.steps[S.cur];
+    $("say").setAttribute("data-k", KMAP[st.kind]||"idle");
+    $("sayBadge").textContent=BADGE[st.kind]||"STEP";
+    $("sayTitle").textContent=st.title;
+    $("sayText").innerHTML=st.msg;
+  }
+
+  function paintLog(){
+    var ol=$("log");
+    if(S.cur===0){
+      ol.innerHTML='<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent="";
+      return;
+    }
+    var html=[], from=Math.max(1,S.cur-39), j;
+    for(j=from;j<=S.cur;j++){
+      var st=S.steps[j];
+      html.push('<li data-k="'+(KMAP[st.kind]||"")+'"><span class="tag">'+(BADGE[st.kind]||"STEP")+
+        '</span><b>'+esc(st.title)+'</b><span class="tail">比'+st.cmp+'/動'+st.swp+'</span></li>');
+    }
+    ol.innerHTML=html.join("");
+    ol.scrollTop=ol.scrollHeight;
+    $("logNote").textContent=S.cur+" 步";
+  }
+
+  function paintProgress(){
+    var cur, total;
+    if(S.mode==="race"){ cur=S.race.T; total=S.race.maxT; }
+    else { cur=S.cur; total=S.steps.length-1; }
+    $("progBar").style.width=(total>0 ? cur/total*100 : 0)+"%";
+    $("stepCount").textContent=cur+" / "+total;
+    $("btnPrev").disabled=(cur===0);
+    $("btnNext").disabled=(cur>=total);
+  }
+
+  function render(){
+    if(S.mode==="race"){
+      paintRace(); paintRaceSay(); paintProgress(); clearAlgoHi();
+    } else {
+      paintChart(); paintStats(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+      if(S.mode==="quiz") renderQuiz();
+    }
+  }
+
+  /* ---------- 導覽 ---------- */
+  function goto_(k){
+    S.cur=Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.mode==="race"){
+      if(S.race.T>=S.race.maxT){ stopPlay(); return; }
+      S.race.T++;
+      render();
+      if(S.race.T>=S.race.maxT) stopPlay();
+      return;
+    }
+    if(S.cur>=S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur+1);
+    if(S.cur>=S.steps.length-1) stopPlay();
+  }
+  function prev(){
+    stopPlay();
+    if(S.mode==="race"){
+      S.race.T=Math.max(0,S.race.T-1);
+      render();
+      return;
+    }
+    goto_(S.cur-1);
+  }
+  function delayMs(){
+    return 940 - (+$("spd").value)*9;   /* 0→940ms、95→85ms */
+  }
+  function startPlay(){
+    if(S.mode==="race"){ if(S.race.T>=S.race.maxT){ S.race.T=0; render(); } }
+    else if(S.cur>=S.steps.length-1) goto_(0);
+    S.playing=true;
+    $("btnPlay").textContent="❚❚ 暫停";
+    S.timer=setInterval(next, delayMs());
+  }
+  function stopPlay(){
+    S.playing=false;
+    clearInterval(S.timer); S.timer=null;
+    $("btnPlay").textContent="▶ 自動播放";
+  }
+  function togglePlay(){ S.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 闖關 ---------- */
+  function nextQuizIndex(){
+    for(var t=S.cur+1;t<S.steps.length;t++) if(S.steps[t].quiz) return t;
+    return -1;
+  }
+  function endBtn(host, cls, label, fn){
+    var b=document.createElement("button");
+    b.className=cls; b.type="button"; b.textContent=label;
+    b.addEventListener("click", fn);
+    host.appendChild(b);
+  }
+  function renderQuiz(){
+    var q=$("quizQ"), opts=$("quizOpts"), ni=nextQuizIndex();
+    $("sScore").textContent=S.score;
+    $("sStreak").textContent=S.streak;
+    $("sAcc").textContent=S.asked ? Math.round(S.right/S.asked*100)+"%" : "—";
+    if(ni===-1){
+      q.textContent="這一關的題目答完了。";
+      opts.innerHTML="";
+      endBtn(opts,"btn btn-primary","看排序完成畫面 →",function(){ goto_(S.steps.length-1); });
+      endBtn(opts,"btn","換下一組資料 →",function(){ loadLevel((S.levelIdx+1)%LEVELS.length); });
+      endBtn(opts,"btn","↺ 重骰重來",function(){ loadLevel(S.levelIdx); });
+      return;
+    }
+    S.pendingIndex=ni;
+    var qz=S.steps[ni].quiz;
+    q.innerHTML=qz.q;
+    opts.innerHTML="";
+    qz.opts.forEach(function(o){
+      var b=document.createElement("button");
+      b.className="opt"; b.type="button";
+      b.innerHTML=esc(o.label)+(o.sub?"<small>"+esc(o.sub)+"</small>":"");
+      b.addEventListener("click", function(){ answerQuiz(o.key); });
+      opts.appendChild(b);
+    });
+  }
+  function answerQuiz(ans){
+    var ni=S.pendingIndex;
+    if(ni==null || ni<0) return;
+    var st=S.steps[ni], qz=st.quiz, win=(ans===qz.ans);
+    S.asked++;
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak>S.best) S.best=S.streak;
+      S.score+=10+Math.max(0,S.streak-1)*5;
+    } else {
+      S.streak=0;
+    }
+    goto_(ni);
+    var pre=win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「'+esc(qz.ansLabel)+'」。</span> ';
+    $("sayText").innerHTML=pre+st.msg;
+    $("sScore").textContent=S.score;
+    $("sStreak").textContent=S.streak;
+    $("sAcc").textContent=Math.round(S.right/S.asked*100)+"%";
+    if(nextQuizIndex()===-1){
+      $("sayText").innerHTML+=' <b style="font-family:inherit">本關 '+S.right+"/"+S.asked+
+        " 題答對，最長連對 "+S.best+"，得分 "+S.score+"。</b>";
+    }
+  }
+  function resetScore(){
+    S.score=0; S.streak=0; S.best=0; S.asked=0; S.right=0; S.pendingIndex=-1;
+  }
+
+  /* ---------- 載入 ---------- */
+  function buildRace(){
+    S.race={steps:{}, T:0, maxT:0};
+    for(var i=0;i<ALGO_ORDER.length;i++){
+      var k=ALGO_ORDER[i], st=ALGOS[k].build(S.data);
+      S.race.steps[k]=st;
+      if(st.length-1>S.race.maxT) S.race.maxT=st.length-1;
+    }
+  }
+  function loadLevel(i){
+    stopPlay();
+    S.levelIdx=i;
+    S.data=LEVELS[i].make();
+    S.steps=ALGOS[S.algo].build(S.data);
+    S.cur=0;
+    buildRace();
+    if(S.mode==="quiz") resetScore();
+    paintChips();
+    render();
+  }
+  function setAlgo(k){
+    stopPlay();
+    S.algo=k;
+    S.steps=ALGOS[k].build(S.data);
+    S.cur=0;
+    if(S.mode==="quiz") resetScore();
+    paintAlgoChips();
+    renderAlgoPanel();
+    if(S.mode!=="race") $("mainTitle").textContent="柱狀圖 — "+ALGOS[k].n;
+    render();
+  }
+  function paintChips(){
+    var host=$("chips");
+    host.innerHTML="";
+    LEVELS.forEach(function(lv,i){
+      var b=document.createElement("button");
+      b.className="chip"+(i===S.levelIdx?" is-on":"");
+      b.type="button";
+      var code=document.createElement("code"); code.textContent=lv.tag;
+      var sp=document.createElement("span"); sp.textContent=lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+  function paintAlgoChips(){
+    var host=$("algoChips");
+    host.innerHTML="";
+    ALGO_ORDER.forEach(function(k){
+      var b=document.createElement("button");
+      b.className="chip"+(k===S.algo?" is-on":"");
+      b.type="button";
+      var code=document.createElement("code"); code.textContent=ALGOS[k].en;
+      var sp=document.createElement("span"); sp.textContent=ALGOS[k].n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ setAlgo(k); });
+      host.appendChild(b);
+    });
+  }
+  function setMode(m){
+    S.mode=m;
+    var btns=document.querySelectorAll(".mode-btn"), i;
+    for(i=0;i<btns.length;i++){
+      var on=btns[i].getAttribute("data-mode")===m;
+      btns[i].classList.toggle("is-on",on);
+      btns[i].setAttribute("aria-selected",on?"true":"false");
+    }
+    var race=(m==="race");
+    $("quiz").classList.toggle("is-on", m==="quiz");
+    $("btnNext").style.display=(m==="quiz")?"none":"";
+    $("btnPlay").style.display=(m==="quiz")?"none":"";
+    $("soloWrap").style.display=race?"none":"";
+    $("raceWrap").style.display=race?"":"none";
+    $("statsPanel").style.display=race?"none":"";
+    $("logPanel").style.display=race?"none":"";
+    $("boardPanel").style.display=race?"":"none";
+    $("modeNote").textContent = race
+      ? "五個演算法同一份資料齊跑，記分板即時排名"
+      : (m==="quiz" ? "猜下一步，答對得分（建議選「迷你 8 根」）" : "單獨演一個演算法，程式逐行高亮");
+    $("mainTitle").textContent = race ? "競技場 — 同一份資料同時開跑" : "柱狀圖 — "+ALGOS[S.algo].n;
+    stopPlay();
+    if(m==="quiz"){
+      resetScore();
+      S.cur=0;
+      render();
+      $("say").setAttribute("data-k","start");
+      $("sayBadge").textContent="START";
+      $("sayTitle").textContent="闖關開始";
+      $("sayText").innerHTML="看著柱狀圖，猜"+ALGOS[S.algo].n+"的下一步。連續答對會加分。";
+    } else if(race){
+      S.race.T=0;
+      render();
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){
+    stopPlay();
+    if(S.mode==="race"){ S.race.T=0; }
+    else { S.cur=0; if(S.mode==="quiz") resetScore(); }
+    render();
+  });
+  $("btnReseed").addEventListener("click", function(){ loadLevel(S.levelIdx); });
+  $("spd").addEventListener("input", function(){
+    if(S.playing){ clearInterval(S.timer); S.timer=setInterval(next, delayMs()); }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t=e.target;
+    if(t && (t.tagName==="INPUT" || t.tagName==="TEXTAREA")) return;
+    if(S.mode==="quiz"){
+      if(e.key==="ArrowLeft"){ e.preventDefault(); prev(); }
+      return;
+    }
+    if(e.key==="ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+    else if(e.key==="ArrowLeft"){ e.preventDefault(); prev(); }
+    else if(e.key===" "){ e.preventDefault(); togglePlay(); }
+  });
+
+  /* ---------- 啟動 ---------- */
+  paintAlgoChips();
+  renderAlgoPanel();
+  $("mainTitle").textContent="柱狀圖 — "+ALGOS[S.algo].n;
+  loadLevel(0);
+})();
+
+</script>
+</body>
+</html>

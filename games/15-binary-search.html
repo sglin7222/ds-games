@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>二分搜尋猜數字 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺。 */
+
+/* 數線（1~1000 的區間條） */
+.nl{position:relative;height:104px;margin:2px 6px 0}
+.nl .track{position:absolute;left:0;right:0;top:46px;height:16px;
+  background:var(--sunken);border:1px solid var(--line-soft);border-radius:999px;overflow:hidden}
+.nl .alive{position:absolute;top:0;height:100%;background:var(--jade);opacity:.75;
+  transition:left var(--dur),width var(--dur)}
+.nl .tick{position:absolute;top:42px;height:24px;width:2px;transform:translateX(-50%);
+  background:var(--ink-faint);opacity:.6;z-index:2}
+.nl .tick[data-v="big"]{background:var(--alarm)}
+.nl .tick[data-v="small"]{background:var(--accent)}
+.nl .tick[data-v="hit"]{background:var(--jade);width:3px;opacity:1}
+.nl .mark{position:absolute;transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--font-mono);font-size:10.5px;font-weight:700;line-height:1.15;
+  text-align:center;z-index:3;font-variant-numeric:tabular-nums}
+.nl .mark i{display:block;font-style:normal;font-size:9px;line-height:.9}
+.nl .m-lo{top:8px;color:var(--jade)}
+.nl .m-hi{top:24px;color:var(--alarm)}
+.nl .m-mid{top:64px;color:var(--accent)}
+.nl .end{position:absolute;top:66px;font-family:var(--font-mono);font-size:10px;
+  color:var(--ink-faint)}
+.nl .e1{left:0}
+.nl .e2{right:0}
+
+/* 排序陣列（陣列演示模式） */
+.acells{display:flex;flex-wrap:wrap;gap:4px;padding:4px 0}
+.acell{width:38px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.acell .aidx{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+.acell .abox{width:38px;height:38px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:14px;font-weight:700;
+  background:var(--sunken);color:var(--ink-soft);
+  border:1.5px solid var(--line-soft);border-radius:7px;
+  transition:opacity var(--dur),background var(--dur),color var(--dur),
+             border-color var(--dur),transform var(--dur)}
+.acell[data-state="out"] .abox{opacity:.28}
+.acell[data-state="in"] .abox{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.acell[data-state="mid"] .abox{background:var(--accent-soft);border-color:var(--accent);
+  color:var(--accent);transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+.acell[data-state="found"] .abox{background:var(--jade-soft);border-color:var(--jade);
+  color:var(--jade);transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+.acell .aptr{height:15px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.03em;white-space:nowrap}
+.aptr .p-lo{color:var(--jade)}
+.aptr .p-mid{color:var(--accent)}
+.aptr .p-hi{color:var(--alarm)}
+
+/* 你來猜：輸入列 */
+.gform{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.gform input{width:110px;text-align:center;font-size:16px}
+.gform .lead{font-size:13px;color:var(--ink-soft)}
+
+/* 電腦來猜：回饋按鈕列 */
+.fbrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fbrow .lead{font-size:13px;color:var(--ink-soft)}
+.btn-hit{background:var(--jade);border-color:var(--jade);color:var(--surface);font-weight:700}
+.btn-hit:hover:not(:disabled){border-color:var(--jade)}
+
+/* 戰情板統計格：標籤與數值各佔一行 */
+.stat .k,.stat .v{display:block}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">15 · 二分搜尋</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 15 · Binary Search</p>
+    <h1>二分搜尋猜數字</h1>
+    <p class="lede">1 到 1000，你來猜，電腦也來猜。每次只問一個問題——「太大還是太小？」——然後把不可能的那一半整片丟掉。玩完你會親手證明：1000 個可能只要 10 刀，10 億個也只要 30 刀。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>排序陣列 + 二分搜尋</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>時間</span><b>O(log n)</b></div>
+      <div class="fact"><span>空間</span><b>O(1)</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列、大小比較</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩（三種模式）</h3>
+          <h4>你來猜</h4>
+          <ol class="steps">
+            <li>電腦心裡藏一個 <b>1~1000</b> 的數，你輸入猜測，它回答「太大」或「太小」。</li>
+            <li>數線上的綠色區段就是「答案還可能在的範圍」——每猜一次就縮一次。</li>
+            <li>旁邊隨時顯示你用了幾刀、理論上限 10 刀。亂猜（沒猜正中間）會被溫和提醒。</li>
+          </ol>
+          <h4>電腦來猜</h4>
+          <ol class="steps">
+            <li>換你心裡想一個數。電腦<b>永遠猜正中間</b>，你按「太大 / 太小 / 答對」回饋。</li>
+            <li>看 lo、mid、hi 三根指標在數線上移動，同步看 C++ 程式亮到哪一行。</li>
+            <li>誠實回答的話，10 刀之內它一定中。按錯了可以按 ← 回到上一步重答。</li>
+          </ol>
+          <h4>陣列演示</h4>
+          <ol class="steps">
+            <li>在 20 格排序陣列裡跑<b>標準二分搜尋</b>，一步一步看 lo / mid / hi 怎麼夾。</li>
+            <li>一定要玩「找不到」那一關——看 lo 越過 hi 的收斂過程。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">陣列演示與電腦來猜支援鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停（陣列演示）。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>砍一半的威力</b> —— n 個可能每次砍一半，砍幾次剩 1 個？就是 log₂n。1000→10 刀、100 萬→20 刀、10 億→30 刀。</li>
+            <li><b>lo / mid / hi 三根指標</b> —— 左界、正中間、右界怎麼夾住「還可能」的範圍，每一輪必定縮小。</li>
+            <li><b>前提：資料要排好序</b> —— 為什麼亂序陣列用二分會找不到明明存在的東西（第 03 段有反例）。</li>
+            <li><b>兩個經典陷阱</b> —— <code>(lo+hi)/2</code> 的溢位問題，和 <code>hi=mid</code> 造成的死迴圈。</li>
+            <li><b>「找不到」長什麼樣</b> —— lo 越過 hi 不是程式壞掉，是「確定不存在」的正常收斂。</li>
+            <li><b>複雜度</b> —— 為什麼時間是 O(log n)、空間是 O(1)。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先玩<b>「你來猜」</b>親身感受亂猜有多虧 → 切到<b>「電腦來猜」</b>看標準策略永遠猜正中間 → 最後用<b>「陣列演示」</b>把這個直覺變成正式的程式。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選模式 → 一刀一刀砍 → 看範圍怎麼縮到只剩答案。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="you" role="tab" aria-selected="true">你來猜</button>
+          <button class="mode-btn" data-mode="cpu" role="tab" aria-selected="false">電腦來猜</button>
+          <button class="mode-btn" data-mode="array" role="tab" aria-selected="false">陣列演示</button>
+        </div>
+      </div>
+
+      <div class="bar" id="barLevels" style="display:none">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm" style="display:flex;gap:6px">
+          <input id="customInput" type="number" min="0" max="99" placeholder="找哪個數？" aria-label="自訂目標">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title" id="mainTitle">數線 1 ~ 1000</h3>
+            <span class="panel-note" id="mainNote"></span>
+          </div>
+
+          <div class="nl" id="nl"></div>
+          <div class="acells" id="acells" style="display:none"></div>
+
+          <form class="gform" id="guessForm">
+            <span class="lead">你的猜測：</span>
+            <input id="guessInput" type="number" min="1" max="1000" placeholder="1~1000" aria-label="你的猜測">
+            <button class="btn btn-primary" type="submit">出刀！</button>
+            <button class="btn" type="button" id="btnNewGame">🎲 再來一局</button>
+          </form>
+
+          <div class="fbrow" id="cpuBox" style="display:none">
+            <span class="lead">我的猜測——你心裡的數是？</span>
+            <button class="btn" type="button" id="btnBig">太大</button>
+            <button class="btn" type="button" id="btnSmall">太小</button>
+            <button class="btn btn-hit" type="button" id="btnHit">答對！</button>
+          </div>
+
+          <div class="controls" id="controls" style="display:none">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個模式開始</div>
+              <div class="say-text" id="sayText">預設是「你來猜」——我已經藏好一個數了。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">戰情板</h3>
+              <span class="panel-note" id="statNote"></span>
+            </div>
+            <div class="stats" style="grid-template-columns:1fr 1fr">
+              <div class="stat"><span class="k" id="k1">你的刀數</span><span class="v" id="v1">0</span></div>
+              <div class="stat"><span class="k" id="k2">理論上限</span><span class="v" id="v2">10</span></div>
+              <div class="stat"><span class="k" id="k3">剩餘可能</span><span class="v" id="v3">1000</span></div>
+              <div class="stat" data-k="hot"><span class="k" id="k4">最多還要</span><span class="v" id="v4">10</span></div>
+            </div>
+            <div class="callout" data-k="key">
+              <span class="tag">公式</span>
+              <span class="txt">剩 N 個可能 → 最多還要 <b>⌈log₂(N+1)⌉</b> 刀。每砍一刀，N 就至少減半。</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O(log n)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">開始玩之後，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，演算法本體就這樣。上半是標準二分搜尋，下半是「猜數字版」——你會發現兩者根本是同一件事，只是把「陣列的格子」換成「1~1000 的數字本身」：</p>
+                <pre class="code"><i>// 在排好序的陣列 a[0..n-1] 裡找 target；回傳位置，找不到回傳 -1</i>
+int binarySearch(const int a[], int n, int target) {
+    int lo = 0, hi = n - 1;               <i>// 答案還可能在的範圍</i>
+    while (lo &lt;= hi) {                    <i>// 範圍裡至少還有一格就繼續</i>
+        int mid = lo + (hi - lo) / 2;     <i>// 正中間（防溢位寫法）</i>
+        if (a[mid] == target) return mid;         <i>// 命中</i>
+        else if (a[mid] &lt; target) lo = mid + 1;   <i>// 目標在右半，左半整片丟掉</i>
+        else                      hi = mid - 1;   <i>// 目標在左半，右半整片丟掉</i>
+    }
+    return -1;                            <i>// lo 越過 hi：確定不存在</i>
+}
+
+<i>// 猜數字版：同一套邏輯，「陣列」換成 1~1000 的數字本身</i>
+int guessGame(int secret) {
+    int lo = 1, hi = 1000, cnt = 0;
+    while (lo &lt;= hi) {
+        int mid = lo + (hi - lo) / 2;
+        ++cnt;                            <i>// 第 cnt 刀：猜正中間</i>
+        if      (mid == secret) return cnt;   <i>// 「答對！」</i>
+        else if (mid &lt;  secret) lo = mid + 1; <i>// 「太小」→ 往右半找</i>
+        else                    hi = mid - 1; <i>// 「太大」→ 往左半找</i>
+    }
+    return -1;                            <i>// 誠實回答的話走不到這裡</i>
+}</pre>
+        <p>十幾行而已。這一頁多出來的幾百行 JavaScript，全部都是為了「讓砍一半的過程看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「翻字典找單字」的直覺，走到一行都不能寫錯的正式程式。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一個<b>由小到大排好序</b>的陣列和一個目標值 target，回答「target 在第幾格？」，不存在就回答 -1。猜數字遊戲是它的孿生兄弟：陣列換成 1~1000 這一串數字，「看某一格的值」換成「猜一個數、聽太大或太小」。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">陣列</th><th class="mono">找</th><th>結果</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">[2,3,5,7,11,13]</td><td class="mono">7</td><td style="color:var(--jade);font-weight:700">回傳 3</td><td>7 在第 3 格（從 0 開始編號）</td></tr>
+              <tr><td class="mono">[2,3,5,7,11,13]</td><td class="mono">2</td><td style="color:var(--jade);font-weight:700">回傳 0</td><td>邊界也要找得到</td></tr>
+              <tr><td class="mono">[2,3,5,7,11,13]</td><td class="mono">6</td><td style="color:var(--alarm);font-weight:700">回傳 -1</td><td>6 不在裡面——「確定不存在」也是正確答案</td></tr>
+              <tr><td class="mono">[9,3,27,8]（亂序）</td><td class="mono">8</td><td style="color:var(--alarm);font-weight:700">不能用二分</td><td>前提沒滿足，見下面的反例</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：一個一個看，太虧了</h3>
+        <p>最老實的做法是從第 0 格開始一格一格比，比到找到為止（線性搜尋）。它沒有錯，但你想想翻字典：要查「monkey」，你會從第 1 頁一頁一頁翻嗎？不會——你會<b>從中間攤開</b>，看攤到的字比 m 前還是 m 後，然後只翻剩下那半邊。</p>
+        <ul class="bullets no">
+          <li><b>一個一個看</b> —— 每比一次只排除 <b>1</b> 個可能。1000 個數最壞要比 1000 次。</li>
+          <li><b>亂猜</b> —— 猜 999 只排除了「比 999 大」的 1 個數（如果太大）；運氣不好等於沒砍。你在「你來猜」模式亂猜幾次就會體會到。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">好的一問，是<b>不管答案回「太大」還是「太小」，都能丟掉一半</b>。唯一做得到這件事的位置，就是正中間。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：排序讓「一次比較」回答「在左還是在右」</h3>
+        <p>陣列排好序之後有一條鐵律：<b>如果正中間那格比目標小，目標絕不可能在左半邊</b>——因為左半邊的每一格都比中間更小。反過來也一樣。所以看一眼中間，就能把一半的格子「連看都不用看」直接判死刑。</p>
+        <p>這就是為什麼「已排序」是二分搜尋的<b>生死前提</b>。看個反例：在亂序陣列 <code>[9, 3, 27, 8, 5, 40, 1]</code> 裡用二分找 <b>1</b>——</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">lo</th><th class="mono">hi</th><th class="mono">mid</th><th class="mono">a[mid]</th><th>二分的推論</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0</td><td class="mono">6</td><td class="mono">3</td><td class="mono">8</td><td>8 &gt; 1 →「目標在左半」→ hi = 2</td></tr>
+              <tr><td class="mono">0</td><td class="mono">2</td><td class="mono">1</td><td class="mono">3</td><td>3 &gt; 1 →「目標在左半」→ hi = 0</td></tr>
+              <tr><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="mono">9</td><td>9 &gt; 1 → hi = -1 → 回報「不存在」</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="color:var(--alarm);font-weight:700">但 1 明明就在第 6 格。</p>
+        <div class="callout" data-k="no">
+          <span class="tag">教訓</span>
+          <span class="txt">亂序時「中間比目標大」<b>推不出</b>「目標在左邊」，整個砍半的邏輯瞬間瓦解。要嘛先排序（O(n log n)），要嘛乖乖線性搜尋。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法</h3>
+        <p>用兩根指標 lo（左界）和 hi（右界）夾住「答案還可能在」的範圍，然後重複三選一：</p>
+        <ol class="steps">
+          <li><b>算正中間</b> —— mid = lo + (hi − lo) / 2。整數除法自動捨去小數，(0+19)/2 就是 9。</li>
+          <li><b>比一比</b> —— a[mid] 等於目標 → 回傳 mid，收工。</li>
+          <li><b>砍一半</b> —— a[mid] 太小 → lo = mid + 1（左半連同 mid 丟掉）；a[mid] 太大 → hi = mid − 1（右半連同 mid 丟掉）。</li>
+        </ol>
+        <p>重複到兩種結局之一：命中，或 lo 越過 hi（範圍空了）→ 回傳 -1。</p>
+        <div class="callout" data-k="no">
+          <span class="tag">最常錯</span>
+          <span class="txt">砍的時候寫成 <b>lo = mid</b> 或 <b>hi = mid</b>（忘了 ±1）。mid 這一格<b>已經檢查過了</b>，留著它，範圍可能永遠縮不小——死迴圈就是這樣來的（下面細講）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>砍一半的威力：log₂n 的震撼表</h3>
+        <p>「n 個可能，每次砍一半，砍幾次剩 1 個？」反過來問就是「2 自乘幾次會超過 n？」——這個次數就叫 <b>log₂n</b>。因為 2¹⁰ = 1024 &gt; 1000，所以 1000 個可能 10 刀就見底。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>資料量 n</th><th class="mono">一個一個找（最壞）</th><th class="mono">二分搜尋（最壞）</th><th>為什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>1,000</b></td><td class="mono">1,000 次</td><td class="mono" style="color:var(--jade);font-weight:700">10 次</td><td class="mono">2¹⁰ = 1,024</td></tr>
+              <tr><td><b>100 萬</b></td><td class="mono">1,000,000 次</td><td class="mono" style="color:var(--jade);font-weight:700">20 次</td><td class="mono">2²⁰ ≈ 105 萬</td></tr>
+              <tr><td><b>10 億</b></td><td class="mono">1,000,000,000 次</td><td class="mono" style="color:var(--jade);font-weight:700">30 次</td><td class="mono">2³⁰ ≈ 10.7 億</td></tr>
+              <tr><td><b>全球人口 80 億</b></td><td class="mono">8,000,000,000 次</td><td class="mono" style="color:var(--jade);font-weight:700">33 次</td><td class="mono">2³³ ≈ 86 億</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">震撼點</span>
+          <span class="txt">資料量<b>翻 1000 倍</b>（1000 → 100 萬），刀數只<b>加 10</b>。這種「資料爆炸、成本幾乎不動」的曲線，就是所有人搶著把資料排序、建索引的原因——資料庫查詢快，靠的正是這一招。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：在 20 格陣列找 43</h3>
+        <p>陣列是 <code>[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71]</code>（跟遊戲裡同一個）。考試在紙上追蹤，就是畫這張表：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">刀</th><th class="mono">lo</th><th class="mono">hi</th><th class="mono">mid</th><th class="mono">a[mid]</th><th>比較</th><th>動作</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td class="mono">0</td><td class="mono">19</td><td class="mono">9</td><td class="mono">29</td><td class="mono">29 &lt; 43</td><td style="color:var(--accent)">lo = 10（丟掉第 0~9 格）</td></tr>
+              <tr><td class="mono">2</td><td class="mono">10</td><td class="mono">19</td><td class="mono">14</td><td class="mono">47</td><td class="mono">47 &gt; 43</td><td style="color:var(--accent)">hi = 13（丟掉第 14~19 格）</td></tr>
+              <tr><td class="mono">3</td><td class="mono">10</td><td class="mono">13</td><td class="mono">11</td><td class="mono">37</td><td class="mono">37 &lt; 43</td><td style="color:var(--accent)">lo = 12</td></tr>
+              <tr><td class="mono">4</td><td class="mono">12</td><td class="mono">13</td><td class="mono">12</td><td class="mono">41</td><td class="mono">41 &lt; 43</td><td style="color:var(--accent)">lo = 13</td></tr>
+              <tr><td class="mono">5</td><td class="mono">13</td><td class="mono">13</td><td class="mono">13</td><td class="mono">43</td><td class="mono">43 = 43</td><td style="color:var(--jade);font-weight:700">回傳 13 ✓</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>範圍大小的變化：20 → 10 → 4 → 2 → 1。⌈log₂20⌉ = 5，五刀封頂，一刀不多。找一個<b>不存在</b>的數（例如 44）也一樣最多 5 刀，只是結局換成 lo 越過 hi——在遊戲的「陣列演示」模式選「找不到」那一關就能看到。</p>
+      </div>
+
+      <div class="block">
+        <h3>兩個經典陷阱</h3>
+        <h4>陷阱一：mid = (lo + hi) / 2 會溢位</h4>
+        <p>int 最大約 21 億。lo 和 hi 如果各是 15 億（在「答案二分」這類對大範圍砍半的題目很常見），<b>相加會先變成 30 億</b>——超過上限，數字會「爆表」變成負數，mid 整個算錯。</p>
+        <ul class="bullets ok">
+          <li><b>安全寫法：mid = lo + (hi − lo) / 2</b> —— 先相減再除，中間結果永遠不會超過 hi，數學上跟 (lo+hi)/2 完全等價。這也是本頁 C++ 用的寫法。</li>
+        </ul>
+        <h4>陷阱二：hi = mid 會死迴圈</h4>
+        <p>有人覺得「mid 也許還有用，砍的時候保守一點寫 <code>hi = mid</code>」。手算 lo = 5、hi = 6 看看：mid = (5+6)/2 = 5（整數除法偏左）。如果這一輪判斷要往左砍，<code>hi = mid</code> 之後 hi 還是……等等，hi 從 6 變 5，有縮。真正的殺手是往<b>右</b>砍時寫 <code>lo = mid</code>：mid = 5，lo = mid 之後 lo 還是 5，<b>範圍一格都沒縮</b>，下一輪 mid 又是 5，永遠轉圈圈。</p>
+        <ul class="bullets ok">
+          <li><b>鐵律：每一輪範圍必須嚴格變小。</b>mid 已經檢查過，就要用 mid+1 / mid−1 把它排除在新範圍外。</li>
+          <li>某些「答案二分」的變形確實會寫 <code>hi = mid</code>，但那套模板的迴圈條件是 <code>while (lo &lt; hi)</code> 而且 mid 取法要配合調整——換模板要整組換，不能混搭。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O(log n)</b> —— 範圍每輪至少減半，最多 ⌈log₂(n+1)⌉ 輪；每輪只做固定成本的算 mid、比大小、移指標。</li>
+          <li><b>空間 O(1)</b> —— 從頭到尾只用 lo、mid、hi 三個變數，跟資料量無關。不用複製陣列、不用額外結構。</li>
+          <li><b>對比</b> —— 線性搜尋 O(n) 時間 O(1) 空間。二分用「先排序」這個前提，把時間從 n 壓到 log n。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「不排序也可以用二分」</b> —— 不行。上面的反例：亂序陣列裡明明有 1，二分卻回報不存在。排序是生死前提。</li>
+          <li><b>「mid 不用挑正中間，差不多就好」</b> —— 偏一點點還能活（刀數變多一些），但固定偏到底（例如永遠挑 lo）就退化成一個一個看，O(log n) 變回 O(n)。正中間是「最壞情況最好」的唯一選擇。</li>
+          <li><b>「回傳 -1 代表程式寫錯了」</b> —— lo 越過 hi 是<b>正常結局</b>：每一格都被排除過，所以「確定不存在」。能斬釘截鐵說「沒有」跟找得到一樣有價值。</li>
+          <li><b>「二分搜尋只能拿來找數字」</b> —— 大錯。只要問題答案有「單調性」（小了不行、大了一定行，或反過來），就能對<b>答案本身</b>二分——切木材、租伺服器、排程截止時間都是。第 04 段的延伸挑戰就是這一題。</li>
+          <li><b>「(lo+hi)/2 永遠安全」</b> —— 陣列索引小的時候沒事，範圍一大（答案二分常常 0~20 億）就溢位。養成 lo + (hi−lo)/2 的手勢，一勞永逸。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：三種模式，共用同一套「步驟快照」</h3>
+        <p>三種模式看起來很不一樣，骨子裡是同一件事：<b>每一步都是一份 {lo, hi, mid} 的快照</b>。差別只在快照怎麼來——</p>
+        <div class="arch">
+          <div class="node" data-k="in">陣列演示 <small>buildArraySteps() 先算完整串</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">steps[] <small>每一格是當下的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>陣列演示</b> —— 標準快照模式：載入關卡時 <code>buildArraySteps()</code> 一次跑完，播放時只是移動指針。前進後退變成加減一。</li>
+          <li><b>電腦來猜</b> —— 快照即時長出來：電腦不知道你想什麼數，所以每按一次「太大／太小」才生出接下來的一兩格快照，接在 steps 尾巴。按 ← 回頭重答會把後面的快照剪掉重長。</li>
+          <li><b>你來猜</b> —— 你就是演算法本人：程式只維護 lo / hi 和你的出刀紀錄，並拿「正中間」當標竿評分你每一刀。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每步存一份快照，記憶體多花一點。但二分的步數本來就只有 O(log n) 步——這正是它跟其他關卡比起來「快照特別便宜」的地方。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>資料層</b></td>
+                <td class="mono">buildArraySteps(t)<br>cpuFeedback(v)<br>onGuess()</td>
+                <td>三種模式各自唯一「動到 lo/hi」的地方。輸出（或追加）快照。</td>
+              </tr>
+              <tr>
+                <td><b>狀態</b></td>
+                <td class="mono">S / Y / C / A</td>
+                <td>S 記目前模式；Y、C、A 分別是三種模式的全部狀態。全站只有這幾份。</td>
+              </tr>
+              <tr>
+                <td><b>畫面層</b></td>
+                <td class="mono">paintNline / paintArr<br>setAlgoLine / paintStats<br>paintLog / paintProgress</td>
+                <td>各自只讀當前快照，畫自己那一塊，彼此不互相呼叫。數線與陣列條共用同一批指標概念。</td>
+              </tr>
+              <tr>
+                <td><b>導覽</b></td>
+                <td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td>
+                <td>只改「目前第幾步」這一個數字，然後呼叫 render()。</td>
+              </tr>
+              <tr>
+                <td><b>載入</b></td>
+                <td class="mono">setMode / loadLevel<br>newGame / cpuReset</td>
+                <td>切模式、換關卡、開新局：重建快照並歸零。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <p>不管使用者做什麼——出刀、按回饋、按下一步——路徑都是同一條：</p>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>出刀 / 太大太小 / 下一步 / 鍵盤</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">更新狀態 <small>改 lo/hi 或只改「目前步數」</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintNline<small>數線區間條</small></div>
+            <div class="node">paintArr<small>20 格陣列</small></div>
+            <div class="node">setAlgoLine<small>C++ 高亮行</small></div>
+            <div class="node">paintStats<small>戰情板</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+            <div class="node">say<small>說明面板</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:  <i>// start / mid / cutlo / cuthi / found / fail → 決定顏色與徽章</i>
+  <b>lo, hi</b>: <i>// 這一步之後，答案還可能在的範圍（快照）</i>
+  <b>mid</b>:   <i>// 這一步正在看的正中間；砍完的那一步是 null</i>
+  <b>cnt</b>:   <i>// 這是第幾刀</i>
+  <b>line</b>:  <i>// C++ 要高亮第幾行</i>
+  <b>title, msg</b>: <i>// 說明面板的標題與內文</i>
+}</pre>
+        <p>三種模式的快照長得一模一樣，所以數線、統計、歷程、程式高亮四塊畫面可以完全共用。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>把猜數字範圍改成 1~100 萬</td><td>常數 <code>NMAX</code></td><td>1 行（理論上限會自動變 20）</td></tr>
+              <tr><td>換陣列的 20 個數字</td><td><code>ARR</code> 陣列（記得保持由小到大）</td><td>1 行</td></tr>
+              <tr><td>加陣列演示的新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{t:目標, n:"關卡名"}</code></td><td>1 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>950</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>把「沒砍到一半」的提醒變嚴格</td><td><code>onGuess()</code> 裡的提示判斷</td><td>少量</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次，全部頁面生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作兩個程式：
+
+1. 標準二分搜尋：在排好序的整數陣列裡找 target，
+   回傳索引，找不到回傳 -1。
+   用 while (lo &lt;= hi) 的寫法，mid 一律寫 lo + (hi - lo) / 2。
+
+2. 猜數字遊戲：程式藏一個 1~N 的亂數，讓我在終端機輸入猜測，
+   回覆太大/太小，同時每一輪印出目前的 lo、hi、
+   還剩幾個可能、理論上最多還要幾刀（⌈log2(剩餘+1)⌉）。
+
+寫完後回答我三個問題：
+- mid = (lo + hi) / 2 在 lo、hi 很大時為什麼會出錯？
+- 把 lo = mid + 1 寫成 lo = mid 為什麼會死迴圈？
+  用 lo=5、hi=6 一步一步手算給我看。
+- N = 10 億時最多要猜幾次？列出計算過程。</pre>
+        <h4>挑戰一：lower_bound（有重複值怎麼辦）</h4>
+        <pre class="code">陣列 [1,3,3,3,5,8] 裡找 3，標準二分回傳的是「隨便一個 3」。
+改寫成找「第一個 &gt;= target 的位置」（C++ 的 std::lower_bound）：
+1. 迴圈條件改成 while (lo &lt; hi)，砍法改成 hi = mid / lo = mid + 1
+2. 解釋為什麼這個模板的 hi = mid 不會死迴圈
+3. 用它一行寫出「陣列裡有幾個 3」</pre>
+        <h4>挑戰二：答案二分——切木材</h4>
+        <pre class="code">有 n 根木材（長度已知），要切出 k 段等長的木段，
+問每段最長可以是多少（整數）？
+
+提示：對「答案」二分，不是對陣列！
+- 答案有單調性：段長 x 切得出 k 段 → 比 x 短的一定也切得出
+- lo = 1、hi = 最長木材，check(mid) = 算算看段長 mid 能切出幾段
+- 這就是第 03 段說的「二分不只能找數字」
+
+寫出程式，並說明 check() 為什麼讓整題變成猜數字遊戲。</pre>
+        <h4>挑戰三：旋轉過的排序陣列</h4>
+        <pre class="code">[15,18,2,3,6,12] 是排序陣列 [2,3,6,12,15,18] 旋轉來的。
+在這種陣列裡找 target，還是要 O(log n)：
+1. 每次看 mid 時，先判斷哪一半是「完好排序」的
+2. 目標在完好那一半的範圍內 → 砍向那半；否則砍向另一半
+3. 解釋為什麼每一刀仍然能安全丟掉一半</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 15 二分搜尋猜數字</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+  var NMAX = 1000;                       // 猜數字範圍 1~NMAX
+  var ARR = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71]; // 20 格，由小到大
+
+  var LEVELS = [
+    {t:29, n:"一刀命中"},
+    {t:43, n:"教科書五刀"},
+    {t:2,  n:"最左邊界"},
+    {t:71, n:"最右邊界"},
+    {t:44, n:"找不到：lo 越過 hi"}
+  ];
+
+  var CODE = [
+    "int binarySearch(int a[], int n, int target) {",
+    "    int lo = 0, hi = n - 1;",
+    "    while (lo <= hi) {",
+    "        int mid = lo + (hi - lo) / 2;",
+    "        if (a[mid] == target)",
+    "            return mid;",
+    "        else if (a[mid] < target)",
+    "            lo = mid + 1;",
+    "        else",
+    "            hi = mid - 1;",
+    "    }",
+    "    return -1;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "「找東西機器」的開頭。函式就像一台小機器，要三樣材料：排好序的陣列 a（想像一排從小到大站好的號碼牌）、陣列有幾格 n、要找的目標 target。它最後會回答：目標站在第幾格（找不到就回 -1）。",
+    "設兩根「界標」：lo（low，左界）一開始指向第 0 格，hi（high，右界）指向最後一格（第 n−1 格——格子從 0 開始編號，所以 20 格的最後一格是第 19 格）。這兩根界標夾住的，就是「答案還可能躲在裡面」的範圍。",
+    "while 迴圈＝「只要條件成立，就一直重複做下面的事」。條件 lo <= hi 是說：夾住的範圍裡至少還有一格。一旦 lo 跑到 hi 的右邊（交叉了），範圍就空了——找遍了也沒有，離開迴圈。",
+    "算出正中間那一格 mid（middle）。lo + (hi−lo)/2 其實就是 lo 和 hi 的中點，但先相減再除可以避免兩個大數字相加爆掉（第 03 段的溢位陷阱）。整數除法會直接把小數丟掉：(0+19)/2 得到 9，不是 9.5。",
+    "拿正中間那格的值 a[mid]，跟目標比一比：剛好相等嗎？",
+    "找到了！回傳 mid 這個位置，整台機器立刻收工。這就是猜數字裡的「答對！」。",
+    "沒相等的話再問一句：中間這格的值，比目標小嗎？",
+    "中間都比目標小，那目標一定在右半邊——因為陣列由小到大排好，左邊只會更小。把左界標 lo 移到 mid 右邊一格：左半邊連同 mid 整片丟掉，一刀砍掉一半。",
+    "剩下最後一種可能：中間這格比目標大。",
+    "那目標只可能在左半邊。把右界標 hi 移到 mid 左邊一格：右半邊連同 mid 整片丟掉。注意是 mid−1 不是 mid——mid 已經檢查過了，留著它會有死迴圈的危險（第 03 段講過）。",
+    "砍完一刀，自動回到第 3 行再檢查：範圍還有格子嗎？有就再砍一刀。",
+    "能走到這一行，代表 lo 和 hi 已經交叉、範圍縮到空——每一格都被排除過，目標確定不存在。回傳 -1 當作「找不到」的暗號。這是正常結局，不是出錯。",
+    "整台找東西機器到此結束。"
+  ];
+
+  var KBADGE = {start:"START", mid:"MID", cutlo:"LO→", cuthi:"←HI", found:"FOUND", fail:"FAIL"};
+  var KSAY   = {start:"start", mid:"hot", cutlo:"push", cuthi:"push", found:"done", fail:"error"};
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* 剩 n 個可能，最多還要幾刀 = ⌈log2(n+1)⌉ */
+  function clog2p1(n){
+    var c = 0, v = 1;
+    while(v < n + 1){ v *= 2; c++; }
+    return c;
+  }
+
+  /* ---------- 2. 狀態 ---------- */
+  var S = { mode:"you" };
+  var Y = { secret:0, lo:1, hi:NMAX, cnt:0, over:false, line:0, hist:[] };   // 你來猜
+  var C = { steps:[], cur:0 };                                               // 電腦來猜
+  var A = { target:null, steps:[], cur:0, playing:false, timer:null, levelIdx:-1 }; // 陣列演示
+
+  /* ---------- 3. 資料層 ---------- */
+
+  /* 陣列演示：先算完，再播放 */
+  function buildArraySteps(t){
+    var steps = [], n = ARR.length, lo = 0, hi = n - 1, mid, cnt = 0;
+    steps.push({kind:"start", lo:lo, hi:hi, mid:null, cnt:0, line:2,
+      title:"劃定範圍：lo = 0、hi = " + hi,
+      msg:"目標是 <b>" + t + "</b>。一開始整個陣列（" + n + " 格）都有可能，lo（左界）和 hi（右界）夾住的就是「還沒被排除」的區域。"});
+    while(lo <= hi){
+      mid = lo + ((hi - lo) >> 1);
+      cnt++;
+      steps.push({kind:"mid", lo:lo, hi:hi, mid:mid, cnt:cnt, line:4,
+        title:"第 " + cnt + " 刀：看正中間 a[" + mid + "] = " + ARR[mid],
+        msg:"目前範圍第 " + lo + " ~ " + hi + " 格，共 <b>" + (hi - lo + 1) + "</b> 格。mid = " + lo + " + (" + hi + "−" + lo + ")/2 = <b>" + mid + "</b>（整數除法直接捨去小數）。拿 a[" + mid + "] = " + ARR[mid] + " 跟目標 " + t + " 比。"});
+      if(ARR[mid] === t){
+        steps.push({kind:"found", lo:lo, hi:hi, mid:mid, cnt:cnt, line:6,
+          title:"找到了！a[" + mid + "] = " + t + "，回傳 " + mid,
+          msg:"第 " + cnt + " 刀命中。" + n + " 格的陣列，⌈log₂" + n + "⌉ = " + clog2p1(n - 1) + "，最多也就 " + clog2p1(n - 1) + " 刀——這就是砍一半的威力。"});
+        return steps;
+      } else if(ARR[mid] < t){
+        steps.push({kind:"cutlo", lo:mid + 1, hi:hi, mid:null, cnt:cnt, line:8,
+          title:"太小 → 砍掉左半，lo → " + (mid + 1),
+          msg:"a[" + mid + "] = " + ARR[mid] + " 比目標 " + t + " <b>小</b>。陣列由小到大排好，第 " + lo + " ~ " + mid + " 格只會更小，整片 <b>" + (mid - lo + 1) + "</b> 格一刀出局。lo 移到 " + (mid + 1) + "。"});
+        lo = mid + 1;
+      } else {
+        steps.push({kind:"cuthi", lo:lo, hi:mid - 1, mid:null, cnt:cnt, line:10,
+          title:"太大 → 砍掉右半，hi → " + (mid - 1),
+          msg:"a[" + mid + "] = " + ARR[mid] + " 比目標 " + t + " <b>大</b>。第 " + mid + " ~ " + hi + " 格只會更大，整片 <b>" + (hi - mid + 1) + "</b> 格一刀出局。hi 移到 " + (mid - 1) + "。"});
+        hi = mid - 1;
+      }
+    }
+    steps.push({kind:"fail", lo:lo, hi:hi, mid:null, cnt:cnt, line:12,
+      title:"lo 越過 hi：目標不存在，回傳 -1",
+      msg:"lo = " + lo + "、hi = " + hi + "，左界跑到右界右邊，範圍空了。每一格都被排除過，<b>" + t + "</b> 確定不在陣列裡。這不是程式出錯，是二分搜尋「斬釘截鐵說沒有」的正常收斂。"});
+    return steps;
+  }
+
+  /* 電腦來猜：快照即時長出來 */
+  function cpuReset(){
+    var mid = 1 + ((NMAX - 1) >> 1);
+    C.steps = [{kind:"mid", lo:1, hi:NMAX, mid:mid, cnt:1, line:4,
+      title:"第 1 刀：我猜 " + mid,
+      msg:"你心裡想好一個 <b>1 ~ " + NMAX + "</b> 的整數（不要說出來）。範圍的正中間是 <b>" + mid + "</b> —— 請誠實回答：太大、太小，還是答對？"}];
+    C.cur = 0;
+  }
+
+  function cpuFeedback(v){
+    var s = C.steps[C.cur];
+    if(!s || s.kind !== "mid") return;      // 只有「正在猜」的那一步能回答
+    C.steps = C.steps.slice(0, C.cur + 1);  // 回頭重答時，剪掉舊的未來
+    var lo = s.lo, hi = s.hi, mid = s.mid, cnt = s.cnt, nlo, nhi, nmid;
+
+    if(v === "hit"){
+      C.steps.push({kind:"found", lo:mid, hi:mid, mid:mid, cnt:cnt, line:6,
+        title:"第 " + cnt + " 刀命中！你想的是 " + mid,
+        msg:"「永遠猜正中間」的策略，不管你想哪個數，最多 <b>" + clog2p1(NMAX) + "</b> 刀一定中——因為 " + NMAX + " 個可能每刀砍一半，砍 " + clog2p1(NMAX) + " 次就見底。按「↺ 重新開始」再玩一次。"});
+    } else if(v === "big"){
+      nhi = mid - 1;
+      C.steps.push({kind:"cuthi", lo:lo, hi:nhi, mid:null, cnt:cnt, line:10,
+        title:"太大 → hi 砍到 " + nhi,
+        msg:"你說「太大」→ 答案一定比 " + mid + " 小。hi 從 " + hi + " 變成 <b>" + nhi + "</b>，右半邊 <b>" + (hi - mid + 1) + "</b> 個數字一刀出局。"});
+      if(nhi < lo){
+        C.steps.push({kind:"fail", lo:lo, hi:nhi, mid:null, cnt:cnt, line:12,
+          title:"lo 越過 hi：矛盾！",
+          msg:"範圍空了——如果每次都誠實回答，這不可能發生。是不是有一刀按錯了？可以按 <b>←</b> 回到按錯的那一步重答，或按「↺ 重新開始」。"});
+      } else {
+        nmid = lo + ((nhi - lo) >> 1);
+        C.steps.push({kind:"mid", lo:lo, hi:nhi, mid:nmid, cnt:cnt + 1, line:4,
+          title:"第 " + (cnt + 1) + " 刀：我猜 " + nmid,
+          msg:"剩 <b>" + (nhi - lo + 1) + "</b> 個可能（" + lo + " ~ " + nhi + "），正中間是 <b>" + nmid + "</b> —— 太大、太小，還是答對？"});
+      }
+    } else { // small
+      nlo = mid + 1;
+      C.steps.push({kind:"cutlo", lo:nlo, hi:hi, mid:null, cnt:cnt, line:8,
+        title:"太小 → lo 砍到 " + nlo,
+        msg:"你說「太小」→ 答案一定比 " + mid + " 大。lo 從 " + lo + " 變成 <b>" + nlo + "</b>，左半邊 <b>" + (mid - lo + 1) + "</b> 個數字一刀出局。"});
+      if(nlo > hi){
+        C.steps.push({kind:"fail", lo:nlo, hi:hi, mid:null, cnt:cnt, line:12,
+          title:"lo 越過 hi：矛盾！",
+          msg:"範圍空了——誠實回答的話這不可能發生。是不是有一刀按錯了？按 <b>←</b> 回到按錯的那一步重答，或按「↺ 重新開始」。"});
+      } else {
+        nmid = nlo + ((hi - nlo) >> 1);
+        C.steps.push({kind:"mid", lo:nlo, hi:hi, mid:nmid, cnt:cnt + 1, line:4,
+          title:"第 " + (cnt + 1) + " 刀：我猜 " + nmid,
+          msg:"剩 <b>" + (hi - nlo + 1) + "</b> 個可能（" + nlo + " ~ " + hi + "），正中間是 <b>" + nmid + "</b> —— 太大、太小，還是答對？"});
+      }
+    }
+    C.cur = C.steps.length - 1;
+    render();
+  }
+
+  /* 你來猜 */
+  function newGame(){
+    Y.secret = 1 + Math.floor(Math.random() * NMAX);
+    Y.lo = 1; Y.hi = NMAX; Y.cnt = 0; Y.over = false; Y.line = 0; Y.hist = [];
+    $("guessInput").disabled = false;
+    $("guessInput").value = "";
+    say("start", "START", "我心裡藏好一個 1 ~ " + NMAX + " 的數了",
+      "在左邊輸入你的猜測。每一刀我都會回答「太大」或「太小」，數線上的綠色區段就是答案還可能在的範圍。理論上 <b>" + clog2p1(NMAX) + "</b> 刀之內一定猜得中——試試看你要幾刀。");
+    render();
+  }
+
+  /* 用「永遠猜正中間」策略對這個答案要幾刀 */
+  function midStrategyCount(secret){
+    var lo = 1, hi = NMAX, c = 0, m;
+    while(lo <= hi){
+      m = lo + ((hi - lo) >> 1); c++;
+      if(m === secret) return c;
+      if(m < secret) lo = m + 1; else hi = m - 1;
+    }
+    return c;
+  }
+
+  function onGuess(){
+    if(Y.over) return;
+    var g = parseInt($("guessInput").value, 10);
+    if(isNaN(g) || g < 1 || g > NMAX){
+      say("error", "OOPS", "請輸入 1 ~ " + NMAX + " 的整數", "這一刀不算，重新輸入。");
+      return;
+    }
+    var lo0 = Y.lo, hi0 = Y.hi, n0 = hi0 - lo0 + 1;
+    var sugg = lo0 + ((hi0 - lo0) >> 1);
+    var outside = (g < lo0 || g > hi0);
+    var hint = "";
+    Y.cnt++;
+
+    if(g === Y.secret){
+      Y.over = true; Y.line = 6; Y.lo = g; Y.hi = g;
+      Y.hist.push({g:g, k:"hit"});
+      var best = midStrategyCount(Y.secret);
+      say("done", "WIN", "命中！答案就是 " + g,
+        "你總共用了 <b>" + Y.cnt + "</b> 刀。同一個答案，「永遠猜正中間」策略只要 <b>" + best + "</b> 刀；而且不管答案是哪個數，它最多 <b>" + clog2p1(NMAX) + "</b> 刀一定中。按「🎲 再來一局」挑戰貼近理論值！");
+      $("guessInput").disabled = true;
+    } else {
+      if(outside){
+        hint = "<br><b>提醒：</b>" + g + " 其實早就被之前的回饋排除了（剛才只剩 " + lo0 + " ~ " + hi0 + " 有可能）——這一刀等於白費。";
+      } else if(g !== sugg && n0 > 2){
+        var worstYou = Math.max(g - lo0, hi0 - g);
+        var worstMid = Math.max(sugg - lo0, hi0 - sugg);
+        if(worstYou > worstMid){
+          hint = "<br><b>這一刀沒砍到一半：</b>猜 " + g + "，運氣不好會剩 <b>" + worstYou + "</b> 個可能；猜正中間 " + sugg + " 最壞也只剩 <b>" + worstMid + "</b> 個。";
+        }
+      }
+      if(g > Y.secret){
+        Y.hist.push({g:g, k:"big"});
+        Y.hi = Math.min(Y.hi, g - 1); Y.line = 10;
+        say("hot", "太大", "你猜 " + g + " —— 太大了",
+          "比 " + g + " 大的（含 " + g + "）通通出局。範圍縮成 <b>" + Y.lo + " ~ " + Y.hi + "</b>，剩 <b>" + (Y.hi - Y.lo + 1) + "</b> 個可能。" + hint);
+      } else {
+        Y.hist.push({g:g, k:"small"});
+        Y.lo = Math.max(Y.lo, g + 1); Y.line = 8;
+        say("hot", "太小", "你猜 " + g + " —— 太小了",
+          "比 " + g + " 小的（含 " + g + "）通通出局。範圍縮成 <b>" + Y.lo + " ~ " + Y.hi + "</b>，剩 <b>" + (Y.hi - Y.lo + 1) + "</b> 個可能。" + hint);
+      }
+    }
+    $("guessInput").value = "";
+    $("guessInput").focus();
+    render();
+  }
+
+  /* ---------- 4. 畫面層 ---------- */
+
+  /* 數線：alive 區間 + lo/hi/mid 標記 + 歷史刻痕 */
+  function paintNline(lo, hi, mid, midLabel, ticks){
+    var h = [], i, t;
+    var p = function(v){ return ((v - 0.5) / NMAX * 100); };
+    h.push('<div class="track">');
+    if(hi >= lo){
+      h.push('<i class="alive" style="left:' + ((lo - 1) / NMAX * 100) + '%;width:' + ((hi - lo + 1) / NMAX * 100) + '%"></i>');
+    }
+    h.push('</div>');
+    ticks = ticks || [];
+    for(i = 0; i < ticks.length; i++){
+      t = ticks[i];
+      h.push('<span class="tick" data-v="' + t.k + '" style="left:' + p(t.v) + '%"></span>');
+    }
+    if(hi >= lo){
+      h.push('<span class="mark m-lo" style="left:' + p(lo) + '%">lo ' + lo + '<i>▾</i></span>');
+      h.push('<span class="mark m-hi" style="left:' + p(hi) + '%">hi ' + hi + '<i>▾</i></span>');
+    } else {
+      h.push('<span class="mark m-lo" style="left:' + p(Math.min(lo, NMAX)) + '%">lo ' + lo + '<i>▾</i></span>');
+      h.push('<span class="mark m-hi" style="left:' + p(Math.max(hi, 1)) + '%">hi ' + hi + '<i>▾</i></span>');
+    }
+    if(mid != null){
+      h.push('<span class="mark m-mid" style="left:' + p(mid) + '%"><i>▴</i>' + midLabel + '</span>');
+    }
+    h.push('<span class="end e1">1</span><span class="end e2">' + NMAX + '</span>');
+    $("nl").innerHTML = h.join("");
+  }
+
+  /* 陣列條 */
+  function paintArr(step){
+    var h = [], i, state, ptr;
+    for(i = 0; i < ARR.length; i++){
+      state = (i < step.lo || i > step.hi) ? "out" : "in";
+      if(step.mid === i) state = (step.kind === "found") ? "found" : "mid";
+      ptr = [];
+      if(i === step.lo) ptr.push('<b class="p-lo">lo</b>');
+      if(i === step.mid) ptr.push('<b class="p-mid">mid</b>');
+      if(i === step.hi) ptr.push('<b class="p-hi">hi</b>');
+      h.push('<div class="acell" data-state="' + state + '"><span class="aidx">' + i +
+        '</span><span class="abox">' + ARR[i] + '</span><span class="aptr">' + ptr.join("·") + '</span></div>');
+    }
+    $("acells").innerHTML = h.join("");
+  }
+
+  /* 演算法面板 */
+  function renderAlgo(){
+    var ol = $("algo"), all = $("algoAll"), i, li, row, no, src, doc;
+    ol.innerHTML = "";
+    for(i = 0; i < CODE.length; i++){
+      li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    all.innerHTML = "";
+    for(i = 0; i < CODE.length; i++){
+      row = document.createElement("li");
+      no = document.createElement("span");
+      no.className = "no"; no.textContent = i + 1;
+      src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[i].trim();
+      doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[i] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  function setAlgoLine(line){
+    var lis = $("algo").children, rows = $("algoAll").children, i;
+    for(i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(i = 0; i < rows.length; i++) rows[i].classList.toggle("is-now", (i + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "開始玩之後，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  /* 說明面板 */
+  function say(k, badge, title, msg){
+    $("say").setAttribute("data-k", k);
+    $("sayBadge").textContent = badge;
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = msg;
+  }
+
+  function sayStep(st){
+    say(KSAY[st.kind] || "start", KBADGE[st.kind] || "STEP", st.title, st.msg);
+  }
+
+  /* 戰情板 */
+  function setStats(k1, v1, k2, v2, k3, v3, k4, v4){
+    $("k1").textContent = k1; $("v1").textContent = v1;
+    $("k2").textContent = k2; $("v2").textContent = v2;
+    $("k3").textContent = k3; $("v3").textContent = v3;
+    $("k4").textContent = k4; $("v4").textContent = v4;
+  }
+
+  /* 歷程 */
+  function logItems(items){
+    var ol = $("log"), i, it, li, tag, b, tail;
+    ol.innerHTML = "";
+    if(items.length === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(i = 0; i < items.length; i++){
+      it = items[i];
+      li = document.createElement("li");
+      li.setAttribute("data-k", it.k);
+      tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = it.tag;
+      b = document.createElement("b");
+      b.textContent = it.main;
+      tail = document.createElement("span");
+      tail.className = "tail"; tail.textContent = it.tail;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = items.length + " 筆";
+  }
+
+  function paintProgress(steps, cur){
+    var total = steps.length - 1;
+    $("progBar").style.width = (total > 0 ? cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = cur + " / " + total;
+    $("btnPrev").disabled = (cur === 0);
+    $("btnNext").disabled = (cur >= steps.length - 1);
+  }
+
+  /* ---------- 5. render()：依模式分派 ---------- */
+  function render(){
+    if(S.mode === "you") renderYou();
+    else if(S.mode === "cpu") renderCpu();
+    else renderArray();
+  }
+
+  function renderYou(){
+    var n = Y.hi - Y.lo + 1, i, g, items = [];
+    var ticks = [];
+    for(i = 0; i < Y.hist.length; i++) ticks.push({v:Y.hist[i].g, k:Y.hist[i].k});
+    if(Y.over){
+      paintNline(Y.lo, Y.hi, Y.secret, "答案 " + Y.secret, ticks);
+    } else {
+      var sugg = Y.lo + ((Y.hi - Y.lo) >> 1);
+      paintNline(Y.lo, Y.hi, sugg, "正中間 " + sugg, ticks);
+    }
+    $("mainNote").textContent = "範圍 " + Y.lo + " ~ " + Y.hi;
+    setStats("你的刀數", Y.cnt, "理論上限", clog2p1(NMAX),
+             "剩餘可能", n, "最多還要", Y.over ? 0 : clog2p1(n));
+    $("statNote").textContent = "⌈log₂" + NMAX + "⌉ = " + clog2p1(NMAX);
+    for(i = 0; i < Y.hist.length; i++){
+      g = Y.hist[i];
+      items.push({
+        k: g.k === "hit" ? "ok" : (g.k === "big" ? "no" : "hot"),
+        tag: g.k === "hit" ? "命中" : (g.k === "big" ? "太大" : "太小"),
+        main: "第" + (i + 1) + "刀 猜 " + g.g,
+        tail: g.k === "hit" ? "✓" : ""
+      });
+    }
+    logItems(items);
+    setAlgoLine(Y.line);
+  }
+
+  function renderCpu(){
+    var s = C.steps[C.cur], i, st, verdict, ticks = [], items = [];
+    /* 歷史刻痕：走過的每個 mid，顏色看下一步是怎麼砍的 */
+    for(i = 0; i <= C.cur; i++){
+      st = C.steps[i];
+      if(st.kind === "mid" && i < C.cur){
+        verdict = C.steps[i + 1];
+        ticks.push({v:st.mid, k: verdict.kind === "cuthi" ? "big" : (verdict.kind === "cutlo" ? "small" : "hit")});
+      }
+      if(st.kind === "found" && i === C.cur) ticks.push({v:st.mid, k:"hit"});
+    }
+    paintNline(s.lo, s.hi, s.mid, s.mid != null ? ("第" + s.cnt + "刀 " + s.mid) : "", ticks);
+    $("mainNote").textContent = s.hi >= s.lo ? ("範圍 " + s.lo + " ~ " + s.hi) : "範圍已空";
+    var n = Math.max(0, s.hi - s.lo + 1);
+    setStats("電腦刀數", s.cnt, "理論上限", clog2p1(NMAX),
+             "剩餘可能", n, "最多還要", (s.kind === "found") ? 0 : clog2p1(n));
+    $("statNote").textContent = "永遠猜正中間";
+    for(i = 1; i <= C.cur; i++){
+      st = C.steps[i];
+      if(st.kind === "mid") items.push({k:"hot", tag:"猜", main:"第" + st.cnt + "刀 猜 " + st.mid, tail:"剩 " + (st.hi - st.lo + 1)});
+      else if(st.kind === "cuthi") items.push({k:"no", tag:"太大", main:"hi → " + st.hi, tail:"剩 " + Math.max(0, st.hi - st.lo + 1)});
+      else if(st.kind === "cutlo") items.push({k:"hot", tag:"太小", main:"lo → " + st.lo, tail:"剩 " + Math.max(0, st.hi - st.lo + 1)});
+      else if(st.kind === "found") items.push({k:"ok", tag:"命中", main:"答案 " + st.mid, tail:st.cnt + " 刀"});
+      else items.push({k:"error", tag:"矛盾", main:"範圍空了", tail:""});
+    }
+    logItems(items);
+    setAlgoLine(s.line);
+    sayStep(s);
+    paintProgress(C.steps, C.cur);
+    /* 只有「正在猜」的那一步能回答 */
+    var canAnswer = (s.kind === "mid");
+    $("btnBig").disabled = !canAnswer;
+    $("btnSmall").disabled = !canAnswer;
+    $("btnHit").disabled = !canAnswer;
+  }
+
+  function renderArray(){
+    var s = A.steps[A.cur], i, st, items = [];
+    paintArr(s);
+    $("mainNote").textContent = "目標 " + A.target + " · 共 " + ARR.length + " 格";
+    setStats("lo", s.lo, "mid", s.mid != null ? s.mid : "—",
+             "hi", s.hi, "剩餘格數", Math.max(0, s.hi - s.lo + 1));
+    $("statNote").textContent = "⌈log₂" + ARR.length + "⌉ = " + clog2p1(ARR.length - 1);
+    for(i = 1; i <= A.cur; i++){
+      st = A.steps[i];
+      if(st.kind === "mid") items.push({k:"hot", tag:"MID", main:"a[" + st.mid + "]=" + ARR[st.mid], tail:"剩 " + (st.hi - st.lo + 1)});
+      else if(st.kind === "cutlo") items.push({k:"push", tag:"LO→", main:"lo → " + st.lo, tail:"剩 " + Math.max(0, st.hi - st.lo + 1)});
+      else if(st.kind === "cuthi") items.push({k:"push", tag:"←HI", main:"hi → " + st.hi, tail:"剩 " + Math.max(0, st.hi - st.lo + 1)});
+      else if(st.kind === "found") items.push({k:"ok", tag:"FOUND", main:"回傳 " + st.mid, tail:st.cnt + " 刀"});
+      else items.push({k:"error", tag:"FAIL", main:"回傳 -1", tail:st.cnt + " 刀"});
+    }
+    logItems(items);
+    setAlgoLine(s.line);
+    sayStep(s);
+    paintProgress(A.steps, A.cur);
+  }
+
+  /* ---------- 6. 導覽 ---------- */
+  function goto_(k){
+    if(S.mode === "array"){
+      A.cur = Math.max(0, Math.min(A.steps.length - 1, k));
+    } else if(S.mode === "cpu"){
+      C.cur = Math.max(0, Math.min(C.steps.length - 1, k));
+    } else return;
+    render();
+  }
+  function next(){
+    var steps = (S.mode === "array") ? A.steps : C.steps;
+    var cur = (S.mode === "array") ? A.cur : C.cur;
+    if(cur >= steps.length - 1){ stopPlay(); return; }
+    goto_(cur + 1);
+    cur = (S.mode === "array") ? A.cur : C.cur;
+    if(cur >= steps.length - 1) stopPlay();
+  }
+  function prev(){
+    stopPlay();
+    goto_(((S.mode === "array") ? A.cur : C.cur) - 1);
+  }
+  function startPlay(){
+    if(S.mode !== "array") return;
+    if(A.cur >= A.steps.length - 1) goto_(0);
+    A.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    A.timer = setInterval(next, 950);
+  }
+  function stopPlay(){
+    A.playing = false;
+    clearInterval(A.timer); A.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ A.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 7. 載入 ---------- */
+  function loadTarget(t, levelIdx){
+    stopPlay();
+    A.target = t;
+    A.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    A.steps = buildArraySteps(t);
+    A.cur = 0;
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadTarget(LEVELS[i].t, i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === A.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = "找 " + lv.t;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function show(id, on){ $(id).style.display = on ? "" : "none"; }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn"), i, on;
+    for(i = 0; i < btns.length; i++){
+      on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    stopPlay();
+    show("nl", m !== "array");
+    show("acells", m === "array");
+    show("guessForm", m === "you");
+    show("cpuBox", m === "cpu");
+    show("controls", m !== "you");
+    show("btnPlay", m === "array");
+    show("barLevels", m === "array");
+    if(m === "you"){
+      $("mainTitle").textContent = "數線 1 ~ " + NMAX + "（你來猜）";
+      renderYou();
+      if(Y.over) say("done", "WIN", "上一局已經結束", "按「🎲 再來一局」我再藏一個新的數。");
+      else if(Y.cnt === 0) say("start", "START", "我心裡藏好一個 1 ~ " + NMAX + " 的數了",
+        "在左邊輸入你的猜測。每一刀我都會回答「太大」或「太小」，數線上的綠色區段就是答案還可能在的範圍。理論上 <b>" + clog2p1(NMAX) + "</b> 刀之內一定猜得中——試試看你要幾刀。");
+    } else if(m === "cpu"){
+      $("mainTitle").textContent = "數線 1 ~ " + NMAX + "（電腦來猜）";
+      $("btnReset").innerHTML = "↺ 重新開始";
+      renderCpu();
+    } else {
+      $("mainTitle").textContent = "排序陣列（20 格）";
+      $("btnReset").innerHTML = "↺ 重來";
+      renderArray();
+    }
+  }
+
+  /* ---------- 8. 事件綁定 ---------- */
+  $("guessForm").addEventListener("submit", function(e){ e.preventDefault(); onGuess(); });
+  $("btnNewGame").addEventListener("click", newGame);
+
+  $("btnBig").addEventListener("click", function(){ cpuFeedback("big"); });
+  $("btnSmall").addEventListener("click", function(){ cpuFeedback("small"); });
+  $("btnHit").addEventListener("click", function(){ cpuFeedback("hit"); });
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){
+    if(S.mode === "cpu"){ cpuReset(); render(); }
+    else if(S.mode === "array"){
+      if(A.levelIdx >= 0) loadLevel(A.levelIdx); else loadTarget(A.target, -1);
+    }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = parseInt($("customInput").value, 10);
+    if(!isNaN(v) && v >= 0 && v <= 99) loadTarget(v, -1);
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "array"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(S.mode === "cpu"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+    }
+  });
+
+  /* ---------- 9. 啟動 ---------- */
+  renderAlgo();
+  cpuReset();
+  loadLevel(1);          // 陣列演示預備好「教科書五刀」
+  setMode("you");        // 從「你來猜」開始
+  newGame();
+})();
+</script>
+</body>
+</html>
