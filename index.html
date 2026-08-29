@@ -59,15 +59,22 @@
 .card .go{font-family:var(--font-mono);font-size:11.5px;font-weight:700;
   letter-spacing:.08em;color:var(--accent);margin-top:2px}
 
-.path{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
-  padding:14px 16px;background:var(--surface);border:1px solid var(--line-soft);
-  border-radius:var(--r);box-shadow:var(--shadow)}
+.path-box{padding:14px 16px;background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:var(--r);box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:12px}
+.path{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.path-label{font-family:var(--font-mono);font-size:11px;font-weight:700;
+  letter-spacing:.08em;color:var(--ink-faint);flex:0 0 100%}
 .path .step{display:inline-flex;align-items:center;gap:7px;
-  padding:5px 12px;border-radius:999px;background:var(--surface-2);
+  padding:5px 12px 5px 6px;border-radius:999px;background:var(--surface-2);
   font-size:13px;text-decoration:none;color:inherit;
   transition:background var(--dur),transform var(--dur)}
 .path .step:hover{background:var(--accent-soft);transform:translateY(-1px)}
-.path .step b{font-family:var(--font-mono);font-size:11px;color:var(--accent)}
+.path .step .stepno{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;
+  font-family:var(--font-mono);font-size:11px;font-weight:700}
+.path .step b{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);font-weight:600}
+.path.side .step{padding-left:12px}
 .path .arrow{color:var(--ink-faint);font-size:12px}
 </style>
 </head>
@@ -104,24 +111,33 @@
       <span class="sec-num">路線</span>
       <div>
         <h2>不知道從哪開始？照這個順序</h2>
-        <p class="sub">前四關是一條連貫的線，觀念會互相接上。</p>
+        <p class="sub">主線五步是一條連貫的線，觀念會互相接上。灰色小字是關卡編號，不是玩的順序。</p>
       </div>
     </div>
     <div class="sec-body">
-      <div class="path">
-        <a class="step" href="games/01-bracket-matching.html"><b>01</b> 括號配對</a>
-        <span class="arrow">→</span>
-        <a class="step" href="games/02-expression-calculator.html"><b>02</b> 運算式計算機</a>
-        <span class="arrow">→</span>
-        <a class="step" href="games/04-call-stack.html"><b>04</b> 呼叫堆疊</a>
-        <span class="arrow">→</span>
-        <a class="step" href="games/05-hanoi.html"><b>05</b> 河內塔</a>
-        <span class="arrow">→</span>
-        <a class="step" href="games/07-bfs-maze.html"><b>07</b> 迷宮 BFS/DFS</a>
+      <div class="path-box">
+        <div class="path">
+          <span class="path-label">主線 · 照順序玩</span>
+          <a class="step" href="games/01-bracket-matching.html"><span class="stepno">1</span> 括號配對 <b>關卡01</b></a>
+          <span class="arrow">→</span>
+          <a class="step" href="games/02-expression-calculator.html"><span class="stepno">2</span> 運算式計算機 <b>關卡02</b></a>
+          <span class="arrow">→</span>
+          <a class="step" href="games/04-call-stack.html"><span class="stepno">3</span> 呼叫堆疊 <b>關卡04</b></a>
+          <span class="arrow">→</span>
+          <a class="step" href="games/05-hanoi.html"><span class="stepno">4</span> 河內塔 <b>關卡05</b></a>
+          <span class="arrow">→</span>
+          <a class="step" href="games/07-bfs-maze.html"><span class="stepno">5</span> 迷宮 BFS/DFS <b>關卡07</b></a>
+        </div>
+        <div class="path side">
+          <span class="path-label">支線 · 隨時插進來玩</span>
+          <a class="step" href="games/03-monotonic-stack.html">單調堆疊 <b>關卡03</b></a>
+          <a class="step" href="games/06-josephus.html">約瑟夫問題 <b>關卡06</b></a>
+          <a class="step" href="games/08-flood-fill.html">油漆桶填充 <b>關卡08</b>（建議接在第 5 步後）</a>
+        </div>
       </div>
       <div class="callout" data-k="key">
         <span class="tag">為什麼是這個順序</span>
-        <span class="txt">01 建立「堆疊記住還沒輪到的事」這個直覺 → 02 用同一個直覺處理優先權 → 04 揭穿「遞迴其實就是堆疊」→ 05 用遞迴解一個真的難題 → 07 換成佇列，看行為怎麼整個改變。<b>03 單調堆疊</b>和<b>06 約瑟夫</b>可以獨立玩，<b>08 油漆桶</b>建議接在 07 後面。</span>
+        <span class="txt">第 1 步建立「堆疊記住還沒輪到的事」這個直覺 → 第 2 步用同一個直覺處理優先權 → 第 3 步揭穿「遞迴其實就是堆疊」→ 第 4 步用遞迴解一個真的難題 → 第 5 步換成佇列，看行為怎麼整個改變。支線的<b>單調堆疊</b>和<b>約瑟夫</b>不依賴其他關卡，什麼時候玩都行；<b>油漆桶</b>用到迷宮那關的觀念，建議放最後。</span>
       </div>
     </div>
   </section>
