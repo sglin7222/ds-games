@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>佇列排隊入門 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：排隊走道、
+   離場順序列、自由練習按鈕列、回傳值指示。 */
+.custom{display:flex;gap:6px;flex:0 1 300px}
+.custom input{flex:1}
+
+/* 排隊走道：左邊櫃台（出口）、中間隊伍、右邊入口 */
+.lane{display:flex;align-items:stretch;gap:10px}
+.gate{flex:0 0 86px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:8px 6px;border-radius:8px;background:var(--sunken);border:1.5px dashed var(--line);
+  font-size:12.5px;font-weight:700;color:var(--ink-soft);text-align:center;line-height:1.4}
+.gate small{font-family:var(--font-mono);font-size:10px;font-weight:500;color:var(--ink-faint)}
+.gate.g-out{border-color:var(--jade)}
+.gate.g-in{border-color:var(--accent)}
+.gone{min-height:17px;font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--jade)}
+.line{flex:1;min-width:0;display:flex;gap:8px;align-items:flex-start;overflow-x:auto;
+  padding:12px 10px 6px;min-height:108px;background:var(--sunken);border-radius:8px}
+.person{flex:0 0 54px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.pno{width:54px;height:54px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:19px;font-weight:700;
+  background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent);border-radius:12px;
+  transition:background var(--dur),border-color var(--dur),color var(--dur),transform var(--dur)}
+.person[data-hit="push"] .pno{border-width:2.5px;transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+.person[data-hit="front"] .pno{border-width:2.5px;border-color:var(--jade);
+  background:var(--jade-soft);color:var(--jade)}
+.ptag{display:flex;flex-direction:column;gap:2px;align-items:center;min-height:34px}
+.ptag b{font-family:var(--font-mono);font-size:9.5px;font-weight:700;
+  padding:1px 6px;border-radius:4px;color:var(--surface)}
+.ptag .mf{background:var(--jade)}
+.ptag .mb{background:var(--accent)}
+.lane-empty{margin:auto;font-size:13px;color:var(--ink-faint)}
+.lane-empty.bad{color:var(--alarm);font-weight:700}
+@media (max-width:620px){
+  .gate{flex-basis:58px;font-size:11.5px;padding:6px 3px}
+}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;
+  font-size:12.5px;color:var(--ink-soft)}
+.legend b{font-family:var(--font-mono);font-size:10px;padding:1px 7px;border-radius:4px;
+  color:var(--surface);margin-right:4px}
+.legend .lf b{background:var(--jade)}
+.legend .lr b{background:var(--accent)}
+
+/* 離場順序：證明「先進先出」的那一列 */
+.outrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:8px 11px;border-radius:8px;background:var(--sunken)}
+.outcap{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;
+  color:var(--ink-faint)}
+.outlist{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:24px}
+.outlist span{font-family:var(--font-mono);font-size:12.5px;font-weight:700;
+  padding:1px 8px;border-radius:6px;background:var(--jade-soft);color:var(--jade)}
+.outlist span.is-new{background:var(--jade);color:var(--surface)}
+.outlist i{font-style:normal;font-size:12.5px;color:var(--ink-faint)}
+
+/* 自由練習的操作按鈕列 */
+.freeops{display:none;flex-wrap:wrap;gap:8px;align-items:center}
+.freeops.is-on{display:flex}
+.freeops .btn small{font-family:var(--font-mono);font-size:11px;font-weight:500;opacity:.75}
+
+/* 上一個操作回傳了什麼 */
+.retline{padding:8px 11px;border-radius:8px;background:var(--sunken);
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);text-align:center;
+  transition:background var(--dur),color var(--dur)}
+.retline[data-k="ret"]{background:var(--jade-soft);color:var(--jade);font-weight:700}
+.retline[data-k="bad"]{background:var(--alarm-soft);color:var(--alarm);font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">18 · 佇列入門</span>
+    <div class="jump">
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 18 · Queue Basics</p>
+    <h1>佇列排隊入門</h1>
+    <p class="lede">早餐店排隊：新來的人排到最後面，櫃台永遠先服務排最前面的人。佇列（queue）就只有這一條規則。這一關只練五個最基本的動作——push、front、pop、size、empty。往後每一關用到佇列，都是這五個動作的組合。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>佇列 Queue（std::queue）</b></div>
+      <div class="fact"><span>難度</span><b>入門（佇列第一關）</b></div>
+      <div class="fact"><span>時間</span><b>每個操作 O(1)</b></div>
+      <div class="fact"><span>空間</span><b>O(n)</b></div>
+      <div class="fact"><span>先備知識</span><b>不需要</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上是一條早餐店的隊伍：<b>左邊是櫃台（出口）</b>，<b>右邊是入口</b>。顧客拿著號碼牌從右邊排進來，櫃台永遠先服務最左邊那一位。綠色 <b>front</b> 標著隊頭（下一個被服務的人），橘色 <b>back</b> 標著隊尾（最晚來的人）。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>從上方挑一個<b>關卡</b>（一段寫好的操作劇本），或自己輸入。</li>
+            <li>按 <b>下一步</b> 一個操作一個操作走；也可以 <b>自動播放</b>。</li>
+            <li>盯著三件事同步變化：隊伍裡的人、下方「離場順序」、程式高亮的那一行。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>每個操作前先<b>不給答案</b>，由你猜：誰會離場？front() 會看到誰？還剩幾個人？</li>
+            <li>答對得分，<b>連續答對</b>額外加分；答錯立刻告訴你正確答案和理由。</li>
+          </ol>
+          <h4>自由練習</h4>
+          <ol class="steps">
+            <li>沒有劇本。五個按鈕就是五個基本動作，<b>想按哪個按哪個</b>。</li>
+            <li>建議先自己在心裡猜結果，再按下去對答案。按「上一步」可以反悔。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">演示模式鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>佇列＝排隊（FIFO）</b> —— 先進先出（First In First Out）：先來的人先被服務。整個佇列就這一條規則。</li>
+            <li><b>兩個端點各管一件事</b> —— 隊尾只能進、隊頭只能出。不能插隊，也不能從中間離開。</li>
+            <li><b>五個基本動作</b> —— push（進場）、front（看隊頭）、pop（離場）、size（幾個人）、empty（空了嗎）。全部學會就畢業了。</li>
+            <li><b>front 只看、pop 只走</b> —— C++ 的 pop() 不會告訴你走的是誰。想知道，要先 front() 再 pop()。</li>
+            <li><b>空佇列不能 front／pop</b> —— 沒有人可以看、也沒有人可以走。動手之前先問 empty()。</li>
+            <li><b>跟堆疊剛好相反</b> —— 同樣放進 1、2、3：佇列拿出來是 1、2、3，堆疊拿出來是 3、2、1。</li>
+            <li><b>複雜度 O(1)</b> —— 五個動作都是「固定幾下」就做完，跟隊伍多長無關。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">先用演示模式玩「暖身」和「front 只是看」；再玩「陷阱：空佇列」看空的時候會怎樣；然後切<b>自由練習</b>自己亂按一輪；最後用闖關模式挑戰「魔王」。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看誰先進來、誰先離開。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+          <button class="mode-btn" data-mode="free" role="tab" aria-selected="false">自由練習</button>
+        </div>
+      </div>
+
+      <div class="bar" id="levelBar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="40" placeholder="自訂劇本，如 ++f-s-e"
+                 title="+ 進場、- 離場、f 看隊頭、s 幾個人、e 空了嗎"
+                 pattern="[+\-fseFSE]+" aria-label="自訂操作序列">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">早餐店的隊伍（queue&lt;int&gt; q）</h3>
+            <span class="panel-note" id="laneNote"></span>
+          </div>
+
+          <div class="lane">
+            <div class="gate g-out">
+              櫃台<small>出口 ← pop</small>
+              <span class="gone" id="gone"></span>
+            </div>
+            <div class="line" id="line"></div>
+            <div class="gate g-in">
+              入口<small>push → 隊尾</small>
+            </div>
+          </div>
+          <div class="legend">
+            <span class="lf"><b>front</b>隊頭：下一個被服務的人</span>
+            <span class="lr"><b>back</b>隊尾：最晚來的人</span>
+            <span>← 隊伍只往櫃台前進，不能插隊</span>
+          </div>
+
+          <div class="outrow">
+            <span class="outcap">離場順序（先 → 後）</span>
+            <div class="outlist" id="outList"></div>
+          </div>
+
+          <div class="freeops" id="freeOps">
+            <button class="btn btn-primary" type="button" data-op="+">進場 <small>q.push(x)</small></button>
+            <button class="btn" type="button" data-op="f">看隊頭 <small>q.front()</small></button>
+            <button class="btn" type="button" data-op="-">離場 <small>q.pop()</small></button>
+            <button class="btn" type="button" data-op="s">幾個人 <small>q.size()</small></button>
+            <button class="btn" type="button" data-op="e">空了嗎 <small>q.empty()</small></button>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」，看顧客一個一個進場、離場。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">隊伍現況</h3>
+              <span class="panel-note">四個問題的答案</span>
+            </div>
+            <div class="stats">
+              <div class="stat"><div class="k">size 人數</div><div class="v" id="vSize">0</div></div>
+              <div class="stat"><div class="k">empty</div><div class="v" id="vEmpty">true</div></div>
+              <div class="stat" data-k="ok"><div class="k">front 隊頭</div><div class="v" id="vFront">—</div></div>
+              <div class="stat" data-k="hot"><div class="k">back 隊尾</div><div class="v" id="vBack">—</div></div>
+            </div>
+            <div class="retline" id="retLine">還沒有任何操作</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">五個基本動作（C++）——做哪個動作，亮哪一行</h3>
+          <span class="panel-note">每個動作都是 O(1)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>一支完整的小程式：把五個動作串起來</h3>
+        <p>上面的面板是「動作對照表」。真的寫成一支會印出結果的程式，長這樣——可以整段貼到編譯器裡跑：</p>
+                <pre class="code">#include &lt;iostream&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+int main() {
+    queue&lt;int&gt; q;                 <i>// 一條空的隊伍</i>
+
+    q.push(1);                    <i>// 1 號來排隊</i>
+    q.push(2);
+    q.push(3);                    <i>// 隊伍：1 2 3（1 在最前面）</i>
+
+    cout &lt;&lt; q.front() &lt;&lt; "\n";    <i>// 印出 1：只是看，1 號還在隊伍裡</i>
+    cout &lt;&lt; q.size()  &lt;&lt; "\n";    <i>// 印出 3</i>
+
+    q.pop();                      <i>// 1 號離場，隊伍：2 3</i>
+    cout &lt;&lt; q.front() &lt;&lt; "\n";    <i>// 印出 2：隊頭換人了</i>
+
+    <b>while (!q.empty()) {</b>          <i>// 只要還有人，就繼續叫號</i>
+        cout &lt;&lt; q.front() &lt;&lt; " "; <i>// 先看是誰</i>
+        q.pop();                  <i>// 再請他離開</i>
+    <b>}</b>                             <i>// 印出 2 3</i>
+    return 0;
+}</pre>
+        <p>最後那個 <code>while (!q.empty())</code> 迴圈——「只要還有人，就看隊頭、請他走」——是佇列最常見的用法。後面的迷宮 BFS、油漆桶填充，骨架全是這三行。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「排隊」這件每天都在做的事，走到五個動作各自的規則與陷阱。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>佇列（queue）是一種放資料的容器，規則只有一條：<b>先放進去的，先拿出來</b>。這叫<b>先進先出</b>（FIFO，First In First Out），跟排隊一模一樣。它只提供五個動作：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">C++ 寫法</th><th>做什麼</th><th>排隊的說法</th><th>會改變隊伍嗎</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">q.push(x)</td><td>把 x 放到隊尾</td><td>新顧客排到最後面</td><td style="color:var(--accent);font-weight:700">會（多一個人）</td></tr>
+              <tr><td class="mono">q.front()</td><td>回傳隊頭的值</td><td>看一眼排最前面的是誰</td><td>不會</td></tr>
+              <tr><td class="mono">q.pop()</td><td>移除隊頭</td><td>排最前面的人離場</td><td style="color:var(--accent);font-weight:700">會（少一個人）</td></tr>
+              <tr><td class="mono">q.size()</td><td>回傳元素個數</td><td>數一數現在排了幾個人</td><td>不會</td></tr>
+              <tr><td class="mono">q.empty()</td><td>回傳是否為空</td><td>問：隊伍是空的嗎？</td><td>不會</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>其實還有第六個 <code>q.back()</code>（看隊尾是誰），用法跟 front() 一樣、但很少用到。記住上面五個就夠了。</p>
+      </div>
+
+      <div class="block">
+        <h3>先破除一個直覺：「限制這麼多，不如用陣列自己管」不行</h3>
+        <p>佇列看起來很「殘廢」：只能從尾巴放、只能從頭拿，連中間有誰都不給看。直接用陣列、想動哪格動哪格不是更自由嗎？問題就出在「自由」：</p>
+        <ul class="bullets no">
+          <li><b>可以插隊，順序就不保證了</b> —— 只要有一行程式把新資料塞到前面，「先來的先處理」這個承諾就破功。印表機如果讓後送的文件插隊，你的報告可能永遠印不出來。</li>
+          <li><b>可以從中間拿，就得自己記「下一個輪到誰」</b> —— 多一個要維護的變數，就多一個寫錯的地方。佇列把這件事包起來：下一個永遠是 front()，不用想。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt"><b>限制就是保證</b>。佇列只開放兩個端點，所以任何人拿到一個佇列，都能確定「拿出來的順序＝放進去的順序」——不必檢查別人有沒有偷插隊。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：進場順序＝離場順序</h3>
+        <p>把 1、2、3 依序放進去，再全部拿出來。佇列和堆疊（疊盤子，只能從最上面拿）的結果剛好相反：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>容器</th><th>放進去的順序</th><th>拿出來的順序</th><th>規則</th><th>生活比喻</th></tr></thead>
+            <tbody>
+              <tr><td><b>佇列 queue</b></td><td class="mono">1 2 3</td><td class="mono" style="color:var(--jade);font-weight:700">1 2 3</td><td>先進先出 FIFO</td><td>排隊買早餐</td></tr>
+              <tr><td><b>堆疊 stack</b></td><td class="mono">1 2 3</td><td class="mono" style="color:var(--accent);font-weight:700">3 2 1</td><td>後進先出 LIFO</td><td>疊盤子</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>遊戲畫面下方的「離場順序」那一列，就是用來讓你親眼確認這件事的：不管中間怎麼穿插進場、離場，那一列的號碼永遠是由小到大。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">所以</span>
+          <span class="txt">需要「<b>公平、照順序</b>」的地方就用佇列：印表機的列印工作、客服的來電等候、鍵盤打字的緩衝區、聊天訊息的傳送順序。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>五個動作，各自的規則</h3>
+        <ol class="steps">
+          <li><b>push(x)（進場）</b> —— x 排到隊尾。隊頭是誰<b>不受影響</b>（除非原本是空的，那 x 自己就是隊頭）。</li>
+          <li><b>front()（看隊頭）</b> —— 告訴你排最前面的是誰。<b>只看不動</b>：連續呼叫十次，答案都一樣，隊伍也不會少人。</li>
+          <li><b>pop()（離場）</b> —— 隊頭離開，後面的人遞補。走的<b>永遠是目前最早來的那位</b>。</li>
+          <li><b>size()（幾個人）</b> —— 回傳現在的人數。</li>
+          <li><b>empty()（空了嗎）</b> —— 沒有人就回傳 true（真），有人就回傳 false（假）。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常漏</span>
+          <span class="txt">C++ 的 <b>pop() 不回傳任何東西</b>。<code>int x = q.pop();</code> 是編譯錯誤。「拿走隊頭並且知道他是誰」要寫成兩行：先 <code>int x = q.front();</code> 再 <code>q.pop();</code>。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>邊界情況：空的佇列</h3>
+        <p>隊伍裡沒有人的時候，front() 沒有人可以看、pop() 沒有人可以走。C++ 在這裡<b>不會好心提醒你</b>——它不檢查，直接去讀一塊不存在的資料。結果可能是印出亂七八糟的數字，也可能整支程式當掉。這種「規則沒說會發生什麼事」的情況叫<b>未定義行為</b>，是最難抓的一種錯。</p>
+        <p>所以規矩是：<b>動手之前先問 empty()</b>。</p>
+        <pre class="code"><b>if (!q.empty()) {</b>          <i>// 「!」是「不」：如果隊伍「不是空的」</i>
+    int who = q.front();   <i>// 才可以看</i>
+    q.pop();               <i>// 才可以請人走</i>
+<b>}</b></pre>
+        <div class="callout" data-k="ok">
+          <span class="tag">遊戲裡</span>
+          <span class="txt">玩「陷阱：空佇列」那一關：對空隊伍做 pop 和 front 時，程式面板亮的是 <b>if (!q.empty())</b> 那一行——檢查把危險的動作擋下來了，什麼事都沒發生。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次</h3>
+        <p>考試要在紙上追蹤佇列時，就是畫這張表。先蓋住右邊三欄自己算，再對答案。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">步</th><th class="mono">動作</th><th class="mono">回傳</th><th class="mono">隊伍（隊頭 → 隊尾）</th><th class="mono">size</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0</td><td class="mono">queue&lt;int&gt; q;</td><td class="mono">—</td><td class="mono" style="color:var(--ink-faint)">（空）</td><td class="mono">0</td></tr>
+              <tr><td class="mono">1</td><td class="mono" style="color:var(--accent)">q.push(1)</td><td class="mono">—</td><td class="mono">1</td><td class="mono">1</td></tr>
+              <tr><td class="mono">2</td><td class="mono" style="color:var(--accent)">q.push(2)</td><td class="mono">—</td><td class="mono">1 2</td><td class="mono">2</td></tr>
+              <tr><td class="mono">3</td><td class="mono" style="color:var(--accent)">q.push(3)</td><td class="mono">—</td><td class="mono">1 2 3</td><td class="mono">3</td></tr>
+              <tr><td class="mono">4</td><td class="mono">q.front()</td><td class="mono" style="font-weight:700">1</td><td class="mono">1 2 3</td><td class="mono">3</td></tr>
+              <tr><td class="mono">5</td><td class="mono" style="color:var(--jade)">q.pop()</td><td class="mono">—</td><td class="mono">2 3</td><td class="mono">2</td></tr>
+              <tr><td class="mono">6</td><td class="mono">q.front()</td><td class="mono" style="font-weight:700">2</td><td class="mono">2 3</td><td class="mono">2</td></tr>
+              <tr><td class="mono">7</td><td class="mono">q.size()</td><td class="mono" style="font-weight:700">2</td><td class="mono">2 3</td><td class="mono">2</td></tr>
+              <tr><td class="mono">8</td><td class="mono" style="color:var(--jade)">q.pop()</td><td class="mono">—</td><td class="mono">3</td><td class="mono">1</td></tr>
+              <tr><td class="mono">9</td><td class="mono" style="color:var(--jade)">q.pop()</td><td class="mono">—</td><td class="mono" style="color:var(--ink-faint)">（空）</td><td class="mono">0</td></tr>
+              <tr><td class="mono">10</td><td class="mono">q.empty()</td><td class="mono" style="font-weight:700">true</td><td class="mono" style="color:var(--ink-faint)">（空）</td><td class="mono">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>注意第 4 步和第 6 步：front() 那兩列，隊伍和 size 都<b>沒有變</b>。會讓隊伍變動的只有 push 和 pop。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>五個動作都是 O(1)</b> —— O(1) 的意思是「不管隊伍裡有 3 個人還是 300 萬個人，做一次都是固定幾個步驟」。push 只碰隊尾、front 和 pop 只碰隊頭，從來不需要把整條隊伍走一遍。</li>
+          <li><b>空間 O(n)</b> —— 隊伍裡有 n 個人，就占 n 份記憶體。std::queue 會自己長大，不必事先說要幾格。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「front() 會把人拿走」</b> —— 不會，它只是看。玩「front 只是看」那一關：連續 front 三次，隊伍一個人都沒少。</li>
+          <li><b>「pop() 會告訴我走的是誰」</b> —— C++ 的 pop() 不回傳值。要先 front() 抄下來，再 pop()。（別的語言不一定，例如 Python 的 popleft() 會回傳——換語言時要重新確認。）</li>
+          <li><b>「push 是放到最前面」</b> —— 佇列的 push 是排到<b>隊尾</b>。容易跟堆疊搞混：堆疊的 push 是放到「頂端」，而且下一個拿的就是它；佇列新來的人要等前面全部走完才輪得到。</li>
+          <li><b>「可以用 q[1] 看第二個人」</b> —— 不行，std::queue 沒有 [ ]。它故意只給你看隊頭和隊尾。真的需要看中間，代表你要的不是佇列。</li>
+          <li><b>「對空佇列 pop，頂多沒事發生」</b> —— 是未定義行為，可能當場當掉、也可能默默把資料弄壞。永遠先檢查 empty()。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>學會了，然後呢</h3>
+        <p>這五個動作是後面好幾關的共同基礎：</p>
+        <ul class="bullets ok">
+          <li><b><a href="06-josephus.html">06 約瑟夫問題</a></b> —— 「把隊頭的人移到隊尾」＝ front、pop、push 連做。圍成一圈報數，其實就是一條一直轉的佇列。</li>
+          <li><b><a href="07-bfs-maze.html">07 迷宮 BFS</a></b> —— 用本頁那個 <code>while (!q.empty())</code> 迴圈走迷宮，佇列保證「近的格子先處理」，所以找到的一定是最短路。</li>
+          <li><b><a href="09-circular-queue.html">09 環形佇列</a></b> —— 打開 std::queue 的蓋子，自己用陣列把佇列做出來。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>一段操作劇本就是一個字串，每個字元是一個動作。<b>使用者按「下一步」之前，整段劇本就已經全部算好了。</b></p>
+        <div class="arch">
+          <div class="node" data-k="in">操作劇本 <small>"+++f-f--"（+ 進場、- 離場、f 看隊頭、s 人數、e 空嗎）</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(ops) <small>把整段劇本跑完一次</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是「當下整條隊伍 + 已離場名單」的完整快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <h4>為什麼這樣設計</h4>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反向 pop」這種容易錯的東西，倒帶就是把步數減一。</li>
+          <li><b>自由練習不用另外寫一套</b> —— 每按一個按鈕，就是在劇本字串<b>尾巴加一個字元</b>，然後整段重算、跳到最後一步。「上一步」之後再按新動作，就把後面的劇本剪掉重接。</li>
+          <li><b>演算法和畫面完全分離</b> —— <code>buildSteps</code> 裡沒有半行畫面程式碼。</li>
+        </ul>
+        <div class="callout" data-k="no">
+          <span class="tag">代價</span>
+          <span class="txt">每一步都存一份整條隊伍的快照，而且自由練習每按一次就整段重算。教學規模（幾十步）完全沒問題，真實工程不會這樣寫——真實版本只需要當下狀態。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>資料層</b></td>
+                <td class="mono">buildSteps(ops)</td>
+                <td>唯一真正操作佇列的地方。輸入劇本字串，輸出一整個步驟陣列。</td>
+              </tr>
+              <tr>
+                <td><b>狀態</b></td>
+                <td class="mono">S</td>
+                <td>一個物件裝所有狀態：目前劇本、第幾步、模式、分數。全站只有這一份。</td>
+              </tr>
+              <tr>
+                <td><b>畫面層</b></td>
+                <td class="mono">paintLane / paintOut<br>paintStats / paintAlgo<br>paintSay / paintLog</td>
+                <td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊，彼此不互相呼叫。</td>
+              </tr>
+              <tr>
+                <td><b>導覽</b></td>
+                <td class="mono">goto / next / prev<br>startPlay / stopPlay</td>
+                <td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td>
+              </tr>
+              <tr>
+                <td><b>闖關</b></td>
+                <td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td>
+                <td>出題、對答案、計分。它不碰佇列，只是「先不給看下一步」而已。</td>
+              </tr>
+              <tr>
+                <td><b>自由練習</b></td>
+                <td class="mono">freeOp(ch)</td>
+                <td>把一個字元接到劇本尾巴，重建 steps，跳到最後一步。</td>
+              </tr>
+              <tr>
+                <td><b>載入</b></td>
+                <td class="mono">loadOps / loadLevel<br>setMode</td>
+                <td>換劇本、換模式，重建 steps 並歸零。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>畫面更新的流程</h3>
+        <p>不管使用者做什麼，路徑都是同一條：</p>
+        <div class="arch">
+          <div class="node" data-k="in">使用者操作 <small>按鈕 / 鍵盤 / 答題 / 自動播放 / 自由練習</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">goto(k) <small>只改 S.cur 這一個數字</small></div>
+          <div class="arrow"></div>
+          <div class="node">render()</div>
+          <div class="arrow"></div>
+          <div class="bracket"></div>
+          <div class="fan">
+            <div class="node">paintLane<small>隊伍與 front/back 標籤</small></div>
+            <div class="node">paintOut<small>離場順序</small></div>
+            <div class="node">paintStats<small>size/empty/回傳值</small></div>
+            <div class="node">paintAlgo<small>高亮行</small></div>
+            <div class="node">paintSay<small>說明文字</small></div>
+            <div class="node">paintLog<small>歷程</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <p>整個程式就靠這個物件串起來。每個欄位都是為了餵給某一塊畫面：</p>
+        <pre class="code">{
+  <b>kind</b>:  <i>// start / push / front / pop / size / isempty / err / done → 顏色、徽章、log 標籤</i>
+  <b>what</b>:  <i>// kind 是 err 時：被擋下來的是 "front" 還是 "pop"</i>
+  <b>val</b>:   <i>// 這一步進場、離場或被看到的顧客號碼</i>
+  <b>hit</b>:   <i>// 要特別標示隊伍裡的第幾個人（沒有就是 -1）</i>
+  <b>q</b>:     <i>// 動作「後」整條隊伍的快照，q[0] 是隊頭 → 走道直接畫這個</i>
+  <b>out</b>:   <i>// 到目前為止的離場順序 → 「離場順序」那一列</i>
+  <b>ret</b>:   <i>// 這個動作回傳了什麼（給側欄顯示的文字）</i>
+  <b>line</b>:  <i>// 程式面板要高亮第幾行</i>
+  <b>title, msg</b>: <i>// 說明面板的標題與內文</i>
+}</pre>
+        <p>遊戲裡的佇列就是一個 JavaScript 陣列：push 用 <code>q.push(v)</code>、離場用 <code>q.shift()</code>。<code>shift()</code> 其實會把後面每個元素往前搬一格（O(n)），所以這只是<b>教學用的替身</b>——真正 O(1) 的做法在 09 環形佇列那一關。</p>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{ops:"++f-…", n:"關卡名", d:"籌碼上顯示的字"}</code></td><td>1 行</td></tr>
+              <tr><td>號碼牌從 101 開始發</td><td><code>buildSteps</code> 裡的 <code>nextId = 1</code></td><td>1 行</td></tr>
+              <tr><td>加一個「看隊尾 back()」動作</td><td><code>buildSteps</code> 多一個分支、<code>CODE</code>／<code>CODE_DOC</code> 各加一行、自由練習多一顆按鈕</td><td>約 15 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>1000</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
+              <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次，全部頁面生效</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <p>看懂之後，把下面這段丟給 Claude，讓它陪你把程式從頭寫一次：</p>
+        <pre class="code">用 C++ 的 std::queue 寫一個「早餐店叫號」主控台小程式。
+
+情境：
+顧客抽號碼牌排隊（號碼從 1 開始遞增），櫃台永遠先服務最早來的人。
+
+要求：
+1. 用 std::queue&lt;int&gt;，不要自己用陣列實作
+2. 做一個文字選單：
+   1 進場（push）、2 叫號（front + pop）、3 看下一位是誰（front）、
+   4 現在幾個人（size）、0 結束
+3. 「叫號」和「看下一位」之前一定要先用 empty() 檢查，
+   空的時候印出「目前沒有人在排隊」，不可以直接 front() 或 pop()
+4. 每個操作做完，都印出目前整條隊伍（從隊頭到隊尾）
+   提示：std::queue 不能直接走訪，想想要怎麼印
+5. 用註解解釋：為什麼 pop() 不回傳值、要先 front() 再 pop()
+6. 說明每個操作的時間複雜度
+
+寫完後用這串操作測試：
+進場 3 次 → 看下一位（應為 1 號）→ 叫號 2 次（依序叫到 1、2）
+→ 現在幾個人（應為 1）→ 叫號（3）→ 再叫號（應顯示沒有人）。</pre>
+        <h4>寫完了？再挑戰這三題</h4>
+        <pre class="code">1. 不准用 std::queue，自己用「陣列 + front + rear」做一個 IntQueue，
+   提供 push / pop / front / size / empty。
+   做完後連續「進 5 人、出 5 人」重複幾輪，看看會撞到什麼問題
+   （答案在第 09 關：環形佇列）
+
+2. 只准用兩個 std::stack，做出佇列的 push / pop / front。
+   提示：一個堆疊負責收、一個負責出；
+   出的那個空了，才把收的那個整疊倒過去
+
+3. 熱土豆遊戲：n 個人排成佇列，每一輪把隊頭移到隊尾 k-1 次
+   （front → push → pop），第 k 個人直接 pop 出局，
+   印出出局順序（這就是第 06 關：約瑟夫問題）</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 18 佇列排隊入門</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* 關卡：ops 一個字元一個動作
+       +  push（進場）     -  pop（離場）     f  front（看隊頭）
+       s  size（幾個人）   e  empty（空了嗎）
+     d 是籌碼上顯示的短字串 */
+  var LEVELS = [
+    {ops:"+++f-f--",        n:"暖身：先來的先走", d:"+++f-f--"},
+    {ops:"+f+f+f-f",        n:"front 只是看",     d:"+f+f+f-f"},
+    {ops:"e+s+s-s-e",       n:"size 與 empty",    d:"e+s+s-s-e"},
+    {ops:"+--f+f",          n:"陷阱：空佇列",     d:"+--f+f"},
+    {ops:"++-+f-+s--e+f-e", n:"魔王：邊進邊出",   d:"15 步連環考"}
+  ];
+
+  var CODE = [
+    "#include <queue>",
+    "using namespace std;",
+    "int main() {",
+    "    queue<int> q;",
+    "    int x = 1;",
+    "    q.push(x);",
+    "    if (!q.empty()) {",
+    "        int who = q.front();",
+    "    }",
+    "    if (!q.empty()) {",
+    "        q.pop();",
+    "    }",
+    "    int n = q.size();",
+    "    bool none = q.empty();",
+    "    return 0;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "「#include <queue>」＝跟 C++ 借一個現成的工具：佇列（queue）。C++ 已經把「排隊」做好了，寫這一行就能拿來用，不必自己造。",
+    "「using namespace std;」＝之後可以直接寫 queue，不必每次都寫全名 std::queue。就像同班同學互相叫名字，不用每次都加上班級。",
+    "「int main()」＝程式的起點。電腦從這個左大括號 { 開始，一行一行往下做。",
+    "「queue<int> q;」＝建立一條空的隊伍，取名叫 q。<int> 表示這條隊伍裡排的是整數（在這裡就是顧客的號碼牌）。剛建立時，裡面一個人都沒有。",
+    "準備一個整數變數 x，代表「新來的顧客的號碼牌」。變數＝一個有名字的小盒子，可以放一個值。這裡先放 1 當例子；遊戲裡每來一位，號碼就加 1。",
+    "「q.push(x)」＝x 號顧客排到隊伍的最後面（隊尾）。push 就是「推進去」。新來的人只能排最後、不能插隊——隊尾是佇列唯一的入口。",
+    "「if (!q.empty())」＝先問一句：隊伍「不是」空的嗎？「!」是「不」的意思；if＝條件成立才做大括號裡的事。沒有人排隊時去看隊頭會出錯，所以一定要先問。",
+    "「q.front()」＝看一眼排最前面（隊頭）的是誰，把他的號碼抄進 who 這個盒子。注意：只是看，那個人還站在原地，隊伍一個人都沒少。",
+    "這個右大括號 } 只是標記「上面那個 if 的內容到此為止」。",
+    "要請人離場之前，同樣先問：隊伍不是空的嗎？對空的隊伍硬做 pop，是初學者最常見的當機原因。",
+    "「q.pop()」＝排最前面的人離場。pop 就是「彈出去」。兩個重點：走的一定是隊頭（目前最早來的那位）；而且 pop 不會告訴你走的是誰——想知道，要在 pop 之前先用 front() 看。",
+    "這個 if 的內容到此為止。",
+    "「q.size()」＝數一數現在隊伍裡有幾個人，把答案放進 n。只是數人頭，不會動到任何人。",
+    "「q.empty()」＝問隊伍是不是空的。答案只有兩種：true（真，空的）或 false（假，還有人）。bool 就是「只能裝真或假」的盒子。",
+    "「return 0」＝告訴電腦：程式順利做完了。",
+    "main 的內容到此為止，程式結束。"
+  ];
+
+  var BADGE = {start:"START", push:"PUSH", front:"FRONT", pop:"POP", size:"SIZE",
+               isempty:"EMPTY", err:"擋下", done:"DONE"};
+  /* say 與 log 的顏色沿用全站 data-k 命名（查詢類動作不上色） */
+  var SAYK  = {start:"start", push:"push", front:"start", pop:"pop", size:"start",
+               isempty:"start", err:"error", done:"done"};
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    ops:"", steps:[], cur:0, mode:"demo", playing:false, timer:null, levelIdx:-1,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1,
+    quizCorrect:"", quizCorrectLabel:""
+  };
+
+  /* ---------- 資料層：把整段劇本一次跑完 ---------- */
+  function buildSteps(ops, withDone){
+    var steps = [], q = [], out = [], nextId = 1, i;
+    var add = function(o){ o.q = q.slice(); o.out = out.slice(); steps.push(o); };
+
+    add({kind:"start", op:-1, val:null, hit:-1, line:4,
+      ret:"還沒有任何操作", retK:"",
+      title:"開店：隊伍是空的",
+      msg:"程式第 4 行 <b>queue&lt;int&gt; q;</b> 建立了一條空的隊伍。左邊是櫃台（出口），右邊是入口：新來的人從右邊排進來，櫃台永遠先服務最左邊的那一位。"});
+
+    for(i=0;i<ops.length;i++){
+      var op = ops.charAt(i), n = q.length;
+
+      if(op === "+"){
+        var v = nextId++;
+        q.push(v);
+        add({kind:"push", op:i, val:v, hit:q.length-1, line:6,
+          ret:"q.push(" + v + ")：沒有回傳值", retK:"",
+          title:"顧客 " + v + " 進場，排到隊尾",
+          msg: n === 0
+            ? ("隊伍原本是空的，顧客 <b>" + v + "</b> 一進來既是隊頭也是隊尾——下一個被服務的就是他。size 變成 1。")
+            : ("顧客 <b>" + v + "</b> 排到最後面，變成新的隊尾。隊頭還是 <b>" + q[0] + "</b> 號，沒有變——新來的人不會影響誰先被服務。size 變成 " + q.length + "。")});
+
+      } else if(op === "f"){
+        if(n === 0){
+          add({kind:"err", what:"front", op:i, val:null, hit:-1, line:7,
+            ret:"front() 被擋下：隊伍是空的", retK:"bad",
+            title:"空的！front() 被擋下來",
+            msg:"隊伍裡一個人都沒有，沒有「隊頭」可以看。第 7 行的 <b>if (!q.empty())</b> 把關成功：條件不成立，front() 被跳過。要是沒有這個檢查，C++ 不會好心提醒你——它會讀到垃圾資料，甚至直接當掉（這叫未定義行為）。"});
+        } else {
+          add({kind:"front", op:i, val:q[0], hit:0, line:8,
+            ret:"q.front() 回傳 " + q[0], retK:"ret",
+            title:"q.front() → 隊頭是 " + q[0] + " 號",
+            msg:"排最前面的是 <b>" + q[0] + "</b> 號。front() 只是「看一眼」：他還站在原地，隊伍還是 " + n + " 個人。想讓他離開，要另外做 pop()。"});
+        }
+
+      } else if(op === "-"){
+        if(n === 0){
+          add({kind:"err", what:"pop", op:i, val:null, hit:-1, line:10,
+            ret:"pop() 被擋下：隊伍是空的", retK:"bad",
+            title:"空的！pop() 被擋下來",
+            msg:"隊伍裡沒有人，沒有人可以離場。第 10 行的 <b>if (!q.empty())</b> 把關成功：條件不成立，pop() 被跳過。對空佇列硬做 pop() 是未定義行為——可能當場當掉，也可能默默把資料弄壞。"});
+        } else {
+          var w = q.shift();
+          out.push(w);
+          add({kind:"pop", op:i, val:w, hit:-1, line:11,
+            ret:"q.pop()：沒有回傳值（走的是 " + w + " 號）", retK:"",
+            title: w + " 號離場",
+            msg: q.length
+              ? ("排最前面的 <b>" + w + "</b> 號離場——他是隊伍裡最早來的那位。後面的人往前遞補，新的隊頭是 <b>" + q[0] + "</b> 號，size 剩 " + q.length + "。注意：pop() 本身不會告訴你走的是誰。")
+              : ("<b>" + w + "</b> 號離場。他是最後一個人，隊伍空了——現在問 empty() 會得到 true，再做 front() 或 pop() 就會出事。")});
+        }
+
+      } else if(op === "s"){
+        add({kind:"size", op:i, val:n, hit:-1, line:13,
+          ret:"q.size() 回傳 " + n, retK:"ret",
+          title:"q.size() → " + n,
+          msg:"現在隊伍裡有 <b>" + n + "</b> 個人。size() 只是數人頭，不會動到任何人。"});
+
+      } else if(op === "e"){
+        add({kind:"isempty", op:i, val:(n === 0), hit:-1, line:14,
+          ret:"q.empty() 回傳 " + (n === 0 ? "true" : "false"), retK:"ret",
+          title:"q.empty() → " + (n === 0 ? "true（空的）" : "false（還有人）"),
+          msg: n === 0
+            ? "隊伍裡沒有人，所以 empty() 回答 <b>true</b>（真）。這時候不能做 front() 或 pop()。"
+            : ("隊伍裡還有 " + n + " 個人，所以 empty() 回答 <b>false</b>（假）——「空的嗎？」「不是」。可以放心做 front() 和 pop()。")});
+      }
+    }
+
+    if(withDone){
+      add({kind:"done", op:ops.length, val:null, hit:-1, line:15,
+        ret:"劇本結束", retK:"",
+        title:"劇本結束",
+        msg: out.length >= 2
+          ? ("離場順序是 <b>" + out.join(" → ") + "</b>，跟他們進場的順序一模一樣——這就是先進先出（FIFO）。隊伍裡還剩 <b>" + q.length + "</b> 個人。")
+          : out.length === 1
+            ? ("這一關只有 <b>" + out[0] + "</b> 號離場——他是當時隊伍裡最早來的人。隊伍裡還剩 <b>" + q.length + "</b> 個人。")
+            : ("這一關沒有人離場，隊伍裡有 <b>" + q.length + "</b> 個人。")});
+    }
+
+    return steps;
+  }
+
+  /* ---------- 畫面層：排隊走道 ---------- */
+  function paintLane(){
+    var st = S.steps[S.cur], line = $("line"), i;
+    line.innerHTML = "";
+
+    if(!st.q.length){
+      var em = document.createElement("div");
+      em.className = "lane-empty" + (st.kind === "err" ? " bad" : "");
+      em.textContent = "（沒有人在排隊）";
+      line.appendChild(em);
+    }
+    for(i=0;i<st.q.length;i++){
+      var p = document.createElement("div");
+      p.className = "person";
+      if(i === st.hit) p.setAttribute("data-hit", st.kind);
+      var no = document.createElement("span");
+      no.className = "pno"; no.textContent = st.q[i];
+      var tg = document.createElement("span");
+      tg.className = "ptag";
+      if(i === 0){
+        var bf = document.createElement("b");
+        bf.className = "mf"; bf.textContent = "front";
+        tg.appendChild(bf);
+      }
+      if(i === st.q.length - 1){
+        var bb = document.createElement("b");
+        bb.className = "mb"; bb.textContent = "back";
+        tg.appendChild(bb);
+      }
+      p.appendChild(no); p.appendChild(tg);
+      line.appendChild(p);
+    }
+
+    /* 剛進場就捲到隊尾，其他時候看隊頭 */
+    line.scrollLeft = (st.kind === "push") ? line.scrollWidth : 0;
+
+    $("gone").textContent = (st.kind === "pop") ? (st.val + " 號離場") : "";
+    $("laneNote").textContent = "size = " + st.q.length;
+  }
+
+  /* ---------- 畫面層：離場順序 ---------- */
+  function paintOut(){
+    var st = S.steps[S.cur], host = $("outList"), i;
+    host.innerHTML = "";
+    if(!st.out.length){
+      var none = document.createElement("i");
+      none.textContent = "還沒有人離場";
+      host.appendChild(none);
+      return;
+    }
+    for(i=0;i<st.out.length;i++){
+      var sp = document.createElement("span");
+      sp.textContent = st.out[i];
+      if(st.kind === "pop" && i === st.out.length - 1) sp.className = "is-new";
+      host.appendChild(sp);
+    }
+  }
+
+  /* ---------- 畫面層：隊伍現況與回傳值 ---------- */
+  function paintStats(){
+    var st = S.steps[S.cur], n = st.q.length;
+    $("vSize").textContent = n;
+    $("vEmpty").textContent = n === 0 ? "true" : "false";
+    $("vFront").textContent = n ? st.q[0] : "—";
+    $("vBack").textContent = n ? st.q[n-1] : "—";
+    var r = $("retLine");
+    r.setAttribute("data-k", st.retK);
+    r.textContent = st.ret;
+  }
+
+  /* ---------- 畫面層：演算法 / 說明 / 歷程 / 進度 ---------- */
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i=0;i<CODE.length;i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j=0;j<CODE.length;j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i=0;i<lis.length;i++) lis[i].classList.toggle("is-now", (i+1) === line);
+    for(var j=0;j<rows.length;j++) rows[j].classList.toggle("is-now", (j+1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line-1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", SAYK[kind] || kind);
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j=1;j<=S.cur;j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", SAYK[st.kind]);
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      if(st.kind === "push")         b.textContent = st.val + " 進場";
+      else if(st.kind === "pop")     b.textContent = st.val + " 離場";
+      else if(st.kind === "front")   b.textContent = "→ " + st.val;
+      else if(st.kind === "size")    b.textContent = "→ " + st.val;
+      else if(st.kind === "isempty") b.textContent = "→ " + (st.val ? "true" : "false");
+      else if(st.kind === "err")     b.textContent = st.what + " 空的";
+      else                           b.textContent = "—";
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "size " + st.q.length;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur/total*100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintLane(); paintOut(); paintStats(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 導覽 ---------- */
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length-1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length-1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length-1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length-1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 1000);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ S.playing ? stopPlay() : startPlay(); }
+
+  /* ---------- 闖關 ---------- */
+  function nextQuizIndex(){
+    return (S.cur + 1 < S.steps.length) ? S.cur + 1 : -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), host = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right/S.asked*100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      host.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx+1) % LEVELS.length); });
+      host.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadOps(S.ops, S.levelIdx); });
+      host.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni], before = S.steps[ni-1];
+    var qB = before.q, n = qB.length;
+    var lastOut = before.out.length ? before.out[before.out.length-1] : null;
+    S.pendingIndex = ni;
+    host.innerHTML = "";
+
+    /* 選項先收集、去掉重複，再照「號碼由小到大、特殊選項放最後」排好才畫出來，
+       這樣正確答案不會固定出現在同一個位置 */
+    var opts = [], used = {};
+    var opt = function(label, sub, key, ord){
+      if(used[key]) return;
+      used[key] = true;
+      opts.push({label:label, sub:sub, key:key, ord:ord});
+    };
+    /* 號碼選項：sub 說明這個人在隊伍裡的位置 */
+    var who = function(v){
+      var sub = "還沒進場";
+      if(n && v === qB[0])            sub = (n === 1) ? "隊伍裡唯一的人" : "排最前面";
+      else if(n && v === qB[n-1])     sub = "排最後面";
+      else if(qB.indexOf(v) !== -1)   sub = "排在中間";
+      else if(before.out.indexOf(v) !== -1) sub = "已經離場";
+      opt(v + " 號", sub, "v" + v, v);
+    };
+    var cnt = function(c){ opt(c + " 個人", "size()", "c" + c, c); };
+
+    if(st.kind === "push"){
+      if(ni % 2 === 1){
+        q.innerHTML = "<b>" + st.val + "</b> 號顧客來排隊：q.push(" + st.val + ")。做完之後，隊頭 q.front() 是誰？";
+        if(n){ who(qB[0]); who(qB[n-1]); }
+        opt(st.val + " 號", "剛進場的新顧客", "v" + st.val, st.val);
+        if(!n) opt("沒有人", "隊伍是空的", "none", 1e9);
+        if(opts.length < 3 && lastOut !== null) who(lastOut);
+        setCorrect("v" + (n ? qB[0] : st.val), (n ? qB[0] : st.val) + " 號");
+      } else {
+        q.innerHTML = "<b>" + st.val + "</b> 號顧客來排隊：q.push(" + st.val + ")。現在有 <b>" + n + "</b> 個人——做完之後 q.size() 是多少？";
+        cnt(n); cnt(n + 1); cnt(n + 2);
+        setCorrect("c" + (n + 1), (n + 1) + " 個人");
+      }
+
+    } else if(st.kind === "front" || st.kind === "pop" || st.kind === "err"){
+      var act = (st.kind === "err") ? st.what : st.kind;
+      var ok = (st.kind !== "err");
+
+      if(ok && act === "front" && ni % 2 === 0){
+        q.innerHTML = "現在隊伍裡有 <b>" + n + "</b> 個人。執行 q.front() 看完隊頭之後，隊伍裡有幾個人？";
+        cnt(n - 1); cnt(n); cnt(n + 1);
+        setCorrect("c" + n, n + " 個人（front 只是看）");
+      } else if(ok && act === "pop" && n >= 2 && ni % 2 === 0){
+        q.innerHTML = "現在執行 q.pop()。做完之後，<b>新的</b>隊頭 q.front() 是誰？";
+        who(qB[0]); who(qB[1]); who(qB[n-1]);
+        if(opts.length < 3) opt("沒有人", "隊伍會變空", "none", 1e9);
+        setCorrect("v" + qB[1], qB[1] + " 號");
+      } else {
+        q.innerHTML = (act === "front")
+          ? "現在執行 q.front()。它會看到誰？"
+          : "現在執行 q.pop()。誰會離場？";
+        if(n){ who(qB[0]); who(qB[n-1]); }
+        if(opts.length < 2) who(lastOut !== null ? lastOut : (n ? qB[n-1] + 1 : 1));
+        opt(act === "front" ? "看不到人" : "沒有人離場", "隊伍是空的", "fail", 1e9);
+        setCorrect(ok ? ("v" + qB[0]) : "fail",
+                   ok ? (qB[0] + " 號") : (act === "front" ? "看不到人：隊伍是空的" : "沒有人離場：隊伍是空的"));
+      }
+
+    } else if(st.kind === "size"){
+      q.innerHTML = "現在執行 q.size()。它會回傳多少？";
+      cnt(n); cnt(n + 1); cnt(n > 0 ? n - 1 : n + 2);
+      setCorrect("c" + n, n + " 個人");
+
+    } else if(st.kind === "isempty"){
+      q.innerHTML = "現在執行 q.empty()。它會回傳什麼？";
+      opt("true", "真：是空的", "t", 1);
+      opt("false", "假：還有人", "f", 2);
+      setCorrect(n === 0 ? "t" : "f", n === 0 ? "true（是空的）" : "false（還有人）");
+
+    } else { /* done */
+      if(st.out.length >= 2){
+        var fwd = st.out.join(" → "), rev = st.out.slice().reverse().join(" → ");
+        q.textContent = "劇本走完了。整關下來，顧客離場的順序是？";
+        opt(fwd, "跟進場順序一樣", "fwd", st.out.length % 2);
+        opt(rev, "跟進場順序相反", "rev", 1 - st.out.length % 2);
+        setCorrect("fwd", fwd);
+      } else {
+        q.textContent = "劇本走完了。最後隊伍裡剩幾個人？";
+        cnt(st.q.length); cnt(st.q.length + 1); cnt(st.q.length > 0 ? st.q.length - 1 : 2);
+        setCorrect("c" + st.q.length, st.q.length + " 個人");
+      }
+    }
+
+    opts.sort(function(a, b){ return a.ord - b.ord; });
+    opts.forEach(function(o){ addOpt(host, o.label, o.sub, o.key); });
+  }
+
+  function setCorrect(key, label){
+    S.quizCorrect = key;
+    S.quizCorrectLabel = label;
+  }
+
+  function addOpt(host, label, sub, key){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    var sm = document.createElement("small");
+    sm.textContent = sub;
+    b.appendChild(sm);
+    b.addEventListener("click", function(){ answerQuiz(key); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(key){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni];
+    var correctLabel = S.quizCorrectLabel;
+    var win = (key === S.quizCorrect);
+
+    S.asked++;
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right/S.asked*100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。</b>";
+    }
+  }
+
+  /* ---------- 自由練習：每按一個按鈕，就是在劇本尾巴加一個字元 ---------- */
+  function freeOp(ch){
+    /* 如果先按過「上一步」，就從目前這一步接下去（後面的舊劇本丟掉） */
+    S.ops = S.ops.slice(0, S.cur) + ch;
+    S.steps = buildSteps(S.ops, false);
+    goto_(S.steps.length - 1);
+  }
+
+  /* ---------- 載入 ---------- */
+  function loadOps(ops, levelIdx){
+    stopPlay();
+    S.ops = ops;
+    S.levelIdx = (typeof levelIdx === "number") ? levelIdx : -1;
+    S.steps = buildSteps(ops, S.mode !== "free");
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadOps(LEVELS[i].ops, i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.d;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    var was = S.mode;
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("freeOps").classList.toggle("is-on", m === "free");
+    $("levelBar").style.display = (m === "free") ? "none" : "";
+    $("btnNext").style.display = (m === "demo") ? "" : "none";
+    $("btnPlay").style.display = (m === "demo") ? "" : "none";
+    stopPlay();
+    S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+
+    if(m === "free"){
+      loadOps("", -1);
+      say("start", "自由練習：隊伍交給你", "按上面五個按鈕，自己操作這條隊伍。建議先在心裡猜結果，再按下去對答案；按「上一步」可以反悔。試試看：對空的隊伍按「離場」會怎樣？");
+    } else {
+      if(was === "free") loadLevel(0);
+      if(m === "quiz"){
+        goto_(0);
+        say("start", "闖關開始", "看著隊伍，猜猜下一個動作的結果：誰會離場？front() 會看到誰？還剩幾個人？連續答對會加分。");
+      } else {
+        render();
+      }
+    }
+  }
+
+  /* ---------- 事件綁定 ---------- */
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){
+    if(S.mode === "free") setMode("free");
+    else loadOps(S.ops, S.levelIdx);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("#freeOps .btn"), function(b){
+    b.addEventListener("click", function(){ freeOp(b.getAttribute("data-op")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = $("customInput").value.replace(/\s+/g, "").toLowerCase();
+    if(/^[+\-fse]{1,40}$/.test(v)){
+      loadOps(v, -1);
+    } else if(v){
+      say("err", "劇本只能包含 + - f s e", "「+」進場（push）、「-」離場（pop）、「f」看隊頭（front）、「s」幾個人（size）、「e」空了嗎（empty），例如 <b>++f-s</b>。");
+    }
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

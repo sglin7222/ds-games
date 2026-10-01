@@ -130,6 +130,7 @@
         </div>
         <div class="path side">
           <span class="path-label">支線 · 隨時插進來玩</span>
+          <a class="step" href="games/18-queue-basics.html">佇列排隊入門 <b>關卡18</b>（沒碰過佇列？第 5 步之前先玩）</a>
           <a class="step" href="games/03-monotonic-stack.html">單調堆疊 <b>關卡03</b></a>
           <a class="step" href="games/06-josephus.html">約瑟夫問題 <b>關卡06</b></a>
           <a class="step" href="games/08-flood-fill.html">油漆桶填充 <b>關卡08</b>（建議接在第 5 步後）</a>
@@ -137,7 +138,7 @@
       </div>
       <div class="callout" data-k="key">
         <span class="tag">為什麼是這個順序</span>
-        <span class="txt">第 1 步建立「堆疊記住還沒輪到的事」這個直覺 → 第 2 步用同一個直覺處理優先權 → 第 3 步揭穿「遞迴其實就是堆疊」→ 第 4 步用遞迴解一個真的難題 → 第 5 步換成佇列，看行為怎麼整個改變。支線的<b>單調堆疊</b>和<b>約瑟夫</b>不依賴其他關卡，什麼時候玩都行；<b>油漆桶</b>用到迷宮那關的觀念，建議放最後。</span>
+        <span class="txt">第 1 步建立「堆疊記住還沒輪到的事」這個直覺 → 第 2 步用同一個直覺處理優先權 → 第 3 步揭穿「遞迴其實就是堆疊」→ 第 4 步用遞迴解一個真的難題 → 第 5 步換成佇列，看行為怎麼整個改變。支線的<b>佇列排隊入門</b>只練佇列最基本的五個動作，沒碰過佇列的話，先玩它再走第 5 步；<b>單調堆疊</b>和<b>約瑟夫</b>不依賴其他關卡，什麼時候玩都行；<b>油漆桶</b>用到迷宮那關的觀念，建議放最後。</span>
       </div>
     </div>
   </section>
@@ -148,7 +149,7 @@
       <span class="sec-num">地圖</span>
       <div>
         <h2>全部遊戲</h2>
-        <p class="sub">17 關全部可以玩。每一頁都是同樣的四段結構。</p>
+        <p class="sub">18 關全部可以玩。每一頁都是同樣的四段結構。</p>
       </div>
     </div>
     <div class="sec-body">
@@ -204,9 +205,17 @@
 
       <div class="group">
         <div class="group-head">
-          <h2>佇列 Queue</h2><span class="rule"></span><span class="count">06 – 08 · 全部可玩</span>
+          <h2>佇列 Queue</h2><span class="rule"></span><span class="count">18、06 – 08 · 全部可玩</span>
         </div>
         <div class="cards">
+
+          <a class="card is-live" href="games/18-queue-basics.html">
+            <div class="top"><span class="no">18</span><span class="state">可以玩</span></div>
+            <h3>佇列排隊入門</h3>
+            <p>早餐店排隊：新來的排最後，櫃台先服務最前面。只練 push、front、pop、size、empty 五個最基本的動作，附「自由練習」——自己按按鈕操作一條隊伍。第一次碰佇列從這關開始。</p>
+            <div class="tags"><span class="tag ds">佇列</span><span class="tag">入門</span><span class="tag">O(1)/操作</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
 
           <a class="card is-live" href="games/06-josephus.html">
             <div class="top"><span class="no">06</span><span class="state">可以玩</span></div>

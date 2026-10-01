@@ -27,7 +27,17 @@
 │  ├─ 05-hanoi.html                河內塔（可互動 + 遞迴自動示範）
 │  ├─ 06-josephus.html             約瑟夫問題
 │  ├─ 07-bfs-maze.html             迷宮 BFS 對 DFS
-│  └─ 08-flood-fill.html           油漆桶填充（Flood Fill）
+│  ├─ 08-flood-fill.html           油漆桶填充（Flood Fill）
+│  ├─ 09-circular-queue.html       環形佇列排隊
+│  ├─ 10-linked-list.html          鏈結串列接龍
+│  ├─ 11-bst.html                  二元搜尋樹種樹
+│  ├─ 12-tree-traversal.html       走訪路線猜謎
+│  ├─ 13-heap.html                 堆積上浮下沉
+│  ├─ 14-sorting-arena.html        排序競技場
+│  ├─ 15-binary-search.html        二分搜尋猜數字
+│  ├─ 16-hash-table.html           雜湊表大碰撞
+│  ├─ 17-dijkstra.html             最短路徑派遣（Dijkstra）
+│  └─ 18-queue-basics.html         佇列排隊入門（push / front / pop / size / empty，佇列第一關）
 └─ README.md
 ```
 
