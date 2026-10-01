@@ -3,18 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>佇列操作台 — 資料結構遊戲場</title>
+<title>海大餐廳排隊系統 — 資料結構遊戲場</title>
 <link rel="stylesheet" href="../assets/site.css">
 <style>
 /* ============ 本頁專用樣式 ============ */
 /* 版面、控制列、說明面板、演算法、統計格全部在 assets/site.css，
-   這裡只寫這一頁獨有的視覺：輸入列、資料走道、輸出視窗、取出順序。 */
-.opbar input[type=text]{flex:1 1 180px;font-family:var(--font-sans);font-size:15px;padding:8px 11px}
-.opbar .btn small,.quick .chip small{font-family:var(--font-mono);font-size:11px;font-weight:500;opacity:.75}
-.quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1}
-.quick .chip{font-size:13px;font-weight:700}
+   這裡只寫這一頁獨有的視覺：登記列、叫號看板、候位走道、輸出視窗、入座順序。 */
+.opbar input[type=text],.opbar input[type=tel]{font-family:var(--font-sans);font-size:15px;padding:8px 11px}
+.opbar input[type=tel]{color:var(--ink);background:var(--sunken);border:1px solid var(--line);border-radius:6px;
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;min-width:0}
+.opbar #inName{flex:1 1 130px}
+.opbar #inPhone{flex:1 1 170px}
+.btn small{font-family:var(--font-mono);font-size:11px;font-weight:500;opacity:.75}
+.ask{display:flex;gap:6px;align-items:center}
+.ask input{width:92px}
+.push-right{margin-left:auto}
 
-/* 資料走道：左邊出口（取資料）、中間資料、右邊入口（放資料） */
+/* 叫號看板 */
+.board{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,.8fr);gap:1px;
+  background:var(--line);border-radius:10px;overflow:hidden}
+.board > div{background:var(--ink);color:var(--paper);padding:11px 14px;min-width:0;
+  display:flex;flex-direction:column;gap:1px}
+.board .cap{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;opacity:.65}
+.board .big{font-family:var(--font-mono);font-size:30px;font-weight:700;line-height:1.15;
+  font-variant-numeric:tabular-nums;color:var(--accent-soft)}
+.board .b-now .big{font-size:38px}
+.board .who{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:22px}
+.board .unit{font-family:var(--font-sans);font-size:13px;font-weight:700;margin-left:3px;color:var(--paper)}
+@media (max-width:560px){
+  .board{grid-template-columns:1fr 1fr}
+  .board .b-now{grid-column:1 / -1}
+}
+
+/* 候位走道：左邊櫃台（叫號），中間候位的客人，右邊入口（登記） */
 .lane{display:flex;align-items:stretch;gap:10px}
 .gate{flex:0 0 86px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   padding:8px 6px;border-radius:8px;background:var(--sunken);border:1.5px dashed var(--line);
@@ -22,24 +43,31 @@
 .gate small{font-family:var(--font-mono);font-size:10px;font-weight:500;color:var(--ink-faint)}
 .gate.g-out{border-color:var(--jade)}
 .gate.g-in{border-color:var(--accent)}
-.gone{min-height:17px;font-size:11.5px;font-weight:700;color:var(--jade);word-break:break-all}
 .line{flex:1;min-width:0;display:flex;gap:8px;align-items:flex-start;overflow-x:auto;
-  padding:8px 10px 6px;min-height:122px;background:var(--sunken);border-radius:8px}
+  padding:8px 10px 6px;min-height:150px;background:var(--sunken);border-radius:8px}
 .item{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px}
 .item .ord{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint)}
-.item .box{min-width:54px;height:54px;padding:0 12px;display:grid;place-items:center;
-  font-size:16px;font-weight:700;white-space:nowrap;
-  background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent);border-radius:12px;
-  transition:background var(--dur),border-color var(--dur),color var(--dur),transform var(--dur)}
-.item[data-hit="put"] .box{border-width:2.5px;transform:translateY(-3px);box-shadow:var(--shadow-lift)}
-.item[data-hit="first"] .box{border-width:2.5px;border-color:var(--jade);
-  background:var(--jade-soft);color:var(--jade)}
+/* 一張候位單：號碼、姓名、電話 */
+.item .box{width:112px;padding:7px 8px 8px;display:flex;flex-direction:column;align-items:center;gap:1px;
+  background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:12px;
+  transition:background var(--dur),border-color var(--dur),transform var(--dur)}
+.item .no{font-family:var(--font-mono);font-size:22px;font-weight:700;line-height:1.2;color:var(--accent)}
+.item .no small{font-family:var(--font-sans);font-size:11px;font-weight:700;margin-left:2px}
+.item .nm{font-size:14px;font-weight:700;color:var(--ink);max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .ph{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.item[data-hit="join"] .box{border-width:2.5px;transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+.item[data-hit="peek"] .box,.item[data-hit="find"] .box{border-width:2.5px;border-color:var(--jade);
+  background:var(--jade-soft)}
+.item[data-hit="peek"] .no,.item[data-hit="find"] .no{color:var(--jade)}
+.item[data-hit="ahead"] .box{border-style:dashed}
 @keyframes hop{
   0%,100%{transform:translateY(0)}
-  40%{transform:translateY(-7px);border-color:var(--jade);background:var(--jade-soft);color:var(--jade)}
+  40%{transform:translateY(-7px);border-color:var(--jade);background:var(--jade-soft)}
 }
 .item[data-hit="all"] .box{animation:hop .55s ease both}
-.item .tags{display:flex;flex-direction:column;gap:2px;align-items:center;min-height:34px}
+.item .tags{display:flex;gap:3px;align-items:center;justify-content:center;min-height:17px}
 .item .tags b{font-family:var(--font-mono);font-size:9.5px;font-weight:700;
   padding:1px 6px;border-radius:4px;color:var(--surface)}
 .item .tags .mf{background:var(--jade)}
@@ -57,12 +85,12 @@
 .legend .lf b{background:var(--jade)}
 .legend .lr b{background:var(--accent)}
 
-/* 輸出視窗：像主控台程式一樣，一行指令、一行結果 */
+/* 輸出視窗：像主控台程式一樣，一行指令、幾行結果 */
 .termcap{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;
   color:var(--ink-faint)}
 .term{margin:0;padding:10px 12px;list-style:none;background:var(--sunken);border-radius:8px;
   font-family:var(--font-mono);font-size:12.5px;line-height:1.7;
-  height:176px;overflow-y:auto}
+  height:190px;overflow-y:auto}
 .term li{white-space:pre-wrap;word-break:break-all;color:var(--ink-soft)}
 .term li.cmd{color:var(--ink);font-weight:700}
 .term li.cmd::before{content:"> ";color:var(--accent)}
@@ -70,12 +98,15 @@
 .term li.bad{padding-left:15px;color:var(--alarm);font-weight:700}
 .term li.hint{color:var(--ink-faint);font-family:var(--font-sans)}
 
-/* 取出順序 */
-.taken{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:26px}
-.taken span{font-size:12.5px;font-weight:700;padding:1px 8px;border-radius:6px;
-  background:var(--jade-soft);color:var(--jade)}
-.taken span.is-new{background:var(--jade);color:var(--surface)}
-.taken i{font-style:normal;font-size:12.5px;color:var(--ink-faint)}
+/* 入座順序 */
+.seated{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;
+  max-height:210px;overflow-y:auto;font-size:12.5px}
+.seated li{display:flex;gap:8px;align-items:baseline;padding:3px 8px;border-radius:5px;
+  background:var(--jade-soft);color:var(--ink)}
+.seated li b{flex:0 0 auto;font-family:var(--font-mono);color:var(--jade);min-width:34px}
+.seated li.is-new{background:var(--jade);color:var(--surface)}
+.seated li.is-new b{color:var(--surface)}
+.seated li.none{background:none;padding:0;color:var(--ink-faint)}
 </style>
 </head>
 <body>
@@ -84,10 +115,10 @@
 <nav class="sitebar">
   <div class="wrap">
     <a class="home" href="../index.html">← 資料結構遊戲場</a>
-    <span class="crumb">19 · 佇列操作台</span>
+    <span class="crumb">19 · 餐廳排隊系統</span>
     <div class="jump">
       <a href="#s1"><span class="n">01</span>玩法</a>
-      <a href="#s2"><span class="n">02</span>操作台</a>
+      <a href="#s2"><span class="n">02</span>系統</a>
       <a href="#s3"><span class="n">03</span>原理</a>
       <a href="#s4"><span class="n">04</span>程式</a>
     </div>
@@ -98,13 +129,13 @@
 
   <!-- ============ 標題 ============ -->
   <header class="hero">
-    <p class="eyebrow">Game 19 · Queue Console</p>
-    <h1>佇列操作台</h1>
-    <p class="lede">沒有劇本、沒有關卡。資料由你自己打，四顆按鈕由你自己按：放資料、取資料、看第一筆、檢視所有資料。親手操作一個佇列，看「先放進去的，先被取出來」是怎麼發生的。</p>
+    <p class="eyebrow">Game 19 · Restaurant Queue System</p>
+    <h1>海大餐廳排隊系統</h1>
+    <p class="lede">中午的海大餐廳大排長龍，你是櫃台。幫客人登記候位（姓名、電話）、發號碼牌、叫號入座、查候位名單、回答「我前面還有幾組？」。一整套系統，核心只有一個佇列：先登記的，先入座。</p>
     <div class="facts">
-      <div class="fact"><span>核心結構</span><b>佇列 Queue（std::queue）</b></div>
+      <div class="fact"><span>核心結構</span><b>佇列 queue&lt;Customer&gt;</b></div>
       <div class="fact"><span>難度</span><b>入門</b></div>
-      <div class="fact"><span>時間</span><b>放／取／看 O(1)，檢視全部 O(n)</b></div>
+      <div class="fact"><span>時間</span><b>登記／叫號／看下一位 O(1)，名單／查詢 O(n)</b></div>
       <div class="fact"><span>空間</span><b>O(n)</b></div>
       <div class="fact"><span>先備知識</span><b>建議先玩 18 佇列排隊入門</b></div>
     </div>
@@ -124,32 +155,34 @@
 
         <div class="block">
           <h3>怎麼玩</h3>
-          <p>在輸入框打任何東西——數字、名字、早餐品項都可以——然後按按鈕。畫面中間那一排就是佇列裡的資料：<b>右邊是入口</b>（放資料），<b>左邊是出口</b>（取資料）。</p>
+          <p>你是櫃台人員。每位客人有三項資料：<b>排隊編號</b>（系統自動發的號碼牌）、<b>姓名</b>、<b>電話</b>。畫面中間那一排是正在候位的客人：<b>右邊是入口</b>（登記），<b>左邊是櫃台</b>（叫號入座）。</p>
           <ol class="steps">
-            <li><b>放資料</b>：打字後按「放資料」或鍵盤 Enter。懶得打字，就按下面的「快速放入」。</li>
-            <li><b>取資料</b>：把<b>第一筆</b>拿出來。拿走就不在佇列裡了。</li>
-            <li><b>看第一筆</b>：只看現在排第一的是誰，<b>不拿走</b>。</li>
-            <li><b>檢視所有資料</b>：從第一筆到最後一筆全部列出來。</li>
+            <li><b>登記候位</b>：輸入姓名和電話，按「登記候位」。系統發一張號碼牌，客人排到最後面。懶得打字就按「＋ 範例客人」。</li>
+            <li><b>叫下一位</b>：請排最前面的客人入座。他會離開候位隊伍，出現在看板的「目前叫號」。</li>
+            <li><b>看下一位</b>：只看下一個輪到誰，<b>不叫號</b>。</li>
+            <li><b>候位名單</b>：列出所有候位客人的編號、姓名、電話。</li>
+            <li><b>查順位</b>：輸入排隊編號，回答「前面還有幾組」。</li>
           </ol>
           <p>每按一次，「輸出」視窗會像真的程式一樣印出結果，下方的 C++ 程式會亮起對應的那幾行。</p>
           <div class="callout" data-k="key">
             <span class="tag">試試看</span>
-            <span class="txt">① 放 A、B、C，按「取資料」——拿到的是誰？② 連按三次「看第一筆」，資料有變少嗎？③ 全部取光之後再按一次「取資料」。④ 放 1、2、3，取一筆，再放 4——按「檢視所有資料」前先猜順序。</span>
+            <span class="txt">① 登記三位客人，叫號一次——入座的是誰？② 連按三次「看下一位」，候位組數有變嗎？③ 登記 1～4 號，叫號兩次，再查 4 號的順位——是 3 還是 1？④ 全部叫完之後再按一次「叫下一位」。</span>
           </div>
         </div>
 
         <div class="block">
           <h3>你會學到什麼</h3>
           <ul class="bullets">
-            <li><b>取出順序＝放入順序</b> —— 佇列是先進先出（FIFO）。不管你放什麼、怎麼穿插著取，先放的一定先出來。</li>
-            <li><b>「看」和「取」是兩回事</b> —— 看第一筆不會改變佇列；取資料會讓它少一筆、第一筆換人。</li>
-            <li><b>取資料其實是兩個動作</b> —— C++ 裡要先 front()（看是誰）再 pop()（拿掉），因為 pop() 自己不會告訴你拿掉的是誰。</li>
-            <li><b>空的時候不能取、不能看</b> —— 程式一定要先檢查 empty()。</li>
-            <li><b>「檢視所有資料」是最貴的動作</b> —— 佇列只肯讓你看第一筆。想看全部，得複製一份、一筆一筆取出來印，資料有幾筆就要做幾次。</li>
+            <li><b>佇列裡可以排「一整筆資料」</b> —— 用 struct 把編號、姓名、電話綁成一張候位單，佇列裡排的是整張單子，不是單一個數字。</li>
+            <li><b>入座順序＝登記順序</b> —— 先進先出（FIFO）。這就是「公平」在程式裡的寫法。</li>
+            <li><b>編號不是順位</b> —— 編號是發出去就不變的身分；順位是「現在前面還有幾組」，每叫一次號就會變。</li>
+            <li><b>「看」和「叫」是兩回事</b> —— 看下一位用 front()，佇列不變；叫號是 front() 再 pop()，少一組。</li>
+            <li><b>空的時候不能叫、不能看</b> —— 程式一定要先檢查 empty()。</li>
+            <li><b>名單和查詢比較貴</b> —— 佇列只肯讓你看第一筆。想看全部或找某個人，得複製一份、一筆一筆拿出來看：O(n)。</li>
           </ul>
           <div class="callout" data-k="ok">
             <span class="tag">和 18 關的差別</span>
-            <span class="txt">18 關的資料是自動編號的號碼牌，這一頁的資料<b>完全由你決定</b>，而且多了「檢視所有資料」。放一些沒有大小順序的東西（蛋餅、奶茶、漢堡），更能看出順序只跟「誰先放」有關。</span>
+            <span class="txt">18 關的佇列裡只有號碼，而且只練五個基本動作。這一頁把同樣五個動作<b>組成一套真的能用的系統</b>：每筆資料有三個欄位，還多了「名單」和「查順位」這兩個需要把整個佇列走一遍的功能。</span>
           </div>
         </div>
 
@@ -157,60 +190,82 @@
     </div>
   </section>
 
-  <!-- ============ 02 操作台 ============ -->
+  <!-- ============ 02 系統 ============ -->
   <section class="sec" id="s2">
     <div class="sec-head">
       <span class="sec-num">02</span>
       <div>
-        <h2>開始玩</h2>
-        <p class="sub">打資料 → 按按鈕 → 看佇列怎麼變。</p>
+        <h2>開始營業</h2>
+        <p class="sub">登記客人 → 叫號入座 → 看佇列怎麼變。</p>
       </div>
     </div>
     <div class="sec-body">
 
-      <form class="bar opbar" id="putForm" autocomplete="off">
-        <span class="bar-label">操作</span>
-        <input id="val" type="text" maxlength="10" placeholder="輸入要放的資料，例如 蛋餅" aria-label="要放入的資料">
-        <button class="btn btn-primary" type="submit">放資料 <small>push</small></button>
-        <button class="btn" type="button" id="btnTake">取資料 <small>front + pop</small></button>
-        <button class="btn" type="button" id="btnFirst">看第一筆 <small>front</small></button>
-        <button class="btn" type="button" id="btnAll">檢視所有資料</button>
+      <form class="bar opbar" id="joinForm" autocomplete="off">
+        <span class="bar-label">登記</span>
+        <input id="inName" type="text" maxlength="10" placeholder="姓名，例如 王小明" aria-label="姓名">
+        <input id="inPhone" type="tel" maxlength="14" placeholder="電話，例如 0912-345-678" aria-label="電話">
+        <button class="btn btn-primary" type="submit">登記候位 <small>push</small></button>
+        <button class="btn" type="button" id="btnSample">＋ 範例客人</button>
       </form>
 
       <div class="bar">
-        <span class="bar-label">快速放入</span>
-        <div class="quick" id="quick"></div>
-        <button class="btn" type="button" id="btnClear">↺ 全部清空</button>
+        <span class="bar-label">櫃台</span>
+        <button class="btn btn-primary" type="button" id="btnCall">叫下一位 <small>front + pop</small></button>
+        <button class="btn" type="button" id="btnPeek">看下一位 <small>front</small></button>
+        <button class="btn" type="button" id="btnAll">候位名單</button>
+        <form class="ask" id="askForm" autocomplete="off">
+          <input id="inNo" type="number" min="1" max="9999" placeholder="編號" aria-label="要查詢的排隊編號">
+          <button class="btn" type="submit">查順位</button>
+        </form>
+        <button class="btn push-right" type="button" id="btnClose">↺ 打烊清空</button>
       </div>
 
       <div class="game">
 
         <div class="panel">
           <div class="panel-head">
-            <h3 class="panel-title">佇列裡的資料（queue&lt;string&gt; q）</h3>
+            <h3 class="panel-title">候位隊伍（queue&lt;Customer&gt; waiting）</h3>
             <span class="panel-note" id="laneNote"></span>
+          </div>
+
+          <div class="board" aria-live="polite">
+            <div class="b-now">
+              <span class="cap">目前叫號 NOW SERVING</span>
+              <span class="big" id="bNow">—</span>
+              <span class="who" id="bNowWho">尚未叫號</span>
+            </div>
+            <div class="b-next">
+              <span class="cap">下一位 NEXT</span>
+              <span class="big" id="bNext">—</span>
+              <span class="who" id="bNextWho"></span>
+            </div>
+            <div class="b-wait">
+              <span class="cap">候位 WAITING</span>
+              <span class="big"><span id="bWait">0</span><span class="unit">組</span></span>
+              <span class="who"></span>
+            </div>
           </div>
 
           <div class="lane">
             <div class="gate g-out">
-              出口<small>← 取資料</small>
-              <span class="gone" id="gone"></span>
+              櫃台<small>← 叫號入座</small>
             </div>
             <div class="line" id="line"></div>
             <div class="gate g-in">
-              入口<small>放資料 →</small>
+              入口<small>登記候位 →</small>
             </div>
           </div>
           <div class="legend">
-            <span class="lf"><b>front</b>第一筆：下一個被取出的</span>
-            <span class="lr"><b>back</b>最後一筆：最晚放進來的</span>
-            <span>上方小字是「第幾筆」</span>
+            <span class="lf"><b>front</b>下一個被叫到的客人</span>
+            <span class="lr"><b>back</b>最晚登記的客人</span>
+            <span>每張候位單：編號、姓名、電話</span>
           </div>
 
           <span class="termcap">輸出（程式印出來的結果）</span>
-          <ol class="term" id="term" aria-live="polite"></ol>
+          <ol class="term" id="term"></ol>
 
-          <div class="say" id="say" data-k="start">
+          <div class="say" id="say" data-k="start" aria-live="polite">
             <span class="say-badge" id="sayBadge">START</span>
             <div class="say-body">
               <div class="say-title" id="sayTitle"></div>
@@ -226,23 +281,23 @@
               <span class="panel-note">隨時更新</span>
             </div>
             <div class="stats">
-              <div class="stat"><div class="k">筆數 size</div><div class="v" id="vSize">0</div></div>
-              <div class="stat"><div class="k">空的嗎 empty</div><div class="v" id="vEmpty">true</div></div>
+              <div class="stat"><div class="k">候位組數 size</div><div class="v" id="vSize">0</div></div>
+              <div class="stat"><div class="k">下一張號碼牌</div><div class="v" id="vNextNo">1</div></div>
             </div>
             <div class="stats">
-              <div class="stat" data-k="ok"><div class="k">第一筆 front</div><div class="v" id="vFront">—</div></div>
+              <div class="stat" data-k="ok"><div class="k">下一位 front</div><div class="v" id="vFront">—</div></div>
             </div>
             <div class="stats">
-              <div class="stat" data-k="hot"><div class="k">最後一筆 back</div><div class="v" id="vBack">—</div></div>
+              <div class="stat" data-k="hot"><div class="k">最後一位 back</div><div class="v" id="vBack">—</div></div>
             </div>
           </div>
 
           <div class="panel">
             <div class="panel-head">
-              <h3 class="panel-title">取出順序</h3>
-              <span class="panel-note" id="takenNote">先 → 後</span>
+              <h3 class="panel-title">入座順序</h3>
+              <span class="panel-note" id="seatedNote">先 → 後</span>
             </div>
-            <div class="taken" id="taken"></div>
+            <ol class="seated" id="seated"></ol>
           </div>
         </div>
 
@@ -250,8 +305,8 @@
 
       <div class="panel algo-panel">
         <div class="panel-head">
-          <h3 class="panel-title">四個功能的程式（C++）——按哪顆按鈕，亮哪幾行</h3>
-          <span class="panel-note">放／取／看 O(1)・檢視全部 O(n)</span>
+          <h3 class="panel-title">排隊系統的程式（C++）——按哪顆按鈕，亮哪幾行</h3>
+          <span class="panel-note">登記／叫號／看 O(1)・名單／查詢 O(n)</span>
         </div>
         <ol class="algo" id="algo"></ol>
         <div class="algo-doc idle" id="algoDoc">
@@ -265,44 +320,84 @@
       </div>
 
       <div class="block">
-        <h3>把這個網頁寫成一支真的程式（完整版）</h3>
-        <p>同樣四個功能，做成用鍵盤選單操作的主控台程式。整段貼到編譯器就能跑：</p>
+        <h3>可以直接執行的完整程式（主控台版）</h3>
+        <p>上面的面板是系統的五個核心函式。加上選單就是一支完整的程式——整段貼到編譯器就能跑：</p>
                 <pre class="code">#include &lt;iostream&gt;
 #include &lt;queue&gt;
 #include &lt;string&gt;
 using namespace std;
 
-int main() {
-    queue&lt;string&gt; q;                       <i>// 一個空的佇列，裡面放文字</i>
-    int choice;
+struct Customer {                 <i>// 一張候位單</i>
+    int no;                       <i>// 排隊編號</i>
+    string name;                  <i>// 姓名</i>
+    string phone;                 <i>// 電話</i>
+};
 
-    while (true) {                         <i>// 一直重複，直到選 0</i>
-        cout &lt;&lt; "\n1 放資料  2 取資料  3 看第一筆  4 檢視所有資料  0 結束\n請選擇: ";
-        if (!(cin &gt;&gt; choice) || choice == 0) break;
+queue&lt;Customer&gt; waiting;          <i>// 候位隊伍</i>
+int nextNo = 1;                   <i>// 下一張號碼牌</i>
 
-        if (choice == 1) {                 <i>// 放資料</i>
-            string x;
-            cout &lt;&lt; "要放什麼: ";
-            cin &gt;&gt; x;
-            <b>q.push(x);</b>
-            cout &lt;&lt; "已放入 " &lt;&lt; x &lt;&lt; "，共 " &lt;&lt; q.size() &lt;&lt; " 筆\n";
-        } else if (choice == 2) {          <i>// 取資料</i>
-            if (q.empty()) { cout &lt;&lt; "沒有資料可以取\n"; continue; }
-            cout &lt;&lt; "取出 " &lt;&lt; <b>q.front()</b> &lt;&lt; "\n";  <i>// 先看是誰</i>
-            <b>q.pop();</b>                       <i>// 再拿掉</i>
-        } else if (choice == 3) {          <i>// 看第一筆</i>
-            if (q.empty()) { cout &lt;&lt; "沒有資料\n"; continue; }
-            cout &lt;&lt; "第一筆是 " &lt;&lt; <b>q.front()</b> &lt;&lt; "\n";
-        } else if (choice == 4) {          <i>// 檢視所有資料</i>
-            <b>queue&lt;string&gt; copy = q;</b>        <i>// 複製一份，拿複製品開刀</i>
-            cout &lt;&lt; "共 " &lt;&lt; copy.size() &lt;&lt; " 筆:";
-            while (!copy.empty()) {
-                cout &lt;&lt; " " &lt;&lt; copy.front();
-                copy.pop();
-            }
-            cout &lt;&lt; "\n";
-        }
+void join() {                     <i>// 1 登記候位</i>
+    Customer c;
+    c.no = nextNo++;
+    cout &lt;&lt; "姓名: ";  cin &gt;&gt; c.name;
+    cout &lt;&lt; "電話: ";  cin &gt;&gt; c.phone;
+    cout &lt;&lt; "您是 " &lt;&lt; c.no &lt;&lt; " 號，前面還有 " &lt;&lt; waiting.size() &lt;&lt; " 組\n";
+    <b>waiting.push(c);</b>
+}
+
+void callNext() {                 <i>// 2 叫下一位</i>
+    if (waiting.empty()) { cout &lt;&lt; "目前沒有人候位\n"; return; }
+    Customer c = <b>waiting.front();</b>
+    cout &lt;&lt; "請 " &lt;&lt; c.no &lt;&lt; " 號 " &lt;&lt; c.name &lt;&lt; " 入座（電話 " &lt;&lt; c.phone &lt;&lt; "）\n";
+    <b>waiting.pop();</b>
+}
+
+void peekNext() {                 <i>// 3 看下一位</i>
+    if (waiting.empty()) { cout &lt;&lt; "目前沒有人候位\n"; return; }
+    cout &lt;&lt; "下一位: " &lt;&lt; <b>waiting.front()</b>.no &lt;&lt; " 號 " &lt;&lt; waiting.front().name &lt;&lt; "\n";
+}
+
+void showAll() {                  <i>// 4 候位名單</i>
+    <b>queue&lt;Customer&gt; copy = waiting;</b>          <i>// 複製一份，拿複製品開刀</i>
+    cout &lt;&lt; "候位 " &lt;&lt; copy.size() &lt;&lt; " 組\n";
+    while (!copy.empty()) {
+        Customer c = copy.front();
+        cout &lt;&lt; "  " &lt;&lt; c.no &lt;&lt; " 號  " &lt;&lt; c.name &lt;&lt; "  " &lt;&lt; c.phone &lt;&lt; "\n";
+        copy.pop();
     }
+}
+
+void ask() {                      <i>// 5 查順位</i>
+    int no;
+    cout &lt;&lt; "排隊編號: ";  cin &gt;&gt; no;
+    queue&lt;Customer&gt; copy = waiting;
+    int count = 0;                <i>// 前面已經數過幾組</i>
+    while (!copy.empty()) {
+        if (copy.front().no == no) {
+            cout &lt;&lt; no &lt;&lt; " 號前面還有 " &lt;&lt; count &lt;&lt; " 組\n";
+            return;
+        }
+        count++;
+        copy.pop();
+    }
+    cout &lt;&lt; "候位名單裡沒有 " &lt;&lt; no &lt;&lt; " 號\n";
+}
+
+int main() {
+    int choice;
+    while (true) {
+        cout &lt;&lt; "\n== 海大餐廳排隊系統 ==\n"
+             &lt;&lt; "1 登記候位  2 叫下一位  3 看下一位  4 候位名單  5 查順位  0 打烊\n"
+             &lt;&lt; "請選擇: ";
+        if (!(cin &gt;&gt; choice) || choice == 0) break;
+        if (choice == 1) join();
+        else if (choice == 2) callNext();
+        else if (choice == 3) peekNext();
+        else if (choice == 4) showAll();
+        else if (choice == 5) ask();
+        else cout &lt;&lt; "沒有這個選項\n";
+    }
+    cout &lt;&lt; "打烊，謝謝光臨\n";
     return 0;
 }</pre>
         <p>Windows 的主控台如果把中文印成亂碼，執行程式前先輸入 <code>chcp 65001</code> 切換成 UTF-8。</p>
@@ -315,112 +410,121 @@ int main() {
     <div class="sec-head">
       <span class="sec-num">03</span>
       <div>
-        <h2>這個功能是怎麼做到的</h2>
-        <p class="sub">四顆按鈕各自對應佇列的哪些動作，以及為什麼「檢視所有資料」最特別。</p>
+        <h2>這個系統是怎麼做到的</h2>
+        <p class="sub">從「餐廳要什麼」推到「為什麼是佇列」，以及每筆資料有三個欄位時怎麼放。</p>
       </div>
     </div>
     <div class="sec-body">
 
       <div class="block">
         <h3>問題定義</h3>
-        <p>做一個可以「放資料、取資料、看第一筆、檢視所有資料」的容器，而且<b>取出來的順序要跟放進去的順序一樣</b>。這正是佇列（queue）的規則：先進先出（FIFO）。四顆按鈕對應到 C++ 是這樣：</p>
+        <p>餐廳客滿時要讓客人候位，而且<b>先登記的要先入座</b>。每位客人要記三件事：排隊編號（叫號用）、姓名（確認身分用）、電話（叫到人不在時聯絡用）。系統要提供五個功能：</p>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>按鈕</th><th class="mono">C++ 寫法</th><th>佇列會變嗎</th><th>空的時候</th></tr></thead>
+            <thead><tr><th>功能</th><th class="mono">對應的佇列動作</th><th>佇列會變嗎</th><th>沒人候位時</th></tr></thead>
             <tbody>
-              <tr><td><b>放資料</b></td><td class="mono">q.push(x)</td><td style="color:var(--accent);font-weight:700">多一筆（排最後）</td><td>沒問題，x 就是第一筆</td></tr>
-              <tr><td><b>取資料</b></td><td class="mono">q.front() 再 q.pop()</td><td style="color:var(--accent);font-weight:700">少一筆（第一筆走）</td><td style="color:var(--alarm);font-weight:700">不能做，要先檢查</td></tr>
-              <tr><td><b>看第一筆</b></td><td class="mono">q.front()</td><td>不變</td><td style="color:var(--alarm);font-weight:700">不能做，要先檢查</td></tr>
-              <tr><td><b>檢視所有資料</b></td><td class="mono">複製一份，逐筆 front + pop</td><td>不變（動的是複製品）</td><td>沒問題，印出 0 筆</td></tr>
+              <tr><td><b>登記候位</b></td><td class="mono">waiting.push(c)</td><td style="color:var(--accent);font-weight:700">多一組（排最後）</td><td>沒問題，他就是下一位</td></tr>
+              <tr><td><b>叫下一位</b></td><td class="mono">front() 再 pop()</td><td style="color:var(--accent);font-weight:700">少一組（第一位入座）</td><td style="color:var(--alarm);font-weight:700">不能做，要先檢查</td></tr>
+              <tr><td><b>看下一位</b></td><td class="mono">front()</td><td>不變</td><td style="color:var(--alarm);font-weight:700">不能做，要先檢查</td></tr>
+              <tr><td><b>候位名單</b></td><td class="mono">複製一份，逐筆 front + pop</td><td>不變（動的是複製品）</td><td>沒問題，印出 0 組</td></tr>
+              <tr><td><b>查順位</b></td><td class="mono">複製一份，邊數邊找</td><td>不變（動的是複製品）</td><td>沒問題，回答查無此號</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
       <div class="block">
-        <h3>先破除一個直覺：「檢視所有資料」不是用迴圈從頭看到尾</h3>
-        <p>如果資料放在陣列裡，看全部很簡單：第 0 格、第 1 格、第 2 格……一路看過去。很多人以為佇列也可以這樣。<b>不行</b>：</p>
+        <h3>先破除一個直覺：「編號幾號，前面就有幾組」不對</h3>
+        <p>拿到 12 號，很多人直覺是「前面還有 11 組」。只有在開店後完全沒叫過號的時候才對。</p>
         <ul class="bullets no">
-          <li><b>std::queue 沒有「第幾格」</b> —— 寫 <code>q[1]</code> 會編譯錯誤。它只提供 front()（第一筆）和 back()（最後一筆）兩個窗口，中間的資料看不到。</li>
-          <li><b>想看第二筆，只能先把第一筆拿掉</b> —— 第一筆 pop 掉之後，原本的第二筆才會變成新的 front。可是這樣一路看下去，佇列就被你拿光了。</li>
+          <li><b>編號是身分，發出去就不變</b> —— 12 號永遠是 12 號，不管前面走了多少人。號碼牌也不會回收重發，否則同時會有兩個 12 號。</li>
+          <li><b>順位是位置，每叫一次號就變</b> —— 1～10 號都入座之後，12 號前面只剩 11 號一組。順位要看他<b>現在排在佇列的第幾個</b>，跟編號的數字大小無關。</li>
         </ul>
         <div class="callout" data-k="key">
-          <span class="tag">解法</span>
-          <span class="txt">先<b>複製一份</b>（<code>queue&lt;string&gt; copy = q;</code>），然後對複製品一筆一筆「看第一筆、拿掉」，直到複製品空了。原本的 q 完全沒被動到。畫面上資料一個一個跳起來的動畫，演的就是這個過程。</span>
+          <span class="tag">關鍵</span>
+          <span class="txt">所以「查順位」沒辦法用編號算出來，只能<b>從佇列的第一位開始往後數</b>，數到這個編號為止——這就是程式裡 <code>ahead()</code> 在做的事，也是它比較慢（O(n)）的原因。</span>
         </div>
       </div>
 
       <div class="block">
-        <h3>關鍵觀察：順序只跟「誰先放」有關</h3>
-        <p>放進去的東西是什麼、大還是小、長還是短，佇列一概不管。它只記得<b>先後</b>。</p>
-        <div class="tablewrap">
-          <table>
-            <thead><tr><th>依序放入</th><th>連取三次，依序拿到</th><th>注意</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">3、1、2</td><td class="mono" style="color:var(--jade);font-weight:700">3、1、2</td><td>不會幫你排大小</td></tr>
-              <tr><td class="mono">奶茶、蛋餅、漢堡</td><td class="mono" style="color:var(--jade);font-weight:700">奶茶、蛋餅、漢堡</td><td>不會照筆畫或字母排</td></tr>
-              <tr><td class="mono">A、A、B</td><td class="mono" style="color:var(--jade);font-weight:700">A、A、B</td><td>重複的資料各算一筆</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <h3>關鍵觀察：把三個欄位綁成一張候位單</h3>
+        <p>佇列一格只能放「一個東西」，可是每位客人有三項資料。開三個佇列分別放編號、姓名、電話？可以，但三個要永遠同步，只要有一個少 pop 一次，姓名和電話就對不上了。</p>
+        <p>正確的做法是用 <code>struct</code>（結構）自己定義一種新的資料型別，把三個欄位<b>綁在一起</b>：</p>
+        <pre class="code"><b>struct Customer {</b>       <i>// 定義「候位單」長什麼樣</i>
+    int no;            <i>// 排隊編號：整數</i>
+    string name;       <i>// 姓名：文字</i>
+    string phone;      <i>// 電話：文字（不是整數，見下方常見誤解）</i>
+<b>};</b>
+
+queue&lt;Customer&gt; waiting;   <i>// 佇列裡排的是一張一張候位單</i></pre>
         <div class="callout" data-k="key">
           <span class="tag">所以</span>
-          <span class="txt">右邊「取出順序」那一格，永遠跟你放資料的順序一模一樣。這就是佇列能拿來做「排隊」「等候」「依序處理」的原因。</span>
+          <span class="txt">push 進去的是整張單子，front() 拿出來的也是整張單子，要看其中一欄就加一個點：<code>waiting.front().name</code> 是「下一位的姓名」。佇列的五個動作完全沒變，變的只是<b>裡面排的東西</b>。</span>
         </div>
       </div>
 
       <div class="block">
-        <h3>四個功能的做法</h3>
+        <h3>五個功能的做法</h3>
         <ol class="steps">
-          <li><b>放資料</b> —— <code>q.push(x)</code>，x 排到最後面。就這一行。</li>
-          <li><b>取資料</b> —— 先問 <code>q.empty()</code>；不是空的，就 <code>q.front()</code> 把第一筆抄下來（印出來），再 <code>q.pop()</code> 把它拿掉。</li>
-          <li><b>看第一筆</b> —— 先問 <code>q.empty()</code>；不是空的，就 <code>q.front()</code>。到此為止，不 pop。</li>
-          <li><b>檢視所有資料</b> —— 複製一份 copy；只要 copy 不是空的，就印出 <code>copy.front()</code> 再 <code>copy.pop()</code>，重複到空。</li>
+          <li><b>登記候位</b> —— 填一張候位單（編號用 <code>nextNo</code>，填完 <code>nextNo</code> 加 1），<code>waiting.push(c)</code> 排到最後。</li>
+          <li><b>叫下一位</b> —— 先問 <code>empty()</code>；有人就 <code>front()</code> 把第一張單子抄下來、印出編號姓名電話，再 <code>pop()</code>。</li>
+          <li><b>看下一位</b> —— 先問 <code>empty()</code>；有人就 <code>front()</code>。到此為止，不 pop。</li>
+          <li><b>候位名單</b> —— 複製一份 copy；只要 copy 不是空的，就印出 <code>copy.front()</code> 再 <code>copy.pop()</code>。</li>
+          <li><b>查順位</b> —— 複製一份 copy，準備計數器 count = 0；每看一張單子，是要找的編號就回報 count，不是就 count 加 1、pop 掉看下一張。看完都沒有，回報 −1（查無此號）。</li>
         </ol>
         <div class="callout" data-k="no">
           <span class="tag">最常漏</span>
-          <span class="txt">「取資料」和「看第一筆」的差別<b>只有一行 q.pop()</b>。少寫這行，資料永遠取不走；多寫這行，你以為只是看一眼，資料卻不見了。</span>
+          <span class="txt">登記時忘了 <code>nextNo++</code>，每個人都拿到 1 號；叫號時忘了 <code>pop()</code>，同一位客人被叫一百次，後面的人永遠等不到。</span>
         </div>
+      </div>
+
+      <div class="block">
+        <h3>邊界情況</h3>
+        <ul class="bullets">
+          <li><b>沒人候位時叫號／看下一位</b> —— 對空佇列做 front() 或 pop() 是未定義行為（可能印出亂碼、可能當掉）。函式第一行就先檢查 <code>empty()</code>。</li>
+          <li><b>查一個不在名單裡的編號</b> —— 可能是已經入座，也可能是根本沒發過這個號碼。<code>ahead()</code> 把整份複製品看完都沒找到，就回傳 −1。網頁版會再幫你分辨是哪一種。</li>
+          <li><b>輸入不合理的資料</b> —— 姓名空白、電話打成英文字。這不是佇列的問題，但真的系統一定要擋：網頁版在登記前會檢查姓名不能空白、電話要是 0 開頭的 9～10 位數字。</li>
+        </ul>
       </div>
 
       <div class="block">
         <h3>手算一次</h3>
-        <p>依序做：放 A、放 B、看第一筆、放 C、取資料、檢視所有資料、取資料、取資料、取資料。先蓋住右邊兩欄自己算。</p>
+        <p>依序做：小明、怡君、志豪登記；叫號；雅婷登記；查 4 號順位；叫號；候位名單。先蓋住右邊兩欄自己算。</p>
         <div class="tablewrap">
           <table>
-            <thead><tr><th class="mono">步</th><th>動作</th><th>程式印出</th><th class="mono">佇列（第一筆 → 最後一筆）</th></tr></thead>
+            <thead><tr><th class="mono">步</th><th>動作</th><th>系統回答</th><th class="mono">候位隊伍（下一位 → 最後一位）</th><th class="mono">nextNo</th></tr></thead>
             <tbody>
-              <tr><td class="mono">1</td><td style="color:var(--accent)">放 A</td><td>—</td><td class="mono">A</td></tr>
-              <tr><td class="mono">2</td><td style="color:var(--accent)">放 B</td><td>—</td><td class="mono">A B</td></tr>
-              <tr><td class="mono">3</td><td>看第一筆</td><td class="mono" style="font-weight:700">A</td><td class="mono">A B</td></tr>
-              <tr><td class="mono">4</td><td style="color:var(--accent)">放 C</td><td>—</td><td class="mono">A B C</td></tr>
-              <tr><td class="mono">5</td><td style="color:var(--jade)">取資料</td><td class="mono" style="font-weight:700">A</td><td class="mono">B C</td></tr>
-              <tr><td class="mono">6</td><td>檢視所有資料</td><td class="mono" style="font-weight:700">B C</td><td class="mono">B C</td></tr>
-              <tr><td class="mono">7</td><td style="color:var(--jade)">取資料</td><td class="mono" style="font-weight:700">B</td><td class="mono">C</td></tr>
-              <tr><td class="mono">8</td><td style="color:var(--jade)">取資料</td><td class="mono" style="font-weight:700">C</td><td class="mono" style="color:var(--ink-faint)">（空）</td></tr>
-              <tr><td class="mono">9</td><td style="color:var(--alarm)">取資料</td><td style="color:var(--alarm);font-weight:700">沒有資料可以取</td><td class="mono" style="color:var(--ink-faint)">（空）</td></tr>
+              <tr><td class="mono">1</td><td style="color:var(--accent)">小明登記</td><td>發 1 號，前面 0 組</td><td class="mono">1小明</td><td class="mono">2</td></tr>
+              <tr><td class="mono">2</td><td style="color:var(--accent)">怡君登記</td><td>發 2 號，前面 1 組</td><td class="mono">1小明 2怡君</td><td class="mono">3</td></tr>
+              <tr><td class="mono">3</td><td style="color:var(--accent)">志豪登記</td><td>發 3 號，前面 2 組</td><td class="mono">1小明 2怡君 3志豪</td><td class="mono">4</td></tr>
+              <tr><td class="mono">4</td><td style="color:var(--jade)">叫下一位</td><td style="font-weight:700">請 1 號小明入座</td><td class="mono">2怡君 3志豪</td><td class="mono">4</td></tr>
+              <tr><td class="mono">5</td><td style="color:var(--accent)">雅婷登記</td><td>發 4 號，前面 2 組</td><td class="mono">2怡君 3志豪 4雅婷</td><td class="mono">5</td></tr>
+              <tr><td class="mono">6</td><td>查 4 號順位</td><td style="font-weight:700">前面還有 2 組</td><td class="mono">2怡君 3志豪 4雅婷</td><td class="mono">5</td></tr>
+              <tr><td class="mono">7</td><td style="color:var(--jade)">叫下一位</td><td style="font-weight:700">請 2 號怡君入座</td><td class="mono">3志豪 4雅婷</td><td class="mono">5</td></tr>
+              <tr><td class="mono">8</td><td>候位名單</td><td style="font-weight:700">3 號志豪、4 號雅婷</td><td class="mono">3志豪 4雅婷</td><td class="mono">5</td></tr>
             </tbody>
           </table>
         </div>
-        <p>算完可以回到上面的操作台照做一遍，對照「輸出」視窗。</p>
+        <p>第 5、6 步是重點：雅婷是 <b>4 號</b>，但前面只有 <b>2 組</b>——編號不是順位。算完可以回到上面照做一遍對答案。</p>
       </div>
 
       <div class="block">
         <h3>複雜度</h3>
         <ul class="bullets">
-          <li><b>放資料、取資料、看第一筆：O(1)</b> —— 都只碰佇列的頭或尾，資料有 3 筆還是 300 萬筆，做一次花的力氣一樣。</li>
-          <li><b>檢視所有資料：O(n)</b> —— 有 n 筆就要複製 n 筆、印 n 次。資料變兩倍，時間就變兩倍。這是四個功能裡唯一會「越多越慢」的。</li>
-          <li><b>空間 O(n)</b> —— 佇列裡有幾筆就占幾份記憶體；檢視時還會暫時多一份複製品。</li>
+          <li><b>登記、叫號、看下一位：O(1)</b> —— 都只碰佇列的頭或尾。候位 3 組還是 300 組，做一次花的力氣一樣。尖峰時段櫃台最常做的就是這三件事，所以佇列很適合。</li>
+          <li><b>候位名單、查順位：O(n)</b> —— 要把複製品從頭看到尾（查順位運氣好可以提早停）。候位組數變兩倍，時間就變兩倍。</li>
+          <li><b>空間 O(n)</b> —— 候位幾組就占幾張候位單的記憶體；印名單、查順位時還會暫時多一份複製品。</li>
         </ul>
       </div>
 
       <div class="block">
         <h3>常見誤解</h3>
         <ul class="bullets no">
-          <li><b>「看第一筆會把它拿走」</b> —— 不會。連按幾次「看第一筆」，筆數都不變。</li>
-          <li><b>「取資料可以指定要取哪一筆」</b> —— 不行，永遠只能取第一筆。想拿中間那筆，只能把它前面的全部先取走。需要「指定拿哪個」的話，你要的不是佇列。</li>
-          <li><b>「檢視所有資料很便宜，可以常常做」</b> —— 每做一次就複製整個佇列。真實程式裡通常只在除錯時才印全部內容。</li>
-          <li><b>「佇列空了再取，會拿到空字串或 0」</b> —— C++ 不保證任何事（未定義行為），可能拿到垃圾、可能當掉。所以程式裡每次取、每次看之前都先檢查 empty()。</li>
+          <li><b>「電話是數字，所以用 int 存」</b> —— 不行。0912345678 存成整數，開頭的 0 會不見；而且電話不會拿來加減乘除，還可能有「-」或分機。<b>不拿來計算的號碼，一律用文字（string）存</b>——學號、身分證字號也一樣。</li>
+          <li><b>「有人入座後，後面的人編號要往前補」</b> —— 不用，也不可以。客人手上的號碼牌不會變；會變的是順位。</li>
+          <li><b>「看下一位會把他叫走」</b> —— 不會。front() 只是看，候位組數不變。</li>
+          <li><b>「客人不想等了，從名單中間把他刪掉就好」</b> —— std::queue 做不到，它只能從最前面拿。要支援「取消候位」得換別的結構（見第 04 段的挑戰題）。</li>
+          <li><b>「候位名單可以常常印」</b> —— 每印一次就複製整個佇列。真的系統會另外想辦法（例如改用可以直接走訪的 std::deque）。</li>
         </ul>
       </div>
 
@@ -433,30 +537,30 @@ int main() {
       <span class="sec-num">04</span>
       <div>
         <h2>程式架構與說明</h2>
-        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個網頁。</p>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個系統。</p>
       </div>
     </div>
     <div class="sec-body">
 
       <div class="block">
         <h3>整體設計：邊做邊畫</h3>
-        <p>這一頁沒有劇本可以事先算好——下一步做什麼完全由你決定。所以採用最直接的架構：<b>按鈕直接改動佇列，改完把整個畫面重畫一次。</b></p>
+        <p>這一頁沒有劇本可以事先算好——下一位客人是誰、什麼時候叫號，完全由你決定。所以採用最直接的架構：<b>按鈕直接改動佇列，改完把整個畫面重畫一次。</b></p>
         <div class="arch">
-          <div class="node" data-k="in">按下按鈕 <small>放資料 / 取資料 / 看第一筆 / 檢視所有資料</small></div>
+          <div class="node" data-k="in">櫃台操作 <small>登記 / 叫號 / 看下一位 / 名單 / 查順位</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="core">put() / take() / first() / showAll() <small>改動佇列，並記下「剛剛發生了什麼」</small></div>
+          <div class="node" data-k="core">join() / callNext() / peekNext() / showAll() / ask() <small>改動佇列，並記下「剛剛發生了什麼」</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="data">q[] 與 last <small>佇列本體 + 最近一次操作的說明</small></div>
+          <div class="node" data-k="data">waiting[]、nextNo 與 last <small>候位隊伍 + 下一張號碼牌 + 最近一次操作的說明</small></div>
           <div class="arrow"></div>
           <div class="node">render() 照目前狀態把每一塊畫面重畫</div>
         </div>
         <ul class="bullets ok">
-          <li><b>程式短</b> —— 四個功能就是四個小函式，跟第 02 段的 C++ 幾乎一行對一行。</li>
-          <li><b>畫面永遠跟資料一致</b> —— 每次都整個重畫，不會有「忘了更新某一塊」的問題。</li>
+          <li><b>程式短</b> —— 五個功能就是五個小函式，跟第 02 段的 C++ 幾乎一個對一個。</li>
+          <li><b>畫面永遠跟資料一致</b> —— 看板、走道、側欄讀的是同一份 <code>waiting</code>，每次都整個重畫，不會有哪一塊忘了更新。</li>
         </ul>
         <div class="callout" data-k="no">
           <span class="tag">代價</span>
-          <span class="txt">不能倒退：取走的資料沒有「上一步」可以救回來（只能再放一次）。需要倒帶的關卡（例如 18 關）用的是另一種「先算完、再播放」的架構。</span>
+          <span class="txt">不能倒退：叫錯號沒有「上一步」。另外資料只存在這個分頁的記憶體裡，<b>重新整理就全部清空</b>——真正營業用的系統要把資料存進資料庫，這一頁是教學用的示範。</span>
         </div>
       </div>
 
@@ -468,40 +572,49 @@ int main() {
             <tbody>
               <tr>
                 <td><b>狀態</b></td>
-                <td class="mono">q / taken / lines<br>last</td>
-                <td>佇列本體、取出順序、輸出視窗的每一行，以及最近一次操作的說明。</td>
+                <td class="mono">waiting / nextNo<br>seated / serving<br>lines / last</td>
+                <td>候位隊伍、下一張號碼牌、入座順序、目前叫號、輸出視窗的每一行、最近一次操作的說明。</td>
+              </tr>
+              <tr>
+                <td><b>輸入檢查</b></td>
+                <td class="mono">cleanName<br>cleanPhone</td>
+                <td>登記前把關：姓名不能空白；電話去掉「-」和空格後要是 0 開頭的 9～10 位數字。</td>
               </tr>
               <tr>
                 <td><b>操作</b></td>
-                <td class="mono">put / take<br>first / showAll<br>clearAll</td>
+                <td class="mono">join / callNext<br>peekNext / showAll<br>ask / closeShop</td>
                 <td>唯一會改動佇列的地方。每個函式做完都更新 <code>last</code>，再呼叫 <code>render()</code>。</td>
               </tr>
               <tr>
                 <td><b>畫面層</b></td>
-                <td class="mono">paintLane / paintStats<br>paintTaken / paintTerm<br>paintAlgo / paintSay</td>
+                <td class="mono">paintBoard / paintLane<br>paintStats / paintSeated<br>paintTerm / paintAlgo<br>paintSay</td>
                 <td>各自只讀狀態、畫自己那一塊，彼此不互相呼叫。</td>
               </tr>
               <tr>
                 <td><b>事件</b></td>
                 <td class="mono">addEventListener</td>
-                <td>把按鈕、Enter 鍵、快速放入接到操作函式。</td>
+                <td>把表單、按鈕、Enter 鍵接到操作函式。</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p>網頁裡的佇列是一個 JavaScript 陣列：放資料用 <code>q.push(x)</code>、取資料用 <code>q.shift()</code>。因為是陣列，網頁版「檢視所有資料」可以直接從頭看到尾——這是 JavaScript 陣列給的方便，<b>C++ 的 std::queue 沒有</b>，所以 C++ 版才需要複製一份。</p>
+        <p>網頁裡的佇列是一個 JavaScript 陣列，每一格是一個物件 <code>{no, name, phone}</code>——就是 C++ 的 <code>Customer</code>。登記用 <code>push()</code>、叫號用 <code>shift()</code>。因為是陣列，網頁版印名單和查順位可以直接從頭看到尾；這是 JavaScript 陣列給的方便，<b>C++ 的 std::queue 沒有</b>，所以 C++ 版才需要複製一份。</p>
       </div>
 
       <div class="block">
-        <h3>核心資料：last 長什麼樣</h3>
-        <pre class="code">{
-  <b>kind</b>:  <i>// start / put / take / first / all / err / clear → 顏色與徽章</i>
-  <b>lines</b>: <i>// 程式面板要亮哪幾行，例如取資料是 [10, 11, 12]</i>
+        <h3>核心資料</h3>
+        <pre class="code"><i>// 一張候位單（對應 C++ 的 struct Customer）</i>
+{ <b>no</b>: 5, <b>name</b>: "王小明", <b>phone</b>: "0912345678" }
+
+<i>// last：最近一次操作，每一塊畫面都看它決定怎麼強調</i>
+{
+  <b>kind</b>:  <i>// start / join / call / peek / all / find / err / warn / close → 顏色與徽章</i>
+  <b>lines</b>: <i>// 程式面板要亮哪幾行，例如叫號是 [19, 20, 21, 22]</i>
   <b>line</b>:  <i>// 其中最關鍵的那一行 → 下方顯示它的白話說明</i>
-  <b>gone</b>:  <i>// 剛被取出的資料（顯示在出口）</i>
+  <b>hitNo</b>: <i>// 查順位時找到的編號 → 走道上標出他和排在他前面的人</i>
   <b>title, msg</b>: <i>// 說明面板的標題與內文</i>
 }</pre>
-        <p>使用者打的字會原樣出現在畫面上，所以程式裡所有顯示資料的地方都用 <code>textContent</code>（或先經過 <code>esc()</code> 跳脫），不直接當成 HTML——否則有人輸入 <code>&lt;b&gt;</code> 之類的字就會把版面弄壞。</p>
+        <p>姓名是使用者自己打的字，會原樣出現在畫面上，所以程式裡所有顯示它的地方都用 <code>textContent</code>（或先經過 <code>esc()</code> 跳脫），不直接當成 HTML——否則有人把姓名打成 <code>&lt;b&gt;</code> 之類的字就會把版面弄壞。</p>
       </div>
 
       <div class="block">
@@ -510,11 +623,11 @@ int main() {
           <table>
             <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
             <tbody>
-              <tr><td>換掉「快速放入」的品項</td><td>JS 最上面的 <code>SAMPLES</code> 陣列</td><td>1 行</td></tr>
-              <tr><td>讓佇列放得下更多筆</td><td><code>var MAX = 20</code></td><td>1 行</td></tr>
-              <tr><td>每筆資料可以打更長</td><td>輸入框的 <code>maxlength="10"</code></td><td>1 行</td></tr>
-              <tr><td>加一顆「看最後一筆」按鈕</td><td>多一顆按鈕、照 <code>first()</code> 寫一個 <code>lastOne()</code>，把 <code>q[0]</code> 換成 <code>q[q.length-1]</code></td><td>約 15 行</td></tr>
-              <tr><td>改成堆疊（後進先出）</td><td><code>take()</code> 和 <code>first()</code> 改成從陣列<b>尾巴</b>拿：<code>q.pop()</code>、<code>q[q.length-1]</code></td><td>約 4 行</td></tr>
+              <tr><td>換掉「範例客人」的名單</td><td>JS 最上面的 <code>SAMPLES</code> 陣列</td><td>1 行</td></tr>
+              <tr><td>號碼牌從 101 開始發</td><td><code>nextNo = 1</code>（有兩處：宣告和 <code>closeShop()</code>）</td><td>2 行</td></tr>
+              <tr><td>候位上限改成 50 組</td><td><code>var MAX = 20</code></td><td>1 行</td></tr>
+              <tr><td>候位單多一欄「人數」</td><td>登記列加一個輸入框、<code>join()</code> 多存一欄、<code>paintLane()</code> 多畫一行；C++ 的 struct 加 <code>int people;</code></td><td>約 15 行</td></tr>
+              <tr><td>電話中間幾碼打星號</td><td><code>fmtPhone()</code></td><td>約 3 行</td></tr>
               <tr><td>換全站配色</td><td><code>assets/site.css</code> 最上面的色彩變數</td><td>改一次，全部頁面生效</td></tr>
             </tbody>
           </table>
@@ -524,43 +637,52 @@ int main() {
       <div class="block">
         <h3>自己動手：給 AI 的 Prompt</h3>
         <p>看懂之後，把下面這段丟給 Claude，讓它陪你把程式從頭寫一次：</p>
-        <pre class="code">用 C++ 的 std::queue&lt;std::string&gt; 寫一個主控台「佇列操作台」。
+        <pre class="code">用 C++ 寫一個主控台版的「海大餐廳排隊系統」。
+
+資料：
+每位候位客人是一個 struct Customer，有三個欄位：
+排隊編號（int，系統從 1 開始自動發、不重複）、姓名（string）、電話（string）。
+所有候位客人放在一個 std::queue&lt;Customer&gt; 裡。
 
 功能（文字選單，重複執行直到選 0）：
-1 放資料：讀一個字串，放進佇列，印出目前筆數
-2 取資料：印出並移除第一筆
-3 看第一筆：只印出第一筆，不移除
-4 檢視所有資料：從第一筆到最後一筆全部印出來，佇列本身不能被改變
-0 結束
+1 登記候位：輸入姓名、電話，發號碼牌，印出「您是 N 號，前面還有 K 組」
+2 叫下一位：印出並移除最前面的客人（編號、姓名、電話）
+3 看下一位：只印出最前面的客人，不移除
+4 候位名單：從第一位到最後一位全部印出，佇列本身不能被改變
+5 查順位：輸入排隊編號，印出前面還有幾組；不在名單裡要說明
+0 打烊
 
 要求：
-1. 功能 2、3 在佇列是空的時候，要印出提示，不可以直接呼叫 front() 或 pop()
-2. 功能 4 不能用陣列或 vector 偷存一份，只能用 std::queue 提供的操作完成
-3. 用註解解釋：為什麼功能 2 要先 front() 再 pop()
-4. 用註解解釋：為什麼功能 4 需要複製一份佇列，以及它的時間複雜度
-5. 輸入不是數字時不能當掉，要提示重新輸入
+1. 功能 2、3 在沒有人候位時要印出提示，不可以直接呼叫 front() 或 pop()
+2. 功能 4、5 只能用 std::queue 提供的操作完成（複製一份再逐筆處理）
+3. 用註解解釋：為什麼電話要用 string 而不是 int
+4. 用註解解釋：為什麼「排隊編號」不等於「前面還有幾組」
+5. 選單輸入不是數字時不能當掉，要提示重新輸入
+6. 說明每個功能的時間複雜度
 
 寫完後用這串操作測試：
-放 A、放 B、看第一筆（A）、放 C、取資料（A）、檢視（B C）、
-取資料（B）、取資料（C）、取資料（應提示沒有資料）。</pre>
+登記小明、怡君、志豪 → 叫號（1 號小明）→ 登記雅婷（4 號，前面 2 組）
+→ 查 4 號順位（2 組）→ 叫號（2 號怡君）→ 候位名單（3 號志豪、4 號雅婷）
+→ 查 1 號順位（不在名單裡）。</pre>
         <h4>寫完了？再挑戰這三題</h4>
-        <pre class="code">1. 「檢視所有資料」不准複製佇列：
-   把第一筆取出、印出、再放回最後面，重複 size() 次。
-   做完之後佇列的順序會跟原來一樣嗎？為什麼？
+        <pre class="code">1. 取消候位：客人不想等了，要把他從隊伍「中間」移除。
+   std::queue 做不到。查一查 std::deque 或 std::list，
+   改用其中一個重寫，並比較它和 queue 的差別
 
-2. 加一個功能 5「取消最後一筆」（最晚放的那筆反悔不排了）。
-   std::queue 做不到，查一查 std::deque，改用它重寫
+2. 過號保留：叫到號人不在時，不是直接刪掉，
+   而是把他移到隊伍的第 3 位之後再給一次機會。
+   想想看：這還是「先進先出」嗎？
 
-3. 把這支程式改成堆疊版（std::stack）：
-   「取資料」改成取最晚放的那筆。
-   同樣放 A、B、C 再全部取出，對照兩個版本的輸出順序</pre>
+3. 分桌候位：依人數分成 1~2 人、3~4 人、5 人以上三條隊伍，
+   各用一個 queue。有 4 人桌空出來時，該叫哪一條隊伍的第一位？
+   如果那條隊伍是空的呢？</pre>
       </div>
 
     </div>
   </section>
 
   <footer class="sitefoot">
-    <span>資料結構遊戲場 · 19 佇列操作台</span>
+    <span>資料結構遊戲場 · 19 海大餐廳排隊系統</span>
     <a href="../index.html">← 回到所有遊戲</a>
   </footer>
 </div>
@@ -569,33 +691,59 @@ int main() {
 (function(){
   "use strict";
 
-  var MAX = 20;                                  /* 畫面最多放幾筆（真正的 std::queue 沒有上限） */
-  var SAMPLES = ["蛋餅", "奶茶", "漢堡", "飯糰", "豆漿", "A", "B", "C"];
+  var MAX = 20;                                  /* 畫面最多候位幾組（真正的 std::queue 沒有上限） */
+  /* 「＋ 範例客人」輪流使用的假資料（電話是編的） */
+  var SAMPLES = [
+    {name:"王小明", phone:"0912000101"}, {name:"陳怡君", phone:"0922000102"},
+    {name:"林志豪", phone:"0933000103"}, {name:"張雅婷", phone:"0955000104"},
+    {name:"李冠宇", phone:"0966000105"}, {name:"黃詩涵", phone:"0977000106"},
+    {name:"吳承恩", phone:"0988000107"}, {name:"劉佳穎", phone:"0910000108"}
+  ];
 
   var CODE = [
     "#include <iostream>",
     "#include <queue>",
     "#include <string>",
     "using namespace std;",
-    "queue<string> q;",
-    "void put(string x) {",
-    "    q.push(x);",
+    "struct Customer {",
+    "    int no;",
+    "    string name;",
+    "    string phone;",
+    "};",
+    "queue<Customer> waiting;",
+    "int nextNo = 1;",
+    "void join(string name, string phone) {",
+    "    Customer c = {nextNo, name, phone};",
+    "    nextNo++;",
+    "    waiting.push(c);",
     "}",
-    "void take() {",
-    "    if (q.empty()) return;",
-    "    cout << q.front();",
-    "    q.pop();",
+    "void callNext() {",
+    "    if (waiting.empty()) return;",
+    "    Customer c = waiting.front();",
+    "    cout << c.no << \" \" << c.name << \" \" << c.phone;",
+    "    waiting.pop();",
     "}",
-    "void first() {",
-    "    if (q.empty()) return;",
-    "    cout << q.front();",
+    "void peekNext() {",
+    "    if (waiting.empty()) return;",
+    "    cout << waiting.front().no << \" \" << waiting.front().name;",
     "}",
     "void showAll() {",
-    "    queue<string> copy = q;",
+    "    queue<Customer> copy = waiting;",
     "    while (!copy.empty()) {",
-    "        cout << copy.front() << \" \";",
+    "        Customer c = copy.front();",
+    "        cout << c.no << \" \" << c.name << \" \" << c.phone << \"\\n\";",
     "        copy.pop();",
     "    }",
+    "}",
+    "int ahead(int no) {",
+    "    queue<Customer> copy = waiting;",
+    "    int count = 0;",
+    "    while (!copy.empty()) {",
+    "        if (copy.front().no == no) return count;",
+    "        count++;",
+    "        copy.pop();",
+    "    }",
+    "    return -1;",
     "}"
   ];
 
@@ -603,166 +751,274 @@ int main() {
   var CODE_DOC = [
     "「#include <iostream>」＝跟 C++ 借「輸入輸出」的工具。有了它，才能用 cout 把字印到螢幕上。",
     "「#include <queue>」＝跟 C++ 借現成的佇列（queue）。排隊的規則 C++ 已經做好了，不必自己造。",
-    "「#include <string>」＝跟 C++ 借「字串」。字串（string）就是一串文字，例如「蛋餅」或「A」。",
+    "「#include <string>」＝跟 C++ 借「字串」。字串（string）就是一串文字，姓名和電話都用它存。",
     "「using namespace std;」＝之後可以直接寫 queue、string、cout，不必每次都加上 std:: 這個姓氏。",
-    "「queue<string> q;」＝建立一個空的佇列，取名叫 q。<string> 表示裡面放的是文字。它寫在所有函式外面，所以下面四個功能用的是同一個 q。",
-    "「放資料」功能。函式＝一台有名字、可以重複使用的小機器；put 是它的名字，小括號裡的 x 是你丟給它的那筆資料。void 表示它做完事不必回報結果。",
-    "「q.push(x)」＝把 x 放到佇列的最後面。push 就是「推進去」。新資料只能排最後——這是佇列唯一的入口。",
-    "這個右大括號 } 標記「put 的內容到此為止」。",
-    "「取資料」功能：把第一筆拿出來。",
-    "先檢查：q.empty() 是在問「佇列是空的嗎？」。如果是空的，就 return——立刻離開這個函式，後面兩行都不做。沒有資料還硬取，程式會出錯。",
-    "「cout << q.front()」＝把第一筆印到螢幕上。front() 是「看第一筆是誰」，cout << 是「印出來」。注意：到這一行為止，資料還在佇列裡。",
-    "「q.pop()」＝把第一筆從佇列拿掉。pop 就是「彈出去」。它不會告訴你拿掉的是誰，所以上一行才要先用 front() 看。這一行做完，原本的第二筆就變成第一筆。",
-    "take 的內容到此為止。",
-    "「看第一筆」功能：只看，不拿。",
-    "同樣先檢查是不是空的。空的就直接離開——沒有第一筆可以看。",
-    "把第一筆印出來。跟「取資料」比，這裡少了 q.pop() 那一行——所以資料還留在佇列裡，再看一次還是同一筆。",
-    "first 的內容到此為止。",
-    "「檢視所有資料」功能：從第一筆印到最後一筆。",
-    "「queue<string> copy = q;」＝把整個佇列複製一份，取名 copy。為什麼要複製？因為佇列只讓你看第一筆；想看第二筆，就得先把第一筆拿掉。拿複製品來拆，原本的 q 才不會被拿光。",
-    "「while」＝迴圈：只要小括號裡的條件成立，就一直重複做大括號裡的事。「!」是「不」，所以條件是「copy 不是空的」——也就是「還有資料沒印，就繼續」。",
-    "印出複製品現在的第一筆，後面加一個空格把每筆資料隔開。",
-    "把複製品的第一筆拿掉，讓下一筆變成第一筆。然後回到 while 那一行再檢查一次；等複製品被拿光，迴圈就結束。",
+    "「struct Customer」＝自己定義一種新的資料，取名 Customer（客人）。struct 就像設計一張空白表格：下面三行是表格上的三個欄位。之後每位客人各填一張。",
+    "第一個欄位 no：排隊編號。int 表示它是整數。",
+    "第二個欄位 name：姓名。string 表示它是文字。",
+    "第三個欄位 phone：電話。也用文字存，不用整數——因為整數會把開頭的 0 吃掉，而且電話從來不會拿來加減乘除。",
+    "表格設計到此為止（struct 的結尾要加分號）。",
+    "「queue<Customer> waiting;」＝建立一個空的佇列，取名 waiting（候位中）。<Customer> 表示裡面排的是一張一張候位單，不是單一個數字。",
+    "nextNo＝下一張要發的號碼牌，從 1 開始。變數＝一個有名字的小盒子，可以放一個值。",
+    "「登記候位」功能。函式＝一台有名字、可以重複使用的小機器；把姓名和電話丟給它，它負責發號碼、排進隊伍。void 表示做完不必回報結果。",
+    "填一張新的候位單 c：大括號裡依序是編號（用現在的 nextNo）、姓名、電話，剛好對應表格的三個欄位。",
+    "「nextNo++」＝號碼牌加 1，下一位客人才會拿到不同的號碼。忘了這行，每個人都是同一號。",
+    "「waiting.push(c)」＝把這張候位單排到隊伍的最後面。push 就是「推進去」。新客人只能排最後、不能插隊。",
+    "這個右大括號 } 標記「join 的內容到此為止」。",
+    "「叫下一位」功能：請排最前面的客人入座。",
+    "先檢查：waiting.empty() 是在問「沒有人候位嗎？」。如果是空的就 return——立刻離開這個函式，後面三行都不做。沒人還硬叫號，程式會出錯。",
+    "「waiting.front()」＝看排最前面的那張候位單，把它整張抄一份到 c。注意：到這一行為止，客人還在隊伍裡。",
+    "把這位客人的編號、姓名、電話印出來。c.no 的那個點是「c 這張單子上的 no 欄位」的意思。cout << 就是「印到螢幕上」。",
+    "「waiting.pop()」＝把排最前面的客人從隊伍移除（他入座了）。pop 不會告訴你移除的是誰，所以前面才要先用 front() 抄下來。這行做完，原本的第二位就變成下一位。",
+    "callNext 的內容到此為止。",
+    "「看下一位」功能：只看，不叫號。",
+    "同樣先檢查有沒有人。沒人就直接離開——沒有下一位可以看。",
+    "印出下一位的編號和姓名。waiting.front().no 是「排最前面那張單子的編號欄」。跟「叫下一位」比，這裡沒有 pop——所以客人還在隊伍裡。",
+    "peekNext 的內容到此為止。",
+    "「候位名單」功能：從第一位印到最後一位。",
+    "把整個候位隊伍複製一份，取名 copy。為什麼要複製？因為佇列只讓你看第一位；想看第二位，就得先把第一位拿掉。拿複製品來拆，真正的候位隊伍才不會被拿光。",
+    "「while」＝迴圈：只要小括號裡的條件成立，就一直重複做大括號裡的事。「!」是「不」，所以條件是「copy 不是空的」——還有人沒印，就繼續。",
+    "把複製品最前面那張候位單抄到 c。",
+    "印出這位客人的編號、姓名、電話。最後的 \"\\n\" 是換行，讓每位客人各占一行。",
+    "把複製品最前面的人拿掉，讓下一位變成第一位。然後回到 while 那一行再檢查；等複製品被拿光，迴圈結束。",
     "while 迴圈的內容到此為止。",
-    "showAll 的內容到此為止。原本的 q 從頭到尾沒被動過。"
+    "showAll 的內容到此為止。真正的 waiting 從頭到尾沒被動過。",
+    "「查順位」功能：給一個排隊編號，回答「前面還有幾組」。開頭的 int 表示這台機器做完會回報一個整數。",
+    "同樣先複製一份，等一下要一張一張拿出來比對。",
+    "count＝計數器，記錄「已經數過幾組」，從 0 開始。",
+    "只要複製品裡還有人，就繼續找。",
+    "看複製品最前面那位：他的編號就是要找的嗎？「==」是「相等嗎」。是的話，前面數過的 count 組就是答案——return count 把答案交出去，函式結束。",
+    "不是他。那他就是排在目標前面的一組，計數器加 1。",
+    "把他從複製品拿掉，換下一位來比對。",
+    "while 迴圈的內容到此為止。",
+    "整份複製品都看完了還是沒找到：這個編號不在候位名單裡（可能已經入座，或號碼根本沒發過）。回報 -1 當作「查無此號」的暗號。",
+    "ahead 的內容到此為止。"
   ];
 
-  var BADGE = {start:"START", put:"放入", take:"取出", first:"第一筆", all:"全部", err:"空的", clear:"清空", warn:"注意"};
+  var BADGE = {start:"START", join:"登記", call:"叫號", peek:"下一位", all:"名單", find:"順位",
+               err:"沒人", warn:"注意", close:"打烊"};
   /* say 的顏色沿用全站 data-k 命名（只看不動的操作不上色） */
-  var SAYK  = {start:"start", put:"push", take:"pop", first:"start", all:"start", err:"error", clear:"start", warn:"error"};
+  var SAYK  = {start:"start", join:"push", call:"pop", peek:"start", all:"start", find:"start",
+               err:"error", warn:"error", close:"start"};
 
   var $ = function(id){ return document.getElementById(id); };
 
   /* ---------- 狀態 ---------- */
-  var q = [];          /* 佇列本體：q[0] 是第一筆 */
-  var taken = [];      /* 取出順序 */
+  var waiting = [];    /* 候位隊伍：waiting[0] 是下一位，每格是 {no, name, phone} */
+  var nextNo = 1;      /* 下一張號碼牌 */
+  var seated = [];     /* 入座順序 */
+  var serving = null;  /* 目前叫號（最近一次叫到的客人） */
   var lines = [];      /* 輸出視窗的每一行：{k:"cmd"|"res"|"bad", t:"文字"} */
+  var sampleIdx = 0;
   var last = null;     /* 最近一次操作 */
 
   /* 使用者打的字要放進 innerHTML 之前，先把 < > & 換掉 */
   function esc(s){
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
-  function quote(s){ return "「<b>" + esc(s) + "</b>」"; }
+  function who(c){ return "<b>" + c.no + " 號 " + esc(c.name) + "</b>"; }
   function print(k, t){ lines.push({k:k, t:t}); }
 
-  function startState(){
-    last = {kind:"start", lines:[5], line:5, gone:"",
-      title:"佇列是空的，從放資料開始",
-      msg:"在上面的輸入框打一筆資料，按「放資料」（或鍵盤 Enter）。也可以直接按「快速放入」裡的品項。"};
+  /* 0912345678 → 0912-345-678；其他長度原樣顯示 */
+  function fmtPhone(p){
+    return /^09\d{8}$/.test(p) ? (p.slice(0,4) + "-" + p.slice(4,7) + "-" + p.slice(7)) : p;
   }
 
-  /* ---------- 操作：唯一會改動佇列的地方 ---------- */
-  function put(x){
-    x = String(x).replace(/\s+/g, " ").trim();
-    if(!x){
-      last = {kind:"warn", lines:[], line:0, gone:"",
-        title:"先輸入要放的資料",
-        msg:"輸入框是空的。打幾個字再按「放資料」，或直接按下面「快速放入」的品項。"};
-      render(); return false;
-    }
-    if(q.length >= MAX){
-      print("cmd", "放資料 " + x);
-      print("bad", "畫面放不下了（最多 " + MAX + " 筆）");
-      last = {kind:"warn", lines:[], line:0, gone:"",
-        title:"畫面放不下了",
-        msg:"這個網頁最多顯示 " + MAX + " 筆（真正的 std::queue 沒有上限）。先「取資料」拿走幾筆再放。"};
-      render(); return false;
-    }
-    var n = q.length, prevBack = n ? q[n-1] : null;
-    q.push(x);
-    print("cmd", "放資料 " + x);
-    print("res", "已放入，現在共 " + q.length + " 筆");
-    last = {kind:"put", lines:[7], line:7, gone:"",
-      title:"「" + x + "」放進去了，排在最後面",
-      msg: n === 0
-        ? ("佇列原本是空的，所以 " + quote(x) + " 同時是第一筆也是最後一筆——下一次「取資料」拿到的就是它。")
-        : (quote(x) + " 排在 " + quote(prevBack) + " 後面，成為新的最後一筆。第一筆還是 " + quote(q[0]) + "，沒有變：要等前面 " + n + " 筆都被取走，才輪得到它。")};
-    render(); return true;
+  /* ---------- 輸入檢查 ---------- */
+  function cleanName(s){ return String(s).replace(/\s+/g, " ").trim(); }
+  /* 去掉 - 和空格；必須是 0 開頭的 9～10 位數字，否則回傳 "" */
+  function cleanPhone(s){
+    var d = String(s).replace(/[\s\-()]/g, "");
+    return /^0\d{8,9}$/.test(d) ? d : "";
   }
 
-  function take(){
-    print("cmd", "取資料");
-    if(!q.length){
-      print("bad", "沒有資料可以取");
-      last = {kind:"err", lines:[10], line:10, gone:"",
-        title:"沒有資料可以取",
-        msg:"佇列是空的。程式第 10 行先檢查了 <b>q.empty()</b>，發現是空的就直接離開，沒有去碰 front() 和 pop()。少了這個檢查，C++ 不會提醒你——它可能拿到垃圾資料，甚至整支程式當掉。"};
-      render(); return;
-    }
-    var x = q.shift();
-    taken.push(x);
-    print("res", "取出：" + x);
-    last = {kind:"take", lines:[10, 11, 12], line:12, gone:x,
-      title:"取出「" + x + "」",
-      msg:"取資料拿到的永遠是第一筆——目前佇列裡最早放進去的那個。程式裡其實是兩步：先 front() 把它印出來，再 pop() 把它拿掉。" +
-        (q.length ? ("現在第一筆換成 " + quote(q[0]) + "，還剩 " + q.length + " 筆。") : "它是最後一筆，佇列空了。")};
+  function warn(title, msg){
+    last = {kind:"warn", lines:[], line:0, hitNo:0, title:title, msg:msg};
     render();
   }
 
-  function first(){
-    print("cmd", "看第一筆");
-    if(!q.length){
-      print("bad", "沒有資料");
-      last = {kind:"err", lines:[15], line:15, gone:"",
-        title:"沒有第一筆可以看",
-        msg:"佇列是空的。程式第 15 行先檢查了 <b>q.empty()</b>，是空的就直接離開，不會去呼叫 front()。"};
+  function startState(){
+    last = {kind:"start", lines:[10, 11], line:10, hitNo:0,
+      title:"開始營業：目前沒有人候位",
+      msg:"輸入姓名和電話，按「登記候位」（或鍵盤 Enter）發出第一張號碼牌。懶得打字就按「＋ 範例客人」。"};
+  }
+
+  /* ---------- 操作：唯一會改動佇列的地方 ---------- */
+  function join(rawName, rawPhone){
+    var name = cleanName(rawName), phone = cleanPhone(rawPhone);
+    if(!name){
+      warn("請輸入姓名", "姓名是空的。候位單三個欄位都要有資料，叫號時才知道叫的是誰。");
+      return false;
+    }
+    if(!phone){
+      warn("電話格式不對", String(rawPhone).trim()
+        ? "電話要是 <b>0</b> 開頭的 9～10 位數字，例如 0912-345-678 或 02-2462-2192（「-」和空格可以打，系統會自動去掉）。"
+        : "電話是空的。叫到號人不在的時候，要靠電話聯絡客人。");
+      return false;
+    }
+    if(waiting.length >= MAX){
+      print("cmd", "登記候位 " + name);
+      print("bad", "候位已滿（最多 " + MAX + " 組）");
+      warn("候位已滿", "這個網頁最多顯示 " + MAX + " 組（真正的 std::queue 沒有上限）。先「叫下一位」讓幾組入座再登記。");
+      return false;
+    }
+    var n = waiting.length;
+    var c = {no:nextNo, name:name, phone:phone};
+    nextNo++;
+    waiting.push(c);
+    print("cmd", "登記候位 " + name + " " + fmtPhone(phone));
+    print("res", "發出 " + c.no + " 號，前面還有 " + n + " 組");
+    last = {kind:"join", lines:[13, 14, 15], line:15, hitNo:0,
+      title: c.no + " 號 " + name + " 登記完成，前面還有 " + n + " 組",
+      msg: n === 0
+        ? ("目前沒有其他人候位，所以 " + who(c) + " 一登記就是下一位。號碼牌已經加 1，下一位客人會拿到 " + nextNo + " 號。")
+        : (who(c) + " 排在 " + who(waiting[n-1]) + " 後面，是隊伍的最後一位。下一個被叫到的還是 " + who(waiting[0]) + "——要等前面 " + n + " 組都入座才輪得到他。")};
+    render(); return true;
+  }
+
+  function callNext(){
+    print("cmd", "叫下一位");
+    if(!waiting.length){
+      print("bad", "目前沒有人候位");
+      last = {kind:"err", lines:[18], line:18, hitNo:0,
+        title:"目前沒有人候位，叫不到人",
+        msg:"候位隊伍是空的。程式第 18 行先檢查了 <b>waiting.empty()</b>，發現沒人就直接離開，沒有去碰 front() 和 pop()。少了這個檢查，C++ 不會提醒你——它可能印出亂碼，甚至整支程式當掉。"};
       render(); return;
     }
-    print("res", "第一筆是：" + q[0]);
-    last = {kind:"first", lines:[15, 16], line:16, gone:"",
-      title:"第一筆是「" + q[0] + "」",
-      msg:"只是看，沒有拿走：資料還是 " + q.length + " 筆，" + quote(q[0]) + " 還在原地。再按一次「看第一筆」會看到同一筆；要讓它離開得按「取資料」。"};
+    var c = waiting.shift();
+    seated.push(c);
+    serving = c;
+    print("res", "請 " + c.no + " 號 " + c.name + " 入座（電話 " + fmtPhone(c.phone) + "）");
+    last = {kind:"call", lines:[18, 19, 20, 21], line:21, hitNo:0,
+      title:"請 " + c.no + " 號 " + c.name + " 入座",
+      msg:"叫到的永遠是排最前面的客人——目前候位裡最早登記的那位。程式裡是兩步：先 front() 把候位單抄下來印出，再 pop() 把他移出隊伍。" +
+        (waiting.length ? ("現在下一位換成 " + who(waiting[0]) + "，還有 " + waiting.length + " 組候位。") : "他是最後一組，候位隊伍空了。")};
+    render();
+  }
+
+  function peekNext(){
+    print("cmd", "看下一位");
+    if(!waiting.length){
+      print("bad", "目前沒有人候位");
+      last = {kind:"err", lines:[24], line:24, hitNo:0,
+        title:"目前沒有人候位，沒有下一位",
+        msg:"候位隊伍是空的。程式第 24 行先檢查了 <b>waiting.empty()</b>，沒人就直接離開，不會去呼叫 front()。"};
+      render(); return;
+    }
+    var c = waiting[0];
+    print("res", "下一位：" + c.no + " 號 " + c.name + "（" + fmtPhone(c.phone) + "）");
+    last = {kind:"peek", lines:[24, 25], line:25, hitNo:0,
+      title:"下一位是 " + c.no + " 號 " + c.name,
+      msg:"只是看，沒有叫號：候位還是 " + waiting.length + " 組，" + who(c) + " 還在隊伍最前面。再按一次會看到同一位；要請他入座得按「叫下一位」。"};
     render();
   }
 
   function showAll(){
-    print("cmd", "檢視所有資料");
-    if(!q.length){
-      print("res", "共 0 筆（空的）");
-      last = {kind:"all", lines:[19, 20], line:20, gone:"",
-        title:"佇列裡沒有任何資料",
-        msg:"複製品一開始就是空的，所以 while 迴圈一次都沒有執行，什麼都沒印。檢視空的佇列不會出錯——因為迴圈自己會先檢查 <b>!copy.empty()</b>。"};
+    print("cmd", "候位名單");
+    if(!waiting.length){
+      print("res", "候位 0 組（沒有人）");
+      last = {kind:"all", lines:[28, 29], line:29, hitNo:0,
+        title:"候位名單是空的",
+        msg:"複製品一開始就是空的，所以 while 迴圈一次都沒有執行，什麼都沒印。印空的名單不會出錯——因為迴圈自己會先檢查 <b>!copy.empty()</b>。"};
       render(); return;
     }
-    print("res", "共 " + q.length + " 筆：" + q.join("  "));
-    last = {kind:"all", lines:[19, 20, 21, 22], line:19, gone:"",
-      title:"全部 " + q.length + " 筆，從第一筆到最後一筆",
-      msg:"輸出視窗印出來的順序，就是之後「取資料」會拿到的順序。佇列本來只讓你看第一筆，所以程式先<b>複製一份</b>，對複製品一筆一筆「看、拿掉」直到拿光——原本的 " + q.length + " 筆完全沒被動到。"};
+    print("res", "候位 " + waiting.length + " 組：");
+    waiting.forEach(function(c, i){
+      print("res", "  " + c.no + " 號  " + c.name + "  " + fmtPhone(c.phone) + "  （前面 " + i + " 組）");
+    });
+    last = {kind:"all", lines:[28, 29, 30, 31, 32], line:28, hitNo:0,
+      title:"候位名單：共 " + waiting.length + " 組",
+      msg:"名單的順序就是之後叫號的順序。佇列本來只讓你看第一位，所以程式先<b>複製一份</b>，對複製品一位一位「看、拿掉」直到拿光——真正的候位隊伍 " + waiting.length + " 組完全沒被動到。"};
     render();
   }
 
-  function clearAll(){
-    q = []; taken = []; lines = [];
+  function ask(raw){
+    var no = parseInt(raw, 10);
+    if(!(no >= 1)){
+      warn("請輸入要查的排隊編號", "在「編號」那一格輸入號碼牌上的數字（例如 3），再按「查順位」。");
+      return;
+    }
+    print("cmd", "查順位 " + no + " 號");
+    var idx = -1, i;
+    for(i=0;i<waiting.length;i++){ if(waiting[i].no === no){ idx = i; break; } }
+    if(idx === -1){
+      var gone = seated.some(function(c){ return c.no === no; });
+      print("bad", gone ? (no + " 號已經入座，不在候位名單裡") : ("沒有發過 " + no + " 號"));
+      last = {kind:"find", lines:[36, 37, 38, 39, 40, 41, 43], line:43, hitNo:0,
+        title: gone ? (no + " 號已經入座了") : ("查無 " + no + " 號"),
+        msg:"程式把候位名單的複製品從頭看到尾，沒有任何一張候位單的編號是 " + no + "，所以回傳 <b>-1</b>（查無此號）。" +
+          (gone ? "這位客人先前已經被叫號入座，離開候位隊伍了。" : ("目前號碼牌只發到 " + (nextNo - 1) + " 號。"))};
+      render(); return;
+    }
+    var c = waiting[idx];
+    print("res", c.no + " 號 " + c.name + " 前面還有 " + idx + " 組");
+    last = {kind:"find", lines:[36, 37, 38, 39, 40, 41], line:39, hitNo:no,
+      title: c.no + " 號 " + c.name + "：前面還有 " + idx + " 組",
+      msg:"從候位隊伍的第一位開始數，數了 <b>" + idx + "</b> 組之後遇到 " + who(c) + "。" +
+        (idx === c.no - 1
+          ? "現在剛好等於「編號減 1」，那是因為還沒有人入座；叫過號之後這兩個數字就會分開。"
+          : ("注意：他是 " + c.no + " 號，但前面只有 " + idx + " 組——<b>編號不是順位</b>，前面已經有人入座了。"))};
+    render();
+  }
+
+  function closeShop(){
+    waiting = []; seated = []; lines = []; serving = null; nextNo = 1; sampleIdx = 0;
     startState();
-    last.kind = "clear";
-    last.title = "已全部清空";
+    last.kind = "close";
+    last.title = "打烊：資料全部清空，號碼牌從 1 號重新開始";
     render();
   }
 
-  /* ---------- 畫面層：資料走道 ---------- */
+  /* ---------- 畫面層：叫號看板 ---------- */
+  function paintBoard(){
+    $("bNow").textContent = serving ? serving.no : "—";
+    $("bNowWho").textContent = serving ? (serving.name + "　請入座") : "尚未叫號";
+    $("bNext").textContent = waiting.length ? waiting[0].no : "—";
+    $("bNextWho").textContent = waiting.length ? waiting[0].name : "沒有人候位";
+    $("bWait").textContent = waiting.length;
+  }
+
+  /* ---------- 畫面層：候位走道 ---------- */
   function paintLane(){
-    var line = $("line"), i;
+    var line = $("line"), i, hitIdx = -1;
     line.innerHTML = "";
 
-    if(!q.length){
+    if(last.kind === "find" && last.hitNo){
+      for(i=0;i<waiting.length;i++){ if(waiting[i].no === last.hitNo){ hitIdx = i; break; } }
+    }
+
+    if(!waiting.length){
       var em = document.createElement("div");
       em.className = "lane-empty" + (last.kind === "err" ? " bad" : "");
-      em.textContent = "（佇列是空的）";
+      em.textContent = "（目前沒有人候位）";
       line.appendChild(em);
     }
-    for(i=0;i<q.length;i++){
+    for(i=0;i<waiting.length;i++){
+      var c = waiting[i];
       var it = document.createElement("div");
       it.className = "item";
-      if(last.kind === "put" && i === q.length - 1) it.setAttribute("data-hit", "put");
-      else if(last.kind === "first" && i === 0)     it.setAttribute("data-hit", "first");
-      else if(last.kind === "all")                  it.setAttribute("data-hit", "all");
+      if(last.kind === "join" && i === waiting.length - 1) it.setAttribute("data-hit", "join");
+      else if(last.kind === "peek" && i === 0)             it.setAttribute("data-hit", "peek");
+      else if(last.kind === "all")                         it.setAttribute("data-hit", "all");
+      else if(hitIdx !== -1 && i === hitIdx)               it.setAttribute("data-hit", "find");
+      else if(hitIdx !== -1 && i < hitIdx)                 it.setAttribute("data-hit", "ahead");
 
       var ord = document.createElement("span");
-      ord.className = "ord"; ord.textContent = "第 " + (i+1) + " 筆";
+      ord.className = "ord"; ord.textContent = "前面 " + i + " 組";
+
       var box = document.createElement("span");
-      box.className = "box"; box.textContent = q[i];
-      if(last.kind === "all") box.style.animationDelay = (i * 0.16) + "s";   /* 一筆一筆依序跳 */
+      box.className = "box";
+      if(last.kind === "all") box.style.animationDelay = (i * 0.16) + "s";   /* 一位一位依序跳 */
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = c.no;
+      var unit = document.createElement("small"); unit.textContent = "號";
+      no.appendChild(unit);
+      var nm = document.createElement("span");
+      nm.className = "nm"; nm.textContent = c.name;
+      var ph = document.createElement("span");
+      ph.className = "ph"; ph.textContent = fmtPhone(c.phone);
+      box.appendChild(no); box.appendChild(nm); box.appendChild(ph);
+
       var tg = document.createElement("span");
       tg.className = "tags";
       if(i === 0){
@@ -770,7 +1026,7 @@ int main() {
         bf.className = "mf"; bf.textContent = "front";
         tg.appendChild(bf);
       }
-      if(i === q.length - 1){
+      if(i === waiting.length - 1){
         var bb = document.createElement("b");
         bb.className = "mb"; bb.textContent = "back";
         tg.appendChild(bb);
@@ -779,38 +1035,39 @@ int main() {
       line.appendChild(it);
     }
 
-    /* 剛放資料就捲到最後面，其他時候看第一筆 */
-    line.scrollLeft = (last.kind === "put") ? line.scrollWidth : 0;
-
-    $("gone").textContent = last.gone ? ("取出：" + last.gone) : "";
-    $("laneNote").textContent = "共 " + q.length + " 筆";
+    /* 剛登記就捲到最後面，其他時候看最前面 */
+    line.scrollLeft = (last.kind === "join") ? line.scrollWidth : 0;
+    $("laneNote").textContent = "候位 " + waiting.length + " 組";
   }
 
   /* ---------- 畫面層：佇列現況 ---------- */
   function paintStats(){
-    var n = q.length;
+    var n = waiting.length;
     $("vSize").textContent = n;
-    $("vEmpty").textContent = n === 0 ? "true" : "false";
-    $("vFront").textContent = n ? q[0] : "—";
-    $("vBack").textContent = n ? q[n-1] : "—";
+    $("vNextNo").textContent = nextNo;
+    $("vFront").textContent = n ? (waiting[0].no + " 號 " + waiting[0].name) : "—";
+    $("vBack").textContent = n ? (waiting[n-1].no + " 號 " + waiting[n-1].name) : "—";
   }
 
-  /* ---------- 畫面層：取出順序 ---------- */
-  function paintTaken(){
-    var host = $("taken"), i;
+  /* ---------- 畫面層：入座順序 ---------- */
+  function paintSeated(){
+    var host = $("seated"), i;
     host.innerHTML = "";
-    if(!taken.length){
-      var none = document.createElement("i");
-      none.textContent = "還沒有取出任何資料";
+    if(!seated.length){
+      var none = document.createElement("li");
+      none.className = "none"; none.textContent = "還沒有人入座";
       host.appendChild(none);
     }
-    for(i=0;i<taken.length;i++){
-      var sp = document.createElement("span");
-      sp.textContent = taken[i];
-      if(last.kind === "take" && i === taken.length - 1) sp.className = "is-new";
-      host.appendChild(sp);
+    for(i=0;i<seated.length;i++){
+      var li = document.createElement("li");
+      if(last.kind === "call" && i === seated.length - 1) li.className = "is-new";
+      var b = document.createElement("b"); b.textContent = seated[i].no + " 號";
+      var sp = document.createElement("span"); sp.textContent = seated[i].name;
+      li.appendChild(b); li.appendChild(sp);
+      host.appendChild(li);
     }
-    $("takenNote").textContent = taken.length ? ("共 " + taken.length + " 筆，先 → 後") : "先 → 後";
+    host.scrollTop = host.scrollHeight;
+    $("seatedNote").textContent = seated.length ? ("共 " + seated.length + " 組，先 → 後") : "先 → 後";
   }
 
   /* ---------- 畫面層：輸出視窗 ---------- */
@@ -819,7 +1076,7 @@ int main() {
     ol.innerHTML = "";
     if(!lines.length){
       var h = document.createElement("li");
-      h.className = "hint"; h.textContent = "還沒有任何輸出。每按一次按鈕，這裡會多兩行：你下的指令，和程式印出的結果。";
+      h.className = "hint"; h.textContent = "還沒有任何輸出。每做一個操作，這裡會多幾行：你下的指令，和系統印出的結果。";
       ol.appendChild(h);
     }
     for(i=0;i<lines.length;i++){
@@ -877,28 +1134,34 @@ int main() {
   }
 
   function render(){
-    paintLane(); paintStats(); paintTaken(); paintTerm(); paintAlgo(); paintSay();
+    paintBoard(); paintLane(); paintStats(); paintSeated(); paintTerm(); paintAlgo(); paintSay();
   }
 
   /* ---------- 事件綁定 ---------- */
-  $("putForm").addEventListener("submit", function(e){
+  $("joinForm").addEventListener("submit", function(e){
     e.preventDefault();
-    var box = $("val");
-    if(put(box.value)) box.value = "";
-    box.focus();
+    var nameBox = $("inName"), phoneBox = $("inPhone");
+    if(join(nameBox.value, phoneBox.value)){
+      nameBox.value = ""; phoneBox.value = "";
+      nameBox.focus();
+    } else if(!cleanName(nameBox.value)){
+      nameBox.focus();
+    } else {
+      phoneBox.focus();
+    }
   });
-  $("btnTake").addEventListener("click", take);
-  $("btnFirst").addEventListener("click", first);
+  $("btnSample").addEventListener("click", function(){
+    var s = SAMPLES[sampleIdx % SAMPLES.length];
+    if(join(s.name, s.phone)) sampleIdx++;
+  });
+  $("btnCall").addEventListener("click", callNext);
+  $("btnPeek").addEventListener("click", peekNext);
   $("btnAll").addEventListener("click", showAll);
-  $("btnClear").addEventListener("click", clearAll);
-
-  SAMPLES.forEach(function(s){
-    var b = document.createElement("button");
-    b.className = "chip"; b.type = "button";
-    b.textContent = "+ " + s;
-    b.addEventListener("click", function(){ put(s); });
-    $("quick").appendChild(b);
+  $("askForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    ask($("inNo").value);
   });
+  $("btnClose").addEventListener("click", closeShop);
 
   /* ---------- 啟動 ---------- */
   renderAlgo();

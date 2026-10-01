@@ -38,7 +38,7 @@
 │  ├─ 16-hash-table.html           雜湊表大碰撞
 │  ├─ 17-dijkstra.html             最短路徑派遣（Dijkstra）
 │  ├─ 18-queue-basics.html         佇列排隊入門（push / front / pop / size / empty，佇列第一關）
-│  └─ 19-queue-console.html        佇列操作台（自己輸入資料：放、取、看第一筆、檢視全部）
+│  └─ 19-queue-console.html        海大餐廳排隊系統（排隊編號、姓名、電話：登記、叫號、看下一位、名單、查順位）
 └─ README.md
 ```
 
