@@ -37,7 +37,8 @@
 │  ├─ 15-binary-search.html        二分搜尋猜數字
 │  ├─ 16-hash-table.html           雜湊表大碰撞
 │  ├─ 17-dijkstra.html             最短路徑派遣（Dijkstra）
-│  └─ 18-queue-basics.html         佇列排隊入門（push / front / pop / size / empty，佇列第一關）
+│  ├─ 18-queue-basics.html         佇列排隊入門（push / front / pop / size / empty，佇列第一關）
+│  └─ 19-queue-console.html        佇列操作台（自己輸入資料：放、取、看第一筆、檢視全部）
 └─ README.md
 ```
 
