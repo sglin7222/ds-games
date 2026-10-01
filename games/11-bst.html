@@ -51,6 +51,30 @@
   background:var(--sunken);border-radius:8px;padding:8px 11px;
   overflow-x:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 .mini-note{font-size:11.5px;color:var(--ink-faint);margin-top:5px;line-height:1.5}
+
+/* 走訪面板（遊戲下方的第二個小遊戲） */
+.tv-lead{font-size:14px;color:var(--ink-soft)}
+.tv-lead b{color:var(--ink)}
+.tv-row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.tv-rule{font-size:14px;font-weight:700;color:var(--accent)}
+#tvTree{display:block;margin:0 auto;width:100%;height:auto}
+.nd-seen{fill:var(--jade-soft);stroke:var(--jade);stroke-width:2}
+.nd-wait{fill:var(--surface);stroke:var(--accent);stroke-width:2;stroke-dasharray:4 3}
+.ord-c{fill:var(--jade)}
+.ord-t{font-family:var(--font-mono);font-size:10px;font-weight:700;fill:var(--surface);text-anchor:middle}
+.legend .lg-seen i{border-color:var(--jade);background:var(--jade-soft)}
+.legend .lg-wait i{border-color:var(--accent);border-style:dashed}
+.legend .lg-ord i{border-color:var(--jade);background:var(--jade);width:13px;height:13px}
+.tv-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:8px 11px;border-radius:8px;background:var(--sunken);min-height:42px}
+.tv-cap{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;
+  color:var(--ink-faint)}
+.tv-list{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.tv-list span{font-family:var(--font-mono);font-size:13px;font-weight:700;
+  padding:1px 8px;border-radius:6px;background:var(--jade-soft);color:var(--jade)}
+.tv-list span.is-new{background:var(--jade);color:var(--surface)}
+.tv-list.wait span{background:var(--accent-soft);color:var(--accent)}
+.tv-list em{font-style:normal;font-size:12.5px;color:var(--ink-faint)}
 </style>
 </head>
 <body>
@@ -112,6 +136,12 @@
             <li>先不給答案，由你猜：下一步往左還是往右？這個數字最後會種在誰底下？刪這個節點是三種情況中的哪一種？</li>
             <li>答對得分、連對加分；答錯立刻告訴你正確答案和理由。</li>
           </ol>
+          <h4>走訪面板（在遊戲下方）</h4>
+          <ol class="steps">
+            <li>樹種好之後往下捲到<b>「走訪這棵樹」</b>：它會拿上面遊戲目前那一步的樹來走。</li>
+            <li>選一種走法——<b>前序、中序、後序、層序</b>——按「下一步」看節點依序被印出來，圓圈右上角的小數字是「第幾個被印出」。</li>
+            <li>四種都走一遍，比較「輸出」那一列有什麼不同。</li>
+          </ol>
           <div class="callout" data-k="key">
             <span class="tag">操作</span>
             <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
@@ -124,6 +154,7 @@
             <li><b>BST 的家規：左小右大</b> —— 任何節點的左子樹全部比它小、右子樹全部比它大。插入、搜尋、刪除全靠這一條。</li>
             <li><b>搜尋為什麼快</b> —— 每比一次就丟掉半棵樹不用看，成本只跟「樹高」有關，平均 O(log n)。</li>
             <li><b>中序走訪＝自動排序</b> —— 照「左→根→右」把樹走一遍，數字就由小到大跑出來。這是 BST 最漂亮的性質。</li>
+            <li><b>四種走訪只差「什麼時候印自己」</b> —— 前序先印自己、中序夾在左右中間、後序最後才印，層序則是一層一層來。同一棵樹，四種走法印出四種順序。</li>
             <li><b>刪除的三種情況</b> —— 葉節點直接摘、單子節點讓孩子頂上、雙子節點要找「中序後繼」來替班。少會一種就不算會刪。</li>
             <li><b>退化成鏈的陷阱</b> —— 把排好序的數列照順序種進去，樹會歪成一條 O(n) 的長鏈，這正是 AVL、紅黑樹存在的理由。</li>
             <li><b>把遞迴讀成畫面</b> —— insert 裡再呼叫 insert，就是「機器裡再開一台小機器」，畫面會讓你看見它一層一層往下鑽。</li>
@@ -309,6 +340,76 @@ int main() {
 }</pre>
         <p>三個函式各十行上下。遊戲頁面多出來的幾百行，全部是為了「讓掉落的過程看得見」——教學程式和生產程式的差別就在這裡。</p>
       </div>
+
+      <!-- ============ 走訪面板：用四種走法走訪上面那棵樹 ============ -->
+      <div class="panel" id="trav">
+        <div class="panel-head">
+          <h3 class="panel-title">走訪這棵樹：前序・中序・後序・層序</h3>
+          <span class="panel-note" id="tvNote"></span>
+        </div>
+        <p class="tv-lead">樹種好了，接下來要把每個節點都<b>拜訪一次、印出來</b>——這叫「走訪」。同一棵樹有四種常見走法，差別只在「什麼時候印自己」。下面這棵就是上面遊戲<b>目前那一步</b>的樹：上面換關卡、走到別的步驟或自己種樹，這裡會跟著換。</p>
+
+        <div class="tv-row">
+          <div class="modes" role="tablist" aria-label="走訪方式">
+            <button class="mode-btn" data-tv="pre" role="tab" aria-selected="false">前序</button>
+            <button class="mode-btn is-on" data-tv="in" role="tab" aria-selected="true">中序</button>
+            <button class="mode-btn" data-tv="post" role="tab" aria-selected="false">後序</button>
+            <button class="mode-btn" data-tv="level" role="tab" aria-selected="false">層序</button>
+          </div>
+          <span class="tv-rule" id="tvRule"></span>
+        </div>
+
+        <div class="treewrap">
+          <svg id="tvTree" viewBox="0 0 360 150" role="img" aria-label="走訪中的二元搜尋樹"></svg>
+        </div>
+        <div class="legend">
+          <span class="lg-cur"><i></i>現在站在這裡</span>
+          <span class="lg-wait"><i></i><span id="tvWaitLegend">來過了，還沒印</span></span>
+          <span class="lg-seen"><i></i>已經印出</span>
+          <span class="lg-ord"><i></i>小數字＝第幾個被印出</span>
+        </div>
+
+        <div class="tv-strip">
+          <span class="tv-cap">輸出（印出來的順序）</span>
+          <div class="tv-list" id="tvOut"></div>
+        </div>
+        <div class="tv-strip">
+          <span class="tv-cap" id="tvWaitCap">呼叫堆疊</span>
+          <div class="tv-list wait" id="tvWait"></div>
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="tvPrev" type="button">← 上一步</button>
+          <button class="btn btn-primary" id="tvNext" type="button">下一步</button>
+          <button class="btn" id="tvPlay" type="button">▶ 自動播放</button>
+          <button class="btn" id="tvReset" type="button">↺ 重來</button>
+          <div class="progress"><i id="tvBar"></i></div>
+          <span class="step-count" id="tvCount">0 / 0</span>
+        </div>
+
+        <div class="say" id="tvSay" data-k="start" aria-live="polite">
+          <span class="say-badge" id="tvBadge">START</span>
+          <div class="say-body">
+            <div class="say-title" id="tvTitle"></div>
+            <div class="say-text" id="tvText"></div>
+          </div>
+        </div>
+
+        <ol class="algo" id="tvAlgo"></ol>
+        <div class="algo-doc idle" id="tvDoc">
+          <span class="ln" id="tvDocLn">—</span>
+          <span id="tvDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>這種走法的程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="tvAll"></ol>
+        </details>
+
+        <div class="callout" data-k="ok">
+          <span class="tag">下一關</span>
+          <span class="txt">這裡只看「走到哪、印了誰」。想看遞迴的呼叫堆疊怎麼一層一層疊起來又收回去，或挑戰「只給走訪結果，反推出原本的樹」，請玩 <a href="12-tree-traversal.html"><b>12 走訪路線猜謎</b></a>。</span>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -379,6 +480,27 @@ int main() {
         <h3>關鍵觀察二：中序走訪＝排序輸出</h3>
         <p>「中序走訪」的規則只有一句：對每個節點，先走完<b>左</b>子樹、再輪到<b>自己</b>、最後走<b>右</b>子樹。因為家規保證「左邊全部較小、右邊全部較大」，這個順序印出來的就是<b>由小到大</b>。</p>
         <p>玩的時候盯著右側「中序走訪」面板：不管樹被插入、刪除成什麼形狀，那一行永遠保持排好序——只要它亂掉，就代表家規被破壞了。這也是檢查「一棵樹是不是合法 BST」最實用的方法。</p>
+      </div>
+
+      <div class="block">
+        <h3>四種走訪：只差「什麼時候印自己」</h3>
+        <p>中序只是走訪的其中一種。對每個節點都有三件事要做——印自己、走左子樹、走右子樹——把「印自己」排在不同位置，就得到前序、中序、後序；層序則完全換一種走法，一層一層由上往下。用依序插入 50, 30, 70, 20, 40, 60, 80 種出來的那棵樹當例子：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>走法</th><th>順序</th><th class="mono">印出來的結果</th><th>特徵</th><th>常見用途</th></tr></thead>
+            <tbody>
+              <tr><td><b>前序</b></td><td>根 → 左 → 右</td><td class="mono">50 30 20 40 70 60 80</td><td>樹根永遠第一個</td><td>複製、存檔一棵樹（照這個順序重新插入，會種出一模一樣的樹）</td></tr>
+              <tr><td><b>中序</b></td><td>左 → 根 → 右</td><td class="mono" style="color:var(--jade);font-weight:700">20 30 40 50 60 70 80</td><td>在 BST 上一定由小到大</td><td>排序輸出、檢查是不是合法的 BST</td></tr>
+              <tr><td><b>後序</b></td><td>左 → 右 → 根</td><td class="mono">20 40 30 60 80 70 50</td><td>樹根永遠最後一個</td><td>刪除整棵樹（先刪孩子再刪爸爸）、計算資料夾總大小</td></tr>
+              <tr><td><b>層序</b></td><td>一層一層，左到右</td><td class="mono">50 30 70 20 40 60 80</td><td>離樹根近的先印</td><td>印出樹的形狀、找離樹根最近的某個節點</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>前三種都是「一條路走到底再回頭」，寫成程式是遞迴，三者只是三行程式的<b>先後順序不同</b>。層序不用遞迴，改用一個<b>佇列</b>：印出一個節點時，順手讓它的孩子去排隊。</p>
+        <div class="callout" data-k="key">
+          <span class="tag">動手</span>
+          <span class="txt">回到第 02 段最下面的「走訪這棵樹」面板，四種走法各按一遍，對照這張表。再去玩「陷阱：照順序種」那一關的歪脖子樹——它的前序、中序、層序會<b>一模一樣</b>，想想為什麼。</span>
+        </div>
       </div>
 
       <div class="block">
@@ -539,6 +661,7 @@ int main() {
               <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只做一件事：改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
               <tr><td><b>闖關</b></td><td class="mono">nextQuizIndex<br>renderQuiz / answerQuiz</td><td>出題、對答案、計分。不碰演算法，只是「先不給看下一步」。</td></tr>
               <tr><td><b>載入</b></td><td class="mono">loadLevel / loadCustom<br>setMode</td><td>換關卡、換模式，重建 steps 並歸零。</td></tr>
+              <tr><td><b>走訪面板</b></td><td class="mono">tvSync / tvBuild<br>tvRender</td><td>遊戲下方的第二個小遊戲，自己有一份狀態 <code>T</code>。主畫面每次重畫都呼叫 <code>tvSync()</code>：樹有變，就拿新的樹用 <code>tvBuild()</code> 重算走訪步驟——同樣是「先算完，再播放」。</td></tr>
             </tbody>
           </table>
         </div>
@@ -1156,6 +1279,7 @@ int main() {
 
   function paintAll(){
     paintTree(); paintState(); paintAlgo(); paintSay(); paintLog(); paintProgress();
+    tvSync();   /* 樹有變，下方的走訪面板就跟著換一棵 */
   }
   function render(){
     paintAll();
@@ -1351,7 +1475,7 @@ int main() {
 
   function setMode(m){
     S.mode = m;
-    var btns = document.querySelectorAll(".mode-btn");
+    var btns = document.querySelectorAll(".mode-btn[data-mode]");
     for(var i=0;i<btns.length;i++){
       var on = btns[i].getAttribute("data-mode") === m;
       btns[i].classList.toggle("is-on", on);
@@ -1376,7 +1500,7 @@ int main() {
   $("btnPlay").addEventListener("click", togglePlay);
   $("btnReset").addEventListener("click", reloadCurrent);
 
-  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn[data-mode]"), function(b){
     b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
   });
 
@@ -1407,8 +1531,366 @@ int main() {
     } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
   });
 
-  /* ---------- 9. 啟動 ---------- */
+  /* ============================================================
+     9. 走訪面板：遊戲下方的第二個小遊戲
+        讀主遊戲「目前那一步」的樹，用四種走法各走一遍。
+        自己有一份狀態 T，架構同樣是「先算完，再播放」。
+     ============================================================ */
+  var TV_NAME = {pre:"前序", "in":"中序", post:"後序", level:"層序"};
+  var TV_RULE = {pre:"根 → 左 → 右（先印自己）", "in":"左 → 根 → 右（自己夾在中間）",
+                 post:"左 → 右 → 根（自己最後印）", level:"一層一層，由上到下、由左到右"};
+
+  var TV_CODE = {
+    pre: [
+      "void preorder(Node* root) {",
+      "    if (root == NULL) return;",
+      "    printf(\"%d \", root->val);",
+      "    preorder(root->left);",
+      "    preorder(root->right);",
+      "}"
+    ],
+    "in": [
+      "void inorder(Node* root) {",
+      "    if (root == NULL) return;",
+      "    inorder(root->left);",
+      "    printf(\"%d \", root->val);",
+      "    inorder(root->right);",
+      "}"
+    ],
+    post: [
+      "void postorder(Node* root) {",
+      "    if (root == NULL) return;",
+      "    postorder(root->left);",
+      "    postorder(root->right);",
+      "    printf(\"%d \", root->val);",
+      "}"
+    ],
+    level: [
+      "void levelorder(Node* root) {",
+      "    if (root == NULL) return;",
+      "    std::queue<Node*> q;",
+      "    q.push(root);",
+      "    while (!q.empty()) {",
+      "        Node* cur = q.front();",
+      "        q.pop();",
+      "        printf(\"%d \", cur->val);",
+      "        if (cur->left)  q.push(cur->left);",
+      "        if (cur->right) q.push(cur->right);",
+      "    }",
+      "}"
+    ]
+  };
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 TV_CODE 一一對應 */
+  var TV_DOC = {
+    pre: [
+      "「前序走訪機器」：給它一棵樹（或子樹）的樹根名片 root，它會把這棵樹的每個節點都印出來。void 表示做完事不用回報結果。",
+      "走到空白名片（NULL）＝這裡沒有節點，沒東西可印，直接 return（收工，回到上一層）。每一條路走到底，都靠這一行煞車。",
+      "先印自己：把目前節點的數字印到螢幕上（printf 就是「印出來」）。「前序」的「前」，指的就是自己排在最前面。",
+      "再處理左邊：開一台一模一樣的小機器（遞迴），把整棵左子樹交給它走完。它還沒走完之前，這台機器就停在這一行等。",
+      "最後處理右邊：左子樹全部印完之後，再開一台小機器去走右子樹。",
+      "這個節點和它底下的整棵子樹都印完了，機器收工，回到上一層。"
+    ],
+    "in": [
+      "「中序走訪機器」：給它一棵樹（或子樹）的樹根名片 root，它會把這棵樹的每個節點都印出來。void 表示做完事不用回報結果。",
+      "走到空白名片（NULL）＝這裡沒有節點，沒東西可印，直接 return（收工，回到上一層）。每一條路走到底，都靠這一行煞車。",
+      "先處理左邊：自己先不印，開一台一模一樣的小機器（遞迴）把整棵左子樹走完。它還沒走完之前，這台機器就停在這一行等。",
+      "左邊全部印完了，現在才印自己。「中序」＝自己排在左、右的中間。在二元搜尋樹上，左邊全部比自己小，所以這樣印出來剛好由小到大。",
+      "最後處理右邊：開一台小機器去走右子樹——那邊全部比自己大。",
+      "這個節點和它底下的整棵子樹都印完了，機器收工，回到上一層。"
+    ],
+    post: [
+      "「後序走訪機器」：給它一棵樹（或子樹）的樹根名片 root，它會把這棵樹的每個節點都印出來。void 表示做完事不用回報結果。",
+      "走到空白名片（NULL）＝這裡沒有節點，沒東西可印，直接 return（收工，回到上一層）。每一條路走到底，都靠這一行煞車。",
+      "先處理左邊：自己先不印，開一台一模一樣的小機器（遞迴）把整棵左子樹走完。",
+      "再處理右邊：自己還是不印，再開一台小機器把整棵右子樹走完。",
+      "左右兩邊都印完了，最後才印自己。「後序」＝自己排最後。所以孩子一定比爸爸先印，整棵樹的樹根永遠最後一個出來。",
+      "這個節點和它底下的整棵子樹都印完了，機器收工，回到上一層。"
+    ],
+    level: [
+      "「層序走訪機器」：一層一層、由左到右把節點印出來。它不用遞迴，改用一條隊伍（佇列）來記「接下來輪到誰」。",
+      "空樹就沒東西可印，直接收工。",
+      "準備一條隊伍 q。std::queue 是 C++ 現成的佇列（要先 #include <queue>），<Node*> 表示裡面排的是「節點的名片」。佇列的規則：先排的先處理。",
+      "先讓樹根去排隊。push 就是「排到隊伍最後面」。",
+      "「while」＝迴圈：只要隊伍裡還有人（! 是「不」，!q.empty() 就是「隊伍不是空的」），就一直重複大括號裡的事。",
+      "看隊伍最前面是誰，把他的名片記在 cur。front() 只是看，人還在隊伍裡。",
+      "讓排最前面的人離開隊伍。pop 就是「離場」。",
+      "印出他的數字。",
+      "他有左孩子的話，讓左孩子排到隊伍最後面。if＝條件成立才做。",
+      "有右孩子也去排隊。孩子永遠排在「同一層還沒處理的人」後面，所以上一層一定比下一層先印完——這就是一層一層的原因。",
+      "迴圈的內容到此為止，回到 while 那一行再檢查隊伍還有沒有人。",
+      "隊伍空了＝所有節點都印過了，機器收工。"
+    ]
+  };
+
+  var TV_FIN = {
+    pre:"前序的特徵：<b>樹根永遠第一個</b>。照這個順序把數字重新插入一棵空樹，會種出一模一樣的樹，所以前序常用來複製或存檔一棵樹。",
+    "in":"中序的特徵：在二元搜尋樹上<b>一定由小到大</b>——因為每個節點的左邊全部比它小、右邊全部比它大。這也是右側「中序走訪」那一行的由來。",
+    post:"後序的特徵：<b>樹根永遠最後一個</b>，孩子一定比爸爸先印。要刪除整棵樹時就用這個順序：先刪孩子，才不會爸爸沒了、找不到孩子。",
+    level:"層序的特徵：<b>離樹根近的先印</b>。它跟前三種不同，用的是佇列而不是遞迴——這其實就是 07 迷宮那一關的 BFS。"
+  };
+
+  var T = {order:"in", tree:null, sig:null, steps:[], cur:0, timer:null};
+
+  /* ---------- 走訪面板・資料層：把一種走法整個跑完 ---------- */
+  function tvBuild(tree, order){
+    var steps = [], out = [], path = [];
+    var name = TV_NAME[order];
+    function snap(o){ o.out = out.slice(); steps.push(o); }
+
+    if(!tree){
+      snap({kind:"start", cur:null, wait:[], line:2,
+        title:"樹是空的，沒有節點可以走訪",
+        msg:"回到上面的遊戲，按「下一步」種出幾個節點（或選一個已經種好樹的關卡），這裡就會出現那棵樹。空樹的走訪在程式第 2 行就結束了：<b>root == NULL</b>，直接 return。"});
+      return steps;
+    }
+
+    if(order === "level"){
+      var q = [tree];
+      snap({kind:"start", cur:null, wait:[tree.v], line:4,
+        title:"層序走訪開始：樹根 " + tree.v + " 先去排隊",
+        msg:"層序不用遞迴，用一條隊伍（佇列）。一開始隊伍裡只有樹根 <b>" + tree.v + "</b>。規則：排最前面的出來印，印的時候順手讓他的孩子排到隊伍最後面。"});
+      while(q.length){
+        var n = q.shift(), kids = [];
+        out.push(n.v);
+        if(n.L){ q.push(n.L); kids.push(n.L.v); }
+        if(n.R){ q.push(n.R); kids.push(n.R.v); }
+        snap({kind:"visit", cur:n.v, wait:q.map(function(k){ return k.v; }), line:8,
+          title:"印出 " + n.v,
+          msg:"<b>" + n.v + "</b> 排在隊伍最前面：離開隊伍、印出來。" +
+            (kids.length ? ("它的孩子 <b>" + kids.join("、") + "</b> 排到隊伍最後面。") : "它沒有孩子，沒有人要去排隊。") +
+            (q.length ? ("下一個輪到 <b>" + q[0].v + "</b>。") : "隊伍空了。")});
+      }
+    } else {
+      snap({kind:"start", cur:null, wait:[], line:1,
+        title:name + "走訪開始：從樹根 " + tree.v + " 出發",
+        msg:name + "的順序是 <b>" + TV_RULE[order] + "</b>。對每一個節點都照這個順序做，包括它底下的每一棵子樹。按「下一步」開始。"});
+      (function go(n){
+        var hasL = !!n.L, hasR = !!n.R;
+        path.push(n.v);
+        if(order === "pre"){
+          out.push(n.v);
+          snap({kind:"visit", cur:n.v, wait:path.slice(), line:3,
+            title:"印出 " + n.v,
+            msg:"來到 <b>" + n.v + "</b>。前序＝先印自己，所以一到就馬上印出來。" +
+              (hasL ? ("接著往左走到 <b>" + n.L.v + "</b>。")
+                    : hasR ? ("它沒有左孩子，接著往右走到 <b>" + n.R.v + "</b>。")
+                           : "它沒有孩子，這台小機器收工，回到上一層。")});
+          if(hasL) go(n.L);
+          if(hasR) go(n.R);
+        } else if(order === "in"){
+          if(hasL){
+            snap({kind:"arrive", cur:n.v, wait:path.slice(), line:3,
+              title:"來到 " + n.v + "，先不印",
+              msg:"中序要先把左邊走完才輪到自己，所以 <b>" + n.v + "</b> 先等著，往左走到 <b>" + n.L.v + "</b>。"});
+            go(n.L);
+          }
+          out.push(n.v);
+          snap({kind:"visit", cur:n.v, wait:path.slice(), line:4,
+            title:"印出 " + n.v,
+            msg:(hasL ? ("<b>" + n.v + "</b> 的左子樹全部印完了，現在輪到自己：印出 <b>" + n.v + "</b>。")
+                      : ("來到 <b>" + n.v + "</b>。它沒有左孩子，左邊不用走，直接印出 <b>" + n.v + "</b>。")) +
+              (hasR ? ("接著往右走到 <b>" + n.R.v + "</b>。") : "它沒有右孩子，這台小機器收工，回到上一層。")});
+          if(hasR) go(n.R);
+        } else {
+          if(hasL || hasR){
+            snap({kind:"arrive", cur:n.v, wait:path.slice(), line:hasL ? 3 : 4,
+              title:"來到 " + n.v + "，先不印",
+              msg:"後序要等左右兩邊都走完才印自己，所以 <b>" + n.v + "</b> 先等著，" +
+                (hasL ? ("往左走到 <b>" + n.L.v + "</b>。") : ("它沒有左孩子，往右走到 <b>" + n.R.v + "</b>。"))});
+          }
+          if(hasL) go(n.L);
+          if(hasR) go(n.R);
+          out.push(n.v);
+          snap({kind:"visit", cur:n.v, wait:path.slice(), line:5,
+            title:"印出 " + n.v,
+            msg:(hasL || hasR) ? ("<b>" + n.v + "</b> 的左右子樹都印完了，最後才輪到自己：印出 <b>" + n.v + "</b>。")
+                               : ("來到 <b>" + n.v + "</b>。它沒有孩子，左右都不用走，直接印出 <b>" + n.v + "</b>。")});
+        }
+        path.pop();
+      })(tree);
+    }
+
+    snap({kind:"done", cur:null, wait:[], line:(order === "level" ? 12 : 6),
+      title:name + "走訪完成：" + out.join(" "),
+      msg:TV_FIN[order] + "換另一種走法再走一次，比較輸出有什麼不同。"});
+    return steps;
+  }
+
+  /* ---------- 走訪面板・畫面層 ---------- */
+  function tvPaintTree(){
+    var st = T.steps[T.cur], t = T.tree, svg = $("tvTree");
+    var parts = [], W, H, TOP = 34;
+
+    if(!t){
+      W = 360; H = 110;
+      parts.push('<text class="empty-t" x="' + (W/2) + '" y="60">（空樹——先在上面種幾個節點）</text>');
+    } else {
+      var pos = {}, cnt = 0, maxD = 0;
+      (function w(n, d){
+        if(!n) return;
+        w(n.L, d+1);
+        pos[n.v] = {i:cnt++, d:d};
+        if(d > maxD) maxD = d;
+        w(n.R, d+1);
+      })(t, 0);
+      W = Math.max(300, PADX*2 + cnt*SPX);
+      H = TOP + maxD*SPY + R + 16;
+      var px = function(v){ return PADX + pos[v].i*SPX + SPX/2; };
+      var py = function(v){ return TOP + pos[v].d*SPY; };
+
+      (function edges(n){
+        if(!n) return;
+        if(n.L) parts.push('<line class="edge" x1="' + px(n.v) + '" y1="' + py(n.v) + '" x2="' + px(n.L.v) + '" y2="' + py(n.L.v) + '"/>');
+        if(n.R) parts.push('<line class="edge" x1="' + px(n.v) + '" y1="' + py(n.v) + '" x2="' + px(n.R.v) + '" y2="' + py(n.R.v) + '"/>');
+        edges(n.L); edges(n.R);
+      })(t);
+
+      (function draw(n){
+        if(!n) return;
+        draw(n.L);
+        var x = px(n.v), y = py(n.v), k = st.out.indexOf(n.v), cls = "nd";
+        if(st.cur === n.v) cls = "nd nd-cur";
+        else if(k !== -1) cls = "nd nd-seen";
+        else if(st.wait.indexOf(n.v) !== -1) cls = "nd nd-wait";
+        parts.push('<circle class="' + cls + '" cx="' + x + '" cy="' + y + '" r="' + R + '"/>');
+        parts.push('<text class="nv" x="' + x + '" y="' + (y+5) + '">' + n.v + '</text>');
+        if(k !== -1){   /* 右上角小數字：第幾個被印出 */
+          parts.push('<circle class="ord-c" cx="' + (x+R-2) + '" cy="' + (y-R+2) + '" r="8.5"/>');
+          parts.push('<text class="ord-t" x="' + (x+R-2) + '" y="' + (y-R+5.5) + '">' + (k+1) + '</text>');
+        }
+        draw(n.R);
+      })(t);
+    }
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.style.maxWidth = Math.min(940, W*1.45) + "px";
+    svg.innerHTML = parts.join("");
+  }
+
+  function tvFill(host, vals, emptyText, markLast){
+    host.innerHTML = "";
+    if(!vals.length){
+      var em = document.createElement("em");
+      em.textContent = emptyText;
+      host.appendChild(em);
+      return;
+    }
+    for(var i=0;i<vals.length;i++){
+      var sp = document.createElement("span");
+      sp.textContent = vals[i];
+      if(markLast && i === vals.length - 1) sp.className = "is-new";
+      host.appendChild(sp);
+    }
+  }
+
+  function tvRenderAlgo(){
+    var code = TV_CODE[T.order], docs = TV_DOC[T.order];
+    var ol = $("tvAlgo"), all = $("tvAll"), i;
+    ol.innerHTML = ""; all.innerHTML = "";
+    for(i=0;i<code.length;i++){
+      var li = document.createElement("li");
+      li.textContent = code[i];
+      ol.appendChild(li);
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = i+1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = code[i].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = docs[i] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  function tvRender(){
+    var st = T.steps[T.cur], total = T.steps.length - 1, isLevel = (T.order === "level");
+    tvPaintTree();
+
+    tvFill($("tvOut"), st.out, "還沒有印出任何節點", st.kind === "visit");
+    $("tvWaitCap").textContent = isLevel ? "佇列（排隊等著被印，左邊先）" : "呼叫堆疊（還沒收工的機器，由上層到下層）";
+    $("tvWaitLegend").textContent = isLevel ? "在隊伍裡排隊" : "來過了，還沒印";
+    tvFill($("tvWait"), st.wait, isLevel ? "隊伍是空的" : "沒有機器在執行", false);
+
+    var docs = TV_DOC[T.order], lis = $("tvAlgo").children, rows = $("tvAll").children, i;
+    for(i=0;i<lis.length;i++){
+      lis[i].classList.toggle("is-now", (i+1) === st.line);
+      rows[i].classList.toggle("is-now", (i+1) === st.line);
+    }
+    $("tvDoc").classList.remove("idle");
+    $("tvDocLn").textContent = "行 " + st.line;
+    $("tvDocTxt").textContent = docs[st.line-1];
+
+    $("tvSay").setAttribute("data-k", st.kind === "visit" ? "ok" : st.kind === "arrive" ? "hot" : st.kind === "done" ? "done" : "start");
+    $("tvBadge").textContent = st.kind === "visit" ? "PRINT" : st.kind === "arrive" ? "WAIT" : st.kind === "done" ? "DONE" : "START";
+    $("tvTitle").textContent = st.title;
+    $("tvText").innerHTML = st.msg;
+
+    $("tvRule").textContent = TV_NAME[T.order] + "：" + TV_RULE[T.order];
+    $("tvNote").textContent = T.tree ? (TV_NAME[T.order] + " · " + countN(T.tree) + " 個節點") : "空樹";
+    $("tvBar").style.width = (total > 0 ? T.cur/total*100 : 0) + "%";
+    $("tvCount").textContent = T.cur + " / " + total;
+    $("tvPrev").disabled = (T.cur === 0);
+    $("tvNext").disabled = (T.cur >= total);
+    $("tvPlay").disabled = (total === 0);
+  }
+
+  /* ---------- 走訪面板・導覽與載入 ---------- */
+  function tvGoto(k){
+    T.cur = Math.max(0, Math.min(T.steps.length-1, k));
+    tvRender();
+  }
+  function tvStop(){
+    clearInterval(T.timer); T.timer = null;
+    $("tvPlay").textContent = "▶ 自動播放";
+  }
+  function tvNextStep(){
+    if(T.cur >= T.steps.length-1){ tvStop(); return; }
+    tvGoto(T.cur + 1);
+    if(T.cur >= T.steps.length-1) tvStop();
+  }
+  function tvTogglePlay(){
+    if(T.timer){ tvStop(); return; }
+    if(T.cur >= T.steps.length-1) tvGoto(0);
+    $("tvPlay").textContent = "❚❚ 暫停";
+    T.timer = setInterval(tvNextStep, 900);
+  }
+  function tvLoad(){
+    tvStop();
+    T.steps = tvBuild(T.tree, T.order);
+    T.cur = 0;
+    tvRender();
+  }
+  /* 主遊戲每次重畫都會呼叫：樹跟上次不一樣，才重算走訪 */
+  function tvSync(){
+    var t = S.steps[S.cur].tree, sig = JSON.stringify(t);
+    if(sig === T.sig) return;
+    T.sig = sig; T.tree = t;
+    tvLoad();
+  }
+  function tvSetOrder(o){
+    T.order = o;
+    var btns = document.querySelectorAll(".mode-btn[data-tv]");
+    for(var i=0;i<btns.length;i++){
+      var on = btns[i].getAttribute("data-tv") === o;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    tvRenderAlgo();
+    tvLoad();
+  }
+
+  $("tvNext").addEventListener("click", function(){ tvStop(); tvNextStep(); });
+  $("tvPrev").addEventListener("click", function(){ tvStop(); tvGoto(T.cur - 1); });
+  $("tvPlay").addEventListener("click", tvTogglePlay);
+  $("tvReset").addEventListener("click", function(){ tvStop(); tvGoto(0); });
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn[data-tv]"), function(b){
+    b.addEventListener("click", function(){ tvSetOrder(b.getAttribute("data-tv")); });
+  });
+
+  /* ---------- 10. 啟動 ---------- */
   renderAlgo();
+  tvRenderAlgo();
   loadLevel(0);
 })();
 </script>
