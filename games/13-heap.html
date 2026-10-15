@@ -88,23 +88,42 @@
     <div class="sec-head">
       <span class="sec-num">00</span>
       <div>
-        <h2>先搞懂：Heap（堆積）到底是什麼</h2>
+        <h2>先搞懂：最大堆積（Max-Heap）到底是什麼</h2>
         <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
       </div>
     </div>
     <div class="sec-body">
 
       <div class="block">
-        <h3>一句話定義</h3>
+        <h3>定義：最大堆積（Max-Heap）</h3>
         <div class="defbox">
-          <span class="deftag">DEFINITION · 定義</span>
-          <div class="defline">堆積（Heap）是一種資料的擺放方式：把資料排成一棵<em>「完全二元樹」</em>，並且規定<em>「每個爸爸都比自己的孩子大（或一樣大）」</em>。</div>
-          <p>只要遵守這兩條規定，<b>最大的那個數字一定站在最上面</b>，想拿最大值時看一眼就有，不用整包找。</p>
+          <span class="deftag">DEFINITION · 最大堆積 Max-Heap</span>
+          <div class="defline">最大堆積（Max-Heap）是一棵<em>完全二元樹</em>，而且樹上<em>每一個節點的值，都大於或等於它的孩子的值</em>。</div>
+          <p>白話：資料排成一層一層、由左到右排滿的樹形，每個「爸爸」都不能輸給自己的「孩子」。只要遵守這兩條，<b>最大的數字一定站在最上面（根）</b>，想拿最大值時看一眼就有，不用整包找。</p>
         </div>
-        <p>這句話裡有好幾個沒聽過的詞——「樹」、「爸爸孩子」、「完全二元樹」。別急，下面一個一個拆。先記住 heap 想解決的事情只有一件：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>白話</b></td><td>排得整整齊齊的樹，每個爸爸 ≥ 自己的孩子。</td></tr>
+              <tr><td><b>樹的說法</b></td><td>① 形狀：完全二元樹。② 大小：對每個節點 x 和它的每個孩子 c，<b>x 的值 ≥ c 的值</b>。</td></tr>
+              <tr><td><b>陣列的說法</b><br><small>（電腦真正存的樣子）</small></td><td>資料存在陣列 h[0]、h[1]、……、h[n−1]，中間沒有空格。對每一個 i ≥ 1：<b class="mono">h[(i−1)÷2] ≥ h[i]</b>。（(i−1)÷2 就是 i 的爸爸，下面會解釋）</td></tr>
+              <tr><td><b>直接結果</b></td><td>最大值一定是 <b class="mono">h[0]</b>（根）。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <span class="tag">對照</span>
+          <span class="txt">把「≥」換成「≤」，就是<b>最小堆積（Min-Heap）</b>：每個爸爸 ≤ 孩子，根是最小值。兩者合稱<b>二元堆積（Binary Heap）</b>，平常簡稱「堆積」或 heap。<b>本關玩的全部是最大堆積</b>，下文說 heap 時，指的都是 Max-Heap。</span>
+        </div>
+        <p>定義裡有好幾個沒聽過的詞——「樹」、「節點」、「孩子」、「完全二元樹」。別急，下面一個一個拆。先記住 Max-Heap 想解決的事情只有一件：</p>
         <div class="callout" data-k="key">
           <span class="tag">目的</span>
           <span class="txt">一堆數字一直有人<b>丟進來</b>、也一直有人要<b>拿走目前最大的</b>。heap 讓這兩件事都很快。就像急診室：病人隨時進來，醫生每次都先看<b>最嚴重的</b>那位，不是看誰先到。</span>
+        </div>
+        <div class="callout">
+          <span class="tag">名字</span>
+          <span class="txt"><b>「二元」</b>＝每個節點最多帶<b>兩個</b>孩子（下面的名詞卡會講「二元樹」）。<b>「堆積」</b>＝像一堆疊起來的東西，最大的壓在最上面。<b>「最大」</b>＝根放的是最大值。</span>
         </div>
       </div>
 
@@ -190,7 +209,7 @@
       </div>
 
       <div class="block">
-        <h3>定義拆成兩個條件：缺一個就不是 heap</h3>
+        <h3>定義拆成兩個條件：缺一個就不是 Max-Heap</h3>
         <ol class="steps">
           <li><b>形狀條件</b>——整棵樹必須是<b>完全二元樹</b>：一層一層、由左到右排滿，中間不准有空位。</li>
           <li><b>大小條件</b>——每個爸爸都要 ≥ 自己的孩子（最大堆積）。</li>
@@ -290,6 +309,27 @@
       </div>
 
       <div class="block">
+        <h3>Max-Heap 能做哪些事：五個基本操作</h3>
+        <p>資料結構除了「怎麼擺」，還要說清楚「能對它做什麼」。Max-Heap 就這五件事，後面的遊戲全部都是在演這五件事：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>操作</th><th>白話</th><th class="mono">C++ priority_queue</th><th class="mono">花多少力氣</th></tr></thead>
+            <tbody>
+              <tr><td><b>看最大值</b> top</td><td>看一眼目前最大的是誰，<b>不拿走</b>。它就在根（陣列第 0 格）。</td><td class="mono">pq.top()</td><td class="mono">O(1)：看一眼</td></tr>
+              <tr><td><b>插入</b> insert / push</td><td>放一個新數字進來。先放最後一格，再<b>上浮</b>到對的位置。</td><td class="mono">pq.push(x)</td><td class="mono">O(log n)</td></tr>
+              <tr><td><b>取出最大</b> extract-max / pop</td><td>把最大值拿走。最後一格補到根，再<b>下沉</b>到對的位置。</td><td class="mono">pq.pop()</td><td class="mono">O(log n)</td></tr>
+              <tr><td><b>一次建堆</b> buildHeap</td><td>手上已經有一整包數字，一口氣整理成 Max-Heap。</td><td class="mono">建構時傳入整包資料</td><td class="mono">O(n)</td></tr>
+              <tr><td><b>數量 / 是否為空</b> size / empty</td><td>現在裝了幾個、是不是空的。</td><td class="mono">pq.size()、pq.empty()</td><td class="mono">O(1)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">做不到</span>
+          <span class="txt">Max-Heap <b>不擅長</b>「找任意一個數在不在裡面」——因為只有上下有規矩、左右沒有，只能整包翻，O(n)。要快速查找請用二元搜尋樹（第 11 關）或雜湊表（第 16 關）。</span>
+        </div>
+      </div>
+
+      <div class="block">
         <h3>容易搞混的幾件事</h3>
         <div class="tablewrap">
           <table>
@@ -309,7 +349,7 @@
         <div class="check">
           <details>
             <summary>最大堆積裡，最大值一定在哪裡？最小值呢？</summary>
-            <div class="ans">最大值<b>一定在根</b>（陣列第 0 格）。最小值<b>不一定在哪</b>，只知道它一定是某片<b>葉子</b>（因為它不可能比任何孩子大，所以它不能有孩子）。</div>
+            <div class="ans">最大值<b>一定在根</b>（陣列第 0 格）。最小值<b>沒有固定位置</b>，只知道（數字都不相同時）它一定是某片<b>葉子</b>：如果它有孩子，孩子就得比它小，那它就不是最小了。</div>
           </details>
           <details>
             <summary><code>[9, 5, 8, 1, 6]</code> 是不是最大堆積？</summary>
@@ -497,7 +537,7 @@
       <div class="panel algo-panel">
         <div class="panel-head">
           <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
-          <span class="panel-note">push / pop 各 O(log n)</span>
+          <span class="panel-note">push / pop O(log n)・buildHeap O(n)</span>
         </div>
         <ol class="algo" id="algo"></ol>
         <div class="algo-doc idle" id="algoDoc">
@@ -654,6 +694,44 @@ void buildHeap(vector&lt;int&gt;&amp; h) {              <i>// O(n)！第 03 段�
       </div>
 
       <div class="block">
+        <h3>看圖走一次：上浮與下沉</h3>
+        <p><b>插入 50</b> 到 <code>[48,44,35,10,26,30]</code>（橘色是主角，紅色是跟它比、而且違規的那個）：</p>
+        <div class="figs">
+          <figure class="fig">
+            <svg viewBox="0 0 220 146" role="img" aria-label="上浮第一步"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><line class="ed bad" x1="160" y1="70" x2="188" y2="118"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">48</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">44</text></g><g class="nd bad"><circle cx="160" cy="70" r="15"/><text x="160" y="70">35</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">10</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">26</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">30</text></g><g class="nd hot"><circle cx="188" cy="118" r="15"/><text x="188" y="118">50</text></g><text class="lbl" x="188" y="142">索引 6</text></svg>
+            <figcaption><b>① 先放最後一格。</b>50 放進索引 6（樹的最下層最右邊的空位）。爸爸在 (6−1)÷2 = <b>2</b>，是 35。50 &gt; 35，違規 → 交換。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 220 146" role="img" aria-label="上浮第二步"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed bad" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><line class="ed" x1="160" y1="70" x2="188" y2="118"/><g class="nd bad"><circle cx="110" cy="22" r="15"/><text x="110" y="22">48</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">44</text></g><g class="nd hot"><circle cx="160" cy="70" r="15"/><text x="160" y="70">50</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">10</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">26</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">30</text></g><g class="nd"><circle cx="188" cy="118" r="15"/><text x="188" y="118">35</text></g><text class="lbl" x="160" y="98">索引 2</text></svg>
+            <figcaption><b>② 升到索引 2。</b>新的爸爸在 (2−1)÷2 = <b>0</b>，是 48。50 &gt; 48，還是違規 → 再交換。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 146" role="img" aria-label="上浮結束"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><line class="ed" x1="160" y1="70" x2="188" y2="118"/><g class="nd good"><circle cx="110" cy="22" r="15"/><text x="110" y="22">50</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">44</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">48</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">10</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">26</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">30</text></g><g class="nd"><circle cx="188" cy="118" r="15"/><text x="188" y="118">35</text></g></svg>
+            <figcaption><b>③ 到根了，停。</b>索引 0 沒有爸爸。總共換了 2 次＝樹高 2。陣列變成 <code>[50,44,48,10,26,30,35]</code>。</figcaption>
+          </figure>
+        </div>
+        <p><b>取出最大值</b>，從 <code>[50,44,48,10,26,30,35]</code> 開始：</p>
+        <div class="figs">
+          <figure class="fig">
+            <svg viewBox="0 0 220 146" role="img" aria-label="下沉第一步"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><line class="ed" x1="160" y1="70" x2="188" y2="118"/><g class="nd bad"><circle cx="110" cy="22" r="15"/><text x="110" y="22">50</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">44</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">48</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">10</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">26</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">30</text></g><g class="nd hot"><circle cx="188" cy="118" r="15"/><text x="188" y="118">35</text></g><text class="lbl" x="188" y="142">最後一格</text></svg>
+            <figcaption><b>① 取走根的 50。</b>根空了，把<b>最後一格</b>的 35 搬上來補洞，陣列少一格。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 220 146" role="img" aria-label="下沉第二步"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed bad" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><g class="nd hot"><circle cx="110" cy="22" r="15"/><text x="110" y="22">35</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">44</text></g><g class="nd bad"><circle cx="160" cy="70" r="15"/><text x="160" y="70">48</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">10</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">26</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">30</text></g><text class="lbl bad" x="160" y="98">較大的孩子</text></svg>
+            <figcaption><b>② 35 跟兩個孩子比。</b>孩子在 2×0+1 = 1（44）和 2×0+2 = 2（48）。<b>較大的孩子是 48</b>，35 &lt; 48 → 跟 48 交換。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 146" role="img" aria-label="下沉結束"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><g class="nd good"><circle cx="110" cy="22" r="15"/><text x="110" y="22">48</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">44</text></g><g class="nd hot"><circle cx="160" cy="70" r="15"/><text x="160" y="70">35</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">10</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">26</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">30</text></g></svg>
+            <figcaption><b>③ 35 到索引 2，停。</b>它只剩一個孩子（索引 5 的 30），35 ≥ 30，規矩成立。新的根 48 正是剩下的最大值。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">對照</span>
+          <span class="txt">上浮只跟<b>一個人</b>比（爸爸只有一個）；下沉要先在<b>兩個孩子</b>之間挑出較大的，再跟它比。所以下沉每層最多比較 2 次，上浮每層 1 次。</span>
+        </div>
+      </div>
+
+      <div class="block">
         <h3>手算一次：依序 insert 35、26、48、10、44</h3>
         <p>考試在紙上追蹤時就是畫這張表。陣列由左到右就是樹的「上到下、左到右」。</p>
         <div class="tablewrap">
@@ -672,6 +750,22 @@ void buildHeap(vector&lt;int&gt;&amp; h) {              <i>// O(n)！第 03 段�
       </div>
 
       <div class="block">
+        <h3>手算一次：從 [50, 44, 48, 10, 26, 30, 35] 連續 pop 三次</h3>
+        <p>這就是遊戲第 3 關。每一次都是同樣三招：<b>取走根 → 最後一格補到根 → 下沉</b>。下沉時「孩子在 2i+1、2i+2」：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">次</th><th>取走</th><th>補到根之後</th><th>下沉過程</th><th class="mono">陣列結果</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td class="mono">50</td><td class="mono">[35, 44, 48, 10, 26, 30]</td><td>根的孩子 44、48，較大是 48 → 35 跟 48 換；到索引 2，孩子只有 h[5]=30，35 ≥ 30，停</td><td class="mono">[48, 44, 35, 10, 26, 30]</td></tr>
+              <tr><td class="mono">2</td><td class="mono">48</td><td class="mono">[30, 44, 35, 10, 26]</td><td>根的孩子 44、35，較大是 44 → 30 跟 44 換；到索引 1，孩子 10、26 都 ≤ 30，停</td><td class="mono">[44, 30, 35, 10, 26]</td></tr>
+              <tr><td class="mono">3</td><td class="mono">44</td><td class="mono">[26, 30, 35, 10]</td><td>根的孩子 30、35，較大是 35 → 26 跟 35 換；到索引 2，2×2+1 = 5 超出陣列，是葉子，停</td><td class="mono">[35, 30, 26, 10]</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>取出的順序 50 → 48 → 44：每次都是「剩下之中最大的」。一直 pop 到空，就是第 4 關的 heapsort。</p>
+      </div>
+
+      <div class="block">
         <h3>buildHeap 為什麼是 O(n)（直觀版）</h3>
         <p>把 n 個數一次變成堆，有兩條路：逐一 insert（每個最多浮 log n 層 → O(n log n)），或是 buildHeap：整包放進陣列，<b>從最後一個非葉子往前</b>，每格做一次下沉。後者只要 O(n)，關鍵在「誰做多少工」的分配：</p>
         <div class="tablewrap">
@@ -685,7 +779,27 @@ void buildHeap(vector&lt;int&gt;&amp; h) {              <i>// O(n)！第 03 段�
             </tbody>
           </table>
         </div>
-        <p>合計 11 次交換上限 ≈ n，而不是 n·log n。一般化：<b>一半的節點是葉子完全不用動</b>、四分之一最多沉 1 層、八分之一最多沉 2 層……全部加起來不超過 2n。「會沉很深的人非常少，人多的那群幾乎不用動」——這就是 O(n) 的直觀理由。逐一 insert 剛好相反：人最多的最底層，每個人都可能浮 log n 層。</p>
+        <p>合計 11 次交換上限，比 n = 15 還少，而不是 n·log n。一般化：<b>一半的節點是葉子完全不用動</b>、四分之一最多沉 1 層、八分之一最多沉 2 層……全部加起來，交換次數<b>不會超過 n</b>（下沉每層最多比較 2 次，所以比較次數不超過 2n）。「會沉很深的人非常少，人多的那群幾乎不用動」——這就是 O(n) 的直觀理由。逐一 insert 剛好相反：人最多的最底層，每個人都<b>可能</b>浮 log n 層。</p>
+        <h4>「最後一個非葉子」在哪一格？</h4>
+        <p>陣列最後一格是索引 n−1，它的爸爸就是最後一個有孩子的人：(n−1−1)÷2 = <b>(n−2)÷2</b>。整數除法下這跟 <b>n÷2 − 1</b> 永遠相等（程式裡寫的是後者）。例如 n = 7：(7−2)÷2 = 2，7÷2−1 = 3−1 = 2。比它後面的格子全是葉子，天生就是合法的「一人小堆」，不用處理。</p>
+        <h4>手算一次：buildHeap([21, 64, 8, 52, 37, 90, 17])</h4>
+        <p>這就是遊戲第 5 關。n = 7，從索引 2 開始往前，每格做一次下沉：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">輪到</th><th>下沉過程</th><th class="mono">陣列結果</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">開始</td><td>整包照原樣放進來，還不是 Max-Heap</td><td class="mono">[21, 64, 8, 52, 37, 90, 17]</td></tr>
+              <tr><td class="mono">i = 2</td><td>8 的孩子在 5、6：90、17，較大是 90 → 換；8 到索引 5，是葉子，停</td><td class="mono">[21, 64, 90, 52, 37, 8, 17]</td></tr>
+              <tr><td class="mono">i = 1</td><td>64 的孩子在 3、4：52、37，都 ≤ 64，不用動</td><td class="mono">[21, 64, 90, 52, 37, 8, 17]</td></tr>
+              <tr><td class="mono">i = 0</td><td>21 的孩子 64、90，較大是 90 → 換；21 到索引 2，孩子 8、17 都 ≤ 21，停</td><td class="mono">[90, 64, 21, 52, 37, 8, 17]</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>總共比較 8 次、交換 2 次。同一包數字改用逐一 insert（第 6 關）會得到 <code>[90, 52, 64, 21, 37, 8, 17]</code>，比較 8 次、交換 4 次——長相不同，但兩個都是合法的 Max-Heap。</p>
+        <div class="callout" data-k="no">
+          <span class="tag">別誤會</span>
+          <span class="txt">「逐一 insert 是 O(n log n)」說的是<b>最壞情況</b>：數字剛好由小到大送進來，每個新人都要一路浮到根。如果數字是亂序送進來，大多數人浮一兩層就停了，平均也很快。buildHeap 的好處是<b>不管資料長怎樣，保證 O(n)</b>。</span>
+        </div>
       </div>
 
       <div class="block">
@@ -861,7 +975,7 @@ public:
             <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
             <tbody>
               <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{n, tag, d, ops}</code></td><td>1 行</td></tr>
-              <tr><td>改成 min-heap</td><td><code>buildSteps</code> 裡的 4 個比較方向（<code>&lt;</code> 換 <code>&gt;</code>）＋文案</td><td>約 10 行</td></tr>
+              <tr><td>改成 min-heap</td><td><code>buildSteps</code> 裡的 3 個比較（上浮 1 個、下沉 2 個，<code>&lt;</code> 與 <code>&gt;</code> 對調）＋文案與 <code>CODE</code></td><td>約 10 行</td></tr>
               <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
               <tr><td>改計分規則</td><td><code>answerQuiz()</code> 裡的 <code>10 + 連對 × 5</code></td><td>1 行</td></tr>
               <tr><td>改元素配色</td><td><code>HUES</code> 陣列（每個元素的色相）</td><td>1 行</td></tr>
@@ -948,7 +1062,7 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
     {tag:"O(n log n)", n:"對照組：逐一插入",
      d:"同一包數字 [21, 64, 8, 52, 37, 90, 17] 改用逐一 insert。看完比較右邊統計面板的次數，也比比看成品長相。",
      ops:[["push",21],["push",64],["push",8],["push",52],["push",37],["push",90],["push",17]],
-     fin:"這關比較 8 次、交換 4 次，而且成品 [90, 52, 64, …] 和上一關的 [90, 64, 21, …] 不一樣——但兩個都是合法的堆！n=7 差距不明顯；n=100 萬時 buildHeap 約 200 萬次操作、逐一插入約 2000 萬次，差 10 倍。"}
+     fin:"這關比較 8 次、交換 4 次，而且成品 [90, 52, 64, …] 和上一關的 [90, 64, 21, …] 不一樣——但兩個都是合法的 Max-Heap！n=7 差距不明顯；差距在最壞情況才拉開：100 萬個數字由小到大送進來，逐一插入要交換約 1800 萬次，buildHeap 不管資料長怎樣都不超過 100 萬次。"}
   ];
 
   var CODE = [
@@ -960,10 +1074,8 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
     "        i = (i-1)/2;",
     "    }",
     "}",
-    "int pop(vector<int>& h) {",
-    "    int top = h[0];",
-    "    h[0] = h.back(); h.pop_back();",
-    "    int i = 0, n = h.size();",
+    "void siftDown(vector<int>& h, int i) {",
+    "    int n = h.size();",
     "    while (true) {",
     "        int L = 2*i+1, R = 2*i+2, b = i;",
     "        if (L < n && h[L] > h[b]) b = L;",
@@ -971,33 +1083,49 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
     "        if (b == i) break;",
     "        swap(h[i], h[b]); i = b;",
     "    }",
+    "}",
+    "int pop(vector<int>& h) {",
+    "    int top = h[0];",
+    "    h[0] = h.back(); h.pop_back();",
+    "    siftDown(h, 0);",
     "    return top;",
+    "}",
+    "void buildHeap(vector<int>& h) {",
+    "    for (int i = (int)h.size()/2 - 1; i >= 0; i--)",
+    "        siftDown(h, i);",
     "}"
   ];
 
   /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
   var CODE_DOC = [
-    "push（插入）機器的開頭。把堆 h（一個可以自動變長變短的陣列，vector）和要插入的新數字 x 交給它。void 的意思是「做完不用交回任何答案」。",
-    "push_back＝把 x 放到陣列的最後一格。因為完全二元樹是「一層滿了才開下一層、每層由左到右」長的，陣列尾端剛好就是樹上最左下的空位——放這裡，樹形不會破。",
+    "push（插入）機器的開頭。把堆 h（一個可以自動變長變短的陣列，vector）和要插入的新數字 x 交給它。void 的意思是「做完不用交回任何答案」。& 的意思是「直接改原本那一個 h」，不是改一份複本。",
+    "push_back＝把 x 放到陣列的最後一格。因為完全二元樹是「一層滿了才開下一層、每層由左到右」長的，陣列尾端剛好就是樹上下一個該坐的空位——放這裡，樹形不會破。",
     "記下新元素現在的位置，取名 i。「索引」就是第幾格（從 0 開始數），size()-1 是最後一格的編號。",
     "while 迴圈＝「只要條件成立就一直重複做」。條件有兩個：i 還不是根（i>0），而且爸爸比我小。爸爸在哪？公式 (i-1)/2——這是整數除法，小數直接丟掉，例如 (4-1)/2 = 1。",
-    "swap（交換）＝爸爸和我對調位置。孩子比爸爸大，違反了「爸爸一定 ≥ 孩子」的規矩，所以往上換一層——這就是「上浮」的一步。",
+    "swap（交換）＝爸爸和我對調位置。孩子比爸爸大，違反了 Max-Heap「爸爸一定 ≥ 孩子」的規矩，所以往上換一層——這就是「上浮」的一步。",
     "我升到了爸爸原來的位置，把 i 更新成那裡，下一輪再跟「新的爸爸」比。",
     "上浮迴圈的結尾（這個 } 只是標記範圍到此為止），自動回到第 4 行再檢查一次條件。",
     "push 結束。最壞情況從最底層一路換到根，走「樹的高度」層——也就是 log n 層。",
-    "pop（取出最大值）機器的開頭。它會交回一個 int（整數）——堆裡最大的那個數。",
-    "先把 h[0] 抄下來。「每個爸爸 ≥ 孩子」一路傳遞的結果：任何人往上追祖先只會越來越大，追到頂就是根——所以第 0 格永遠是全場最大。",
-    "h.back()＝最後一格。把最後一格搬到第 0 格蓋住洞，再用 pop_back 刪掉最後一格。為什麼拿最後一格？因為只有刪「尾端」，陣列才不會中間破洞、樹才維持完全二元樹。",
-    "補上來的人多半太小，要從根（i=0）開始「下沉」；n 記住現在剩幾個元素。",
+    "siftDown（下沉）機器的開頭：把第 i 格的人往下沉到對的位置。pop 和 buildHeap 都會用到它，所以獨立寫成一個函式，寫一次、用兩處。",
+    "n 記住現在陣列裡有幾個元素，等一下用來判斷「孩子存不存在」。",
     "while(true)＝無限重複，直到裡面的 break（跳出）喊停。",
     "算出左孩子 L=2i+1、右孩子 R=2i+2 的位置；b 先假設「我、左、右三人裡最大的是我自己」。",
     "如果左孩子存在（L<n，沒超出陣列範圍）而且比目前的候選人大，最大候選人換成左孩子。",
-    "右孩子同理。跑完第 15、16 行，b 就是三人之中真正最大的那個。",
-    "如果最大的就是我自己，「爸爸 ≥ 孩子」已經成立——break 跳出迴圈，下沉結束。",
+    "右孩子同理。跑完第 13、14 行，b 就是三人之中真正最大的那個。（左右一樣大時，第 14 行用的是「>」不是「>=」，所以會選左邊。）",
+    "如果最大的就是我自己，「爸爸 ≥ 孩子」已經成立——break 跳出迴圈，下沉結束。沒有孩子（葉子）時 b 也還是自己，同樣在這裡結束。",
     "否則跟較大的那個孩子交換（一定要跟較大的換，換上來的人才鎮得住另一個孩子），然後跟著沉下去：i = b，下一輪繼續。",
-    "下沉迴圈的結尾，自動回到第 13 行。",
+    "下沉迴圈的結尾，自動回到第 11 行。",
+    "siftDown 結束。每一輪往下走一層，最多走 log n 層。",
+    "pop（取出最大值）機器的開頭。它會交回一個 int（整數）——堆裡最大的那個數。",
+    "先把 h[0] 抄下來。Max-Heap 的定義是「每個爸爸 ≥ 孩子」，一路傳遞的結果：任何人往上追祖先只會越來越大，追到頂就是根——所以第 0 格永遠是全場最大。",
+    "h.back()＝最後一格。把最後一格搬到第 0 格蓋住洞，再用 pop_back 刪掉最後一格。為什麼拿最後一格？因為只有刪「尾端」，陣列才不會中間破洞、樹才維持完全二元樹。",
+    "補上來的人多半太小，叫第 9 行的 siftDown 從根（第 0 格）開始把它往下沉。",
     "把一開始抄下來的最大值交出去。",
-    "pop 結束。下沉最多也只走 log n 層。"
+    "pop 結束。下沉最多走 log n 層，所以 pop 是 O(log n)。",
+    "buildHeap（一次建堆）機器的開頭：陣列裡已經有一整包亂放的數字，要一口氣整理成 Max-Heap。",
+    "for 迴圈＝「i 從某個數開始，每次減 1，一直做到 0」。起點 size()/2 - 1 是「最後一個有孩子的人」；它後面的格子全是葉子，一個人自己就是合法的小堆，不用動。",
+    "對第 i 格做一次下沉。因為是從後往前做，輪到 i 的時候，它底下的左右兩邊都已經整理好了，只要把 i 自己沉到對的位置就行。",
+    "buildHeap 結束。大多數人在底層、幾乎不用沉，總工作量是 O(n)。"
   ];
 
   var BADGE = {start:"START", push:"PUSH", cmp:"CMP", swap:"SWAP", stay:"STAY",
@@ -1025,6 +1153,8 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
       o.heap = snap(); o.out = outArr.slice(); o.cmp = nc; o.swp = ns;
       if(o.other === undefined) o.other = -1;
       if(o.other2 === undefined) o.other2 = -1;
+      /* 選項去重後只剩一個（例如堆裡只剩一個數、或數字全部一樣）就不算題目，不出題 */
+      if(o.quiz && o.quiz.opts.length < 2) delete o.quiz;
       steps.push(o);
     }
     function uniqOpts(list){
@@ -1096,9 +1226,9 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
       for(;;){
         var n = heap.length, L = 2*i + 1, R = 2*i + 2;
         if(L >= n){
-          put({kind:"stay", focus:i, line:17,
+          put({kind:"stay", focus:i, line:15,
             title:"沒有孩子 —— 下沉結束",
-            msg:"左孩子應該在 2×" + i + "+1 = " + L + "，但陣列只到索引 " + (n-1) + "——第 " + i + " 格是<b>葉子</b>（最底層、沒有下屬的人），沉到底了。b 還是自己，第 17 行 break 跳出。",
+            msg:"左孩子應該在 2×" + i + "+1 = " + L + "，但陣列只到索引 " + (n-1) + "——第 " + i + " 格是<b>葉子</b>（最底層、沒有下屬的人），沉到底了。b 還是自己，第 15 行 break 跳出。",
             quiz:{q:"第 " + i + " 格（值 " + heap[i].v + "）還有孩子可以往下比嗎？", ans:"b", opts:[
               {t:"有，在第 " + L + " 格", s:"2i+1", v:"a"},
               {t:"沒有，" + L + " 已超出 n=" + n, s:"它是葉子", v:"b"}]}});
@@ -1108,32 +1238,35 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
         nc++;
         if(heap[L].v > heap[b].v) b = L;
         if(hasR){ nc++; if(heap[R].v > heap[b].v) b = R; }
-        put({kind:"cmp", focus:i, other:L, other2:hasR ? R : -1, line:15,
+        put({kind:"cmp", focus:i, other:L, other2:hasR ? R : -1, line:14,
           title:"跟孩子比：h[" + i + "]=" + heap[i].v + " vs 左 " + heap[L].v + (hasR ? " vs 右 " + heap[R].v : ""),
           msg:"下沉公式：左孩子 2i+1 = <b>" + L + "</b>" + (hasR ? "、右孩子 2i+2 = <b>" + R + "</b>" : "（右孩子 2i+2 = " + R + " 不存在）") + "。三個值 <b>" + heap[i].v + "</b>、<b>" + heap[L].v + "</b>" + (hasR ? "、<b>" + heap[R].v + "</b>" : "") + " 裡誰最大？記住：只能跟「較大的那個孩子」換才安全。",
-          quiz:{q:"第 " + i + " 格（值 " + heap[i].v + "）正在下沉。它的孩子在陣列哪裡？", ans:"a", opts:[
+          quiz:{q:"第 " + i + " 格（值 " + heap[i].v + "）正在下沉。它的孩子在陣列哪裡？", ans:"a", opts:uniqOpts([
             hasR ? {t:"第 " + L + " 和 " + R + " 格", s:"2i+1、2i+2", v:"a"}
                  : {t:"只有第 " + L + " 格", s:"2i+1（2i+2=" + R + " 超出範圍）", v:"a"},
-            {t:"第 " + (i+1) + " 和 " + (i+2) + " 格", s:"i+1、i+2", v:"b"},
-            {t:"第 " + (2*i) + " 和 " + (2*i+1) + " 格", s:"2i、2i+1", v:"c"}]}});
+            (i === 0
+              ? {t:"第 " + (n-2) + " 和 " + (n-1) + " 格", s:"陣列最後兩格", v:"b"}
+              : {t:"第 " + (i+1) + " 和 " + (i+2) + " 格", s:"i+1、i+2", v:"b"}),
+            {t:"第 " + (2*i) + " 和 " + (2*i+1) + " 格", s:"2i、2i+1", v:"c"}])}});
+        var tie = hasR && heap[L].v === heap[R].v && b !== i;
         var swapQ = {q:"h[" + i + "]=" + heap[i].v + "、左 " + heap[L].v + (hasR ? "、右 " + heap[R].v : "") + " —— 會交換嗎？跟誰？",
           ans:(b === i ? "n" : (b === L ? "L" : "R")),
           opts:uniqOpts([
             {t:"跟左孩子 " + heap[L].v + " 換", s:"h[" + L + "]", v:"L"},
-            hasR ? {t:"跟右孩子 " + heap[R].v + " 換", s:"h[" + R + "]", v:"R"} : null,
+            (hasR && !tie) ? {t:"跟右孩子 " + heap[R].v + " 換", s:"h[" + R + "]", v:"R"} : null,
             {t:"不換，自己就是最大", s:"", v:"n"}])};
         if(b === i){
-          put({kind:"stay", focus:i, line:17,
+          put({kind:"stay", focus:i, line:15,
             title:"自己最大 —— 不用換，下沉結束",
-            msg:"h[" + i + "]=<b>" + heap[i].v + "</b> 已經 ≥ 所有孩子，「爸爸 ≥ 孩子」成立——第 17 行 break 跳出，下沉結束。",
+            msg:"h[" + i + "]=<b>" + heap[i].v + "</b> 已經 ≥ 所有孩子，「爸爸 ≥ 孩子」成立——第 15 行 break 跳出，下沉結束。",
             quiz:swapQ});
           return;
         }
         var side = (b === L) ? "左" : "右";
         var t2 = heap[i]; heap[i] = heap[b]; heap[b] = t2; ns++;
-        put({kind:"swap", focus:i, other:b, line:18,
+        put({kind:"swap", focus:i, other:b, line:16,
           title:"跟" + side + "孩子交換：" + heap[i].v + " 升上來、" + heap[b].v + " 沉下去",
-          msg:"三人中最大的是" + side + "孩子 h[" + b + "]。h[" + i + "] 和 h[" + b + "] 互換——樹上兩顆球對調、陣列兩格同時對調。為什麼一定挑較大的孩子？換上來的 <b>" + heap[i].v + "</b> 必須 ≥ 另一個孩子，規矩才不會馬上又破。<b>" + heap[b].v + "</b> 繼續往下沉。",
+          msg:(tie ? "左右兩個孩子一樣大（都是 " + heap[L].v + "），跟哪個換都合法；程式第 14 行用「&gt;」，所以選左邊。" : "三人中最大的是" + side + "孩子 h[" + b + "]。") + "h[" + i + "] 和 h[" + b + "] 互換——樹上兩顆球對調、陣列兩格同時對調。為什麼一定挑較大的孩子？換上來的 <b>" + heap[i].v + "</b> 必須 ≥ 另一個孩子，規矩才不會馬上又破。<b>" + heap[b].v + "</b> 繼續往下沉。",
           quiz:swapQ});
         i = b;
       }
@@ -1144,18 +1277,20 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
       if(n === 0) return;
       var top = heap[0];
       var mc = (n >= 3) ? Math.max(heap[1].v, heap[2].v) : (n === 2 ? heap[1].v : null);
+      /* 較大的孩子在哪一格；如果它就是最後一格，「最後一格」和「較大的孩子」是同一個人，不能當成兩個選項 */
+      var mcIdx = (n >= 3) ? (heap[2].v > heap[1].v ? 2 : 1) : (n === 2 ? 1 : -1);
       var exQ = {q:"extract-max：這次會取走哪個值？", ans:"a", opts:uniqOpts([
         {t:String(top.v), s:"h[0] 堆頂", v:"a"},
         n > 1 ? {t:String(heap[n-1].v), s:"最後一格", v:"b"} : null,
         mc !== null ? {t:String(mc), s:"根的孩子", v:"c"} : null])};
       outArr.push({v:top.v, id:top.id});
-      put({kind:"extract", focus:0, line:10,
+      put({kind:"extract", focus:0, line:20,
         title:"extract-max：取走 " + top.v,
         msg:"永遠取走 h[0]。為什麼根一定最大？「每個爸爸 ≥ 孩子」一路傳遞：任何人往上追祖先只會越來越大，追到頂就是根。<b>" + top.v + "</b> 被取走，堆頂出現一個洞。",
         quiz:exQ});
       if(n === 1){
         heap.pop();
-        put({kind:"popdone", focus:-1, line:20,
+        put({kind:"popdone", focus:-1, line:23,
           title:"堆空了",
           msg:"最後一個元素也取走了，堆現在是空的。"});
         return;
@@ -1163,15 +1298,15 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
       var last = heap.pop();
       var mlQ = {q:"根被取走了，留下一個洞。誰要搬到堆頂補位？", ans:"a", opts:uniqOpts([
         {t:String(last.v) + "（最後一格）", s:"h.back()", v:"a"},
-        mc !== null ? {t:String(mc) + "（較大的孩子）", s:"看起來比較配當根", v:"b"} : null,
+        (mc !== null && mcIdx !== n - 1) ? {t:String(mc) + "（較大的孩子）", s:"看起來比較配當根", v:"b"} : null,
         {t:"整個陣列重新排序", s:"太貴了", v:"c"}])};
       heap[0] = last;
-      put({kind:"movelast", focus:0, line:11,
+      put({kind:"movelast", focus:0, line:21,
         title:"最後一格的 " + last.v + " 補到堆頂",
         msg:"把最後一格的 <b>" + last.v + "</b> 搬到堆頂補洞。為什麼偏偏是最後一格？因為只有刪掉「尾端」，陣列才不會中間破洞、樹才維持完全二元樹（不然三條公式全失效）。代價是 " + last.v + " 多半太小、不配當根——所以接下來要<b>下沉</b>。",
         quiz:mlQ});
       siftDownSteps(0);
-      put({kind:"popdone", focus:0, line:20,
+      put({kind:"popdone", focus:0, line:23,
         title:"完成：新堆頂是 " + heap[0].v,
         msg:"這次 extract 完成：取走了 <b>" + top.v + "</b>，剩下的人重新站好，新堆頂 <b>" + heap[0].v + "</b> 就是「剩下之中的最大值」。",
         quiz:{q:"這次 extract 結束，現在的堆頂（剩下之中的最大）是誰？", ans:"a", opts:uniqOpts([
@@ -1182,12 +1317,12 @@ buildHeap 之後重複「h[0] 和 h[n-1] 交換 → n 減 1 → 對 h[0] 下沉�
 
     function doBuild(arr){
       heap = arr.map(function(v){ return {v:v, id:nextId++}; });
-      var n = heap.length, s0 = (n - 2) >> 1;
-      put({kind:"phase", focus:-1, line:13,
+      var n = heap.length, s0 = Math.floor(n / 2) - 1;
+      put({kind:"phase", focus:-1, line:26,
         title:"整包搬進來 —— 還不是堆",
-        msg:"把 " + n + " 個數照原樣塞進陣列——現在到處是「孩子比爸爸大」的違規。buildHeap 的作法：從<b>最後一個非葉子</b>（索引 (n−2)÷2 = " + s0 + "）往前，每一格做一次下沉。後半段全是葉子，天生就是合法的一人小堆，完全不用管。"});
+        msg:"把 " + n + " 個數照原樣塞進陣列——現在到處是「孩子比爸爸大」的違規。buildHeap 的作法：從<b>最後一個非葉子</b>（索引 n÷2 − 1 = " + n + "÷2 − 1 = " + s0 + "）往前，每一格做一次下沉。後半段全是葉子，天生就是合法的一人小堆，完全不用管。"});
       for(var i = s0; i >= 0; i--){
-        put({kind:"focusd", focus:i, line:13,
+        put({kind:"focusd", focus:i, line:27,
           title:"輪到索引 " + i + "（值 " + heap[i].v + "）下沉",
           msg:"因為我們從後往前做，它的左右子樹都已經整理成合法的小堆。現在只要把 <b>" + heap[i].v + "</b> 沉到對的位置，以索引 " + i + " 為根的整棵子樹就合法了。"});
         siftDownSteps(i);
