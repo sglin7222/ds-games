@@ -89,6 +89,7 @@
     <a class="home" href="../index.html">← 資料結構遊戲場</a>
     <span class="crumb">16 · 雜湊表</span>
     <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
       <a href="#s1"><span class="n">01</span>玩法</a>
       <a href="#s2"><span class="n">02</span>遊戲</a>
       <a href="#s3"><span class="n">03</span>原理</a>
@@ -112,6 +113,290 @@
       <div class="fact"><span>先備知識</span><b>陣列、取餘數 %</b></div>
     </div>
   </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：Hash Table（雜湊表）到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>一句話定義</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 定義</span>
+          <div class="defline">雜湊表（Hash Table）是一種資料的擺放方式：準備<em>一排有編號的格子</em>，再用一條固定的<em>「雜湊函式」</em>，從每筆資料的 key <em>直接算出</em>它該住第幾格。</div>
+          <p>放的時候算一次，找的時候再算一次——<b>算出來是第幾格，就直接去那一格</b>，不用從頭一格一格翻。</p>
+        </div>
+        <p>這句話裡有好幾個沒聽過的詞——「key」、「格子」、「雜湊函式」。別急，下面一個一個拆。先記住雜湊表想解決的事情只有一件：</p>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">資料一直<b>放進來</b>、一直有人問<b>「某某在不在？」</b>、偶爾還要<b>刪掉</b>。雜湊表讓這三件事平均都幾乎一步完成，不管裡面已經有幾萬筆。就像郵差分信：看信封上的規則（例如門牌號碼）就知道要投進第幾個信箱，領信的人也直接開自己那一格，不用把整棟樓的信箱都翻一遍。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">資料結構 <small>data structure</small></div>
+            <div class="td">「一堆資料要<b>怎麼擺</b>」的規則。擺法不同，找東西、放東西的速度就差很多。雜湊表就是其中一種擺法。</div>
+            <div class="ta">同樣一堆衣服，摺好分格放 vs. 全塞進一個袋子，找起來速度天差地遠。</div>
+          </div>
+          <div class="term">
+            <div class="tn">陣列 / 索引 <small>array / index</small></div>
+            <div class="td">陣列是一排<b>連在一起、有編號的格子</b>，每格放一個資料。格子的編號叫「索引」，<b>從 0 開始數</b>。只要知道索引，就能<b>一步</b>打開那一格。</div>
+            <div class="ta">車站的置物櫃：報出「3 號櫃」，直接走過去打開，不用從 0 號開始一個一個試。</div>
+          </div>
+          <div class="term">
+            <div class="tn">取餘數 % <small>modulo</small></div>
+            <div class="td"><code>a % m</code> 讀作「a 除以 m 的<b>餘數</b>」。例如 <code>23 % 7 = 2</code>，因為 23 = 7 × 3 + 2。重點：<b>除以 7 的餘數一定是 0～6 其中一個</b>，不會更大，也不會是負的。</div>
+            <div class="ta">一週 7 天：今天星期日（第 0 天），23 天後是星期幾？23 % 7 = 2 → 星期二。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鍵 / 值 <small>key / value</small></div>
+            <div class="td"><b>key</b> 是用來「認人」的那個東西，同一張表裡每個 key 只出現一次；<b>value</b> 是跟著 key 一起存的內容。本關為了簡單，<b>只存 key</b>（例如 10、17、cat），問題都是「這個 key 在不在表裡」。</div>
+            <div class="ta">通訊錄：名字是 key，電話號碼是 value。你用名字去查電話，不會用電話去查名字。</div>
+          </div>
+          <div class="term">
+            <div class="tn">桶 / 格子 <small>bucket / slot</small></div>
+            <div class="td">雜湊表底下就是一個<b>陣列</b>，每一格叫一個「桶」。桶的數量寫成 <b>m</b>。本關一開始 m = 7，桶的編號是 0～6。</div>
+            <div class="ta">大樓一樓的 7 個信箱，編號 0 到 6。</div>
+          </div>
+          <div class="term">
+            <div class="tn">雜湊函式 <small>hash function</small></div>
+            <div class="td">一條<b>固定的計算規則</b>：丟進一個 key，算出一個桶的編號（這個編號叫<b>雜湊值</b>）。本關用 <code>h(key) = key % m</code>。例如 m = 7 時，<code>h(23) = 23 % 7 = 2</code>，23 就住第 2 格。key 是文字的話，先把每個字母的內碼加起來變成數字：<code>"cat"</code> = 99 + 97 + 116 = 312，312 % 7 = 4。也有書寫成「雜湊函數」，是同一個東西。</div>
+            <div class="ta">分信機：信丟進去，它看門牌號碼，吐出「投第幾號信箱」。同一封信丟幾次，答案永遠一樣。</div>
+          </div>
+          <div class="term">
+            <div class="tn">雜湊表 <small>hash table</small></div>
+            <div class="td">把上面兩樣東西組在一起：<b>m 個桶＋一條雜湊函式</b>。放資料時用函式算出桶號、放進去；找資料時再算一次，只看那一桶。<b>它永遠只看自己該去的那一桶</b>，其他桶完全不碰。</div>
+            <div class="ta">郵差和住戶都照同一套規則找信箱，所以信永遠在「算得出來」的那一格。</div>
+          </div>
+          <div class="term">
+            <div class="tn">碰撞 <small>collision</small></div>
+            <div class="td">兩個<b>不同</b>的 key 算出<b>同一個</b>桶號。例如 m = 7 時，<code>10 % 7 = 3</code>，<code>17 % 7 = 3</code>——兩個都要住第 3 格。</div>
+            <div class="ta">兩家人門牌不同，卻被分到同一個信箱。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鴿籠原理 <small>pigeonhole principle</small></div>
+            <div class="td">鴿子比籠子多，就<b>一定</b>有一個籠子擠了兩隻以上。key 可能的值有無限多，桶只有 m 個，所以<b>碰撞一定會發生</b>，不是程式寫錯。雜湊表要煩惱的不是「怎麼不撞」，而是「撞了怎麼辦」。</div>
+            <div class="ta">8 個人要擠進 7 間房，不管怎麼分，至少有一間住了 2 人。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鏈結法 <small>chaining</small></div>
+            <div class="td">碰撞的第一種解法（左表）：每個桶掛一條<b>鏈條</b>（一節一節串起來，每一節記著「下一節在哪」，可以一直接下去）。撞到同一桶的資料<b>全部串在那條鏈上</b>。本關把新來的掛在鏈的最前面。</div>
+            <div class="ta">信箱塞不下，就在信箱下面掛一串夾子，信一封一封夾上去。</div>
+          </div>
+          <div class="term">
+            <div class="tn">開放定址 / 線性探測 <small>open addressing / linear probing</small></div>
+            <div class="td">碰撞的第二種解法（右表）：一格只住一筆。算出來的格子被佔了，就<b>往下一格看</b>（h+1、h+2……，走過第 6 格就繞回第 0 格），<b>遇到的第一個空格</b>就住下。這種「一格一格往下找」叫線性探測，走過的格子叫<b>探測路徑</b>。</div>
+            <div class="ta">電影院你的位子被坐了，就往右邊一個一個找，坐第一個空位。</div>
+          </div>
+          <div class="term">
+            <div class="tn">墓碑 <small>tombstone</small></div>
+            <div class="td">開放定址刪資料時，<b>不能把格子清空</b>，要留一個「這裡曾經有人住」的記號。因為查找是「沿路走到空格才停」，清空會把別人的探測路徑從中間弄斷。墓碑的意思是：<b>這格現在沒人，但路還沒斷，請繼續往下找</b>。</div>
+            <div class="ta">店搬走了，門口貼「本店已遷移，往前直走」，而不是把整條路封起來。</div>
+          </div>
+          <div class="term">
+            <div class="tn">載入因子 α <small>load factor</small></div>
+            <div class="td"><b>α = n ÷ m</b>，n 是目前存了幾筆，m 是桶數，白話就是「表有多滿」。例如 7 格放了 5 筆，α = 5 ÷ 7 ≈ 0.71。α 越大越容易撞、找得越久。本關的警戒線是 <b>0.7</b>。也有書叫它「負載因子」。</div>
+            <div class="ta">停車場的滿載率：越滿，越要繞好幾圈才找得到位子。</div>
+          </div>
+          <div class="term">
+            <div class="tn">重新雜湊 <small>rehash</small></div>
+            <div class="td">表太滿時，換一個<b>更大的</b>表（本關：桶數翻倍再取質數，7 → 17），然後<b>每筆資料用新的 m 重算一次</b>桶號、重新放。例如 22：舊表 22 % 7 = 1，新表 22 % 17 = 5，就搬去第 5 格。</div>
+            <div class="ta">公司人太多，搬到更大的辦公室，每個人照新的座位表重新入座。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(1)、O(n)，平均 vs 最壞 <small>Big-O 記號</small></div>
+            <div class="td">描述「資料變多時，工作量怎麼跟著變多」，n 是資料的數量。<b>O(1)</b>：不管資料多少，步數都差不多固定。<b>O(n)</b>：資料多一倍，工作也多一倍。雜湊表<b>平均 O(1)</b>（資料撒得勻、表不太滿時），但<b>最壞 O(n)</b>（所有 key 都撞進同一桶時，只好一筆一筆翻）。</div>
+            <div class="ta">平均：每個信箱只有一兩封信，一眼就找到。最壞：全棟的信都塞進同一個信箱，只能一封一封翻。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>定義拆成三個零件：缺一個就不是雜湊表</h3>
+        <ol class="steps">
+          <li><b>一排桶</b>——一個有 m 格的陣列（本關 m = 7，編號 0～6）。</li>
+          <li><b>雜湊函式</b>——把 key 變成桶號的固定規則（本關 <code>key % m</code>）。</li>
+          <li><b>碰撞處理規則</b>——兩個 key 搶同一格時怎麼辦（本關左表用鏈結法，右表用線性探測）。</li>
+        </ol>
+        <p>先看前兩個零件怎麼合作，以及第三個零件為什麼非有不可：</p>
+        <div class="figs">
+          <figure class="fig">
+            <svg viewBox="0 0 360 150" role="img" aria-label="key 23 經過雜湊函式被分到第 2 格">
+              <line class="ed" x1="132" y1="39" x2="132" y2="76"/>
+              <g class="nd hot"><circle cx="132" cy="24" r="15"/><text x="132" y="24">23</text></g>
+              <text class="lbl" x="262" y="22">h(23) = 23 % 7</text>
+              <text class="lbl good" x="262" y="40">= 2 → 第 2 格</text>
+              <rect class="cell" x="14" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="62" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell good" x="110" y="76" width="44" height="34" rx="6"/><text class="ctext" x="132" y="93">23</text>
+              <rect class="cell" x="158" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="206" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="254" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="302" y="76" width="44" height="34" rx="6"/>
+              <text class="lbl" x="36" y="128">0</text><text class="lbl" x="84" y="128">1</text><text class="lbl" x="132" y="128">2</text>
+              <text class="lbl" x="180" y="128">3</text><text class="lbl" x="228" y="128">4</text><text class="lbl" x="276" y="128">5</text>
+              <text class="lbl" x="324" y="128">6</text>
+            </svg>
+            <figcaption><b>一個 key 怎麼找到家。</b>23 除以 7 得 3 餘 2，所以住第 2 格。之後要找 23，再算一次 23 % 7 = 2，直接打開第 2 格就好。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 360 150" role="img" aria-label="10 和 17 都被分到第 3 格，發生碰撞">
+              <line class="ed bad" x1="110" y1="39" x2="180" y2="76"/>
+              <line class="ed bad" x1="250" y1="39" x2="180" y2="76"/>
+              <g class="nd"><circle cx="110" cy="24" r="15"/><text x="110" y="24">10</text></g>
+              <g class="nd"><circle cx="250" cy="24" r="15"/><text x="250" y="24">17</text></g>
+              <text class="lbl" x="48" y="28">10 % 7 = 3</text>
+              <text class="lbl" x="312" y="28">17 % 7 = 3</text>
+              <rect class="cell" x="14" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="62" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="110" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell bad" x="158" y="76" width="44" height="34" rx="6"/><text class="ctext" x="180" y="93">?</text>
+              <rect class="cell" x="206" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="254" y="76" width="44" height="34" rx="6"/>
+              <rect class="cell" x="302" y="76" width="44" height="34" rx="6"/>
+              <text class="lbl" x="36" y="128">0</text><text class="lbl" x="84" y="128">1</text><text class="lbl" x="132" y="128">2</text>
+              <text class="lbl bad" x="180" y="128">3</text><text class="lbl" x="228" y="128">4</text><text class="lbl" x="276" y="128">5</text>
+              <text class="lbl" x="324" y="128">6</text>
+              <text class="lbl bad" x="180" y="145">兩個都要住第 3 格</text>
+            </svg>
+            <figcaption><b>碰撞。</b>10 = 7 × 1 + 3，17 = 7 × 2 + 3，餘數都是 3。兩個不同的 key 搶同一格——這就是碰撞。只有 7 格，碰撞遲早會來，所以一定要有第三個零件。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>碰撞怎麼收拾：自己先判斷放對了沒</h3>
+        <p>下面四張圖都是 m = 7、雜湊函式 <code>key % 7</code>。先別看說明，自己判斷每一張「放對了沒」，再往下讀：</p>
+        <div class="figs">
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 360 100" role="img" aria-label="20 被放在第 2 格">
+              <text class="lbl" x="36" y="12">0</text><text class="lbl" x="84" y="12">1</text><text class="lbl bad" x="132" y="12">2</text>
+              <text class="lbl" x="180" y="12">3</text><text class="lbl" x="228" y="12">4</text><text class="lbl" x="276" y="12">5</text>
+              <text class="lbl good" x="324" y="12">6</text>
+              <rect class="cell" x="14" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="62" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell bad" x="110" y="20" width="44" height="34" rx="6"/><text class="ctext" x="132" y="37">20</text>
+              <rect class="cell" x="158" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="206" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="254" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell dim" x="302" y="20" width="44" height="34" rx="6"/>
+              <text class="lbl" x="180" y="82">表是空的，只放了 20</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 放錯格了。</b>20 = 7 × 2 + 6，所以 20 % 7 = <b>6</b>，應該住第 6 格。放在第 2 格的話，之後查 20 會算出 6、去第 6 格找，永遠找不到。雜湊表的鐵則：<b>放和找必須用同一條規則</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 360 145" role="img" aria-label="鏈結法：第 3 格掛著 17 和 10">
+              <text class="lbl" x="36" y="12">0</text><text class="lbl" x="84" y="12">1</text><text class="lbl" x="132" y="12">2</text>
+              <text class="lbl good" x="180" y="12">3</text><text class="lbl" x="228" y="12">4</text><text class="lbl" x="276" y="12">5</text>
+              <text class="lbl" x="324" y="12">6</text>
+              <rect class="cell" x="14" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="62" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="110" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell good" x="158" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="206" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="254" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="302" y="20" width="44" height="34" rx="6"/>
+              <line class="ed" x1="180" y1="54" x2="180" y2="68"/>
+              <line class="ed" x1="180" y1="96" x2="180" y2="110"/>
+              <g class="nd hot"><circle cx="180" cy="82" r="14"/><text x="180" y="82">17</text></g>
+              <g class="nd"><circle cx="180" cy="124" r="14"/><text x="180" y="124">10</text></g>
+              <text class="lbl" x="262" y="86">後來的 17</text>
+              <text class="lbl" x="262" y="128">先來的 10</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 鏈結法放對了。</b>先放 10、再放 17，兩個都算出 3。鏈結法不搶位子：17 掛到第 3 格那條鏈的<b>最前面</b>，10 被往後推一節。兩筆都在第 3 格，查的時候只要翻這一條鏈。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 360 100" role="img" aria-label="線性探測：10 在第 3 格，17 在第 4 格">
+              <text class="lbl" x="36" y="12">0</text><text class="lbl" x="84" y="12">1</text><text class="lbl" x="132" y="12">2</text>
+              <text class="lbl" x="180" y="12">3</text><text class="lbl" x="228" y="12">4</text><text class="lbl" x="276" y="12">5</text>
+              <text class="lbl" x="324" y="12">6</text>
+              <rect class="cell" x="14" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="62" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="110" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell hot" x="158" y="20" width="44" height="34" rx="6"/><text class="ctext" x="180" y="37">10</text>
+              <rect class="cell good" x="206" y="20" width="44" height="34" rx="6"/><text class="ctext" x="228" y="37">17</text>
+              <rect class="cell" x="254" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="302" y="20" width="44" height="34" rx="6"/>
+              <text class="lbl" x="180" y="72">① 被佔</text>
+              <text class="lbl good" x="228" y="72">② 空→住</text>
+              <text class="lbl" x="180" y="94">放 17：算出 3 → 往下一格</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 線性探測放對了。</b>10 先住進第 3 格。17 算出 3，第 3 格被佔（腳印①），往下看第 4 格是空的（腳印②），就住第 4 格。查 17 時也照這條路走：3 → 4，看 2 格找到。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 360 100" role="img" aria-label="線性探測：24 跳過空著的第 5 格住進第 6 格">
+              <text class="lbl" x="36" y="12">0</text><text class="lbl" x="84" y="12">1</text><text class="lbl" x="132" y="12">2</text>
+              <text class="lbl" x="180" y="12">3</text><text class="lbl" x="228" y="12">4</text><text class="lbl bad" x="276" y="12">5</text>
+              <text class="lbl" x="324" y="12">6</text>
+              <rect class="cell" x="14" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="62" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="110" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell" x="158" y="20" width="44" height="34" rx="6"/><text class="ctext" x="180" y="37">10</text>
+              <rect class="cell" x="206" y="20" width="44" height="34" rx="6"/><text class="ctext" x="228" y="37">17</text>
+              <rect class="cell dim" x="254" y="20" width="44" height="34" rx="6"/>
+              <rect class="cell bad" x="302" y="20" width="44" height="34" rx="6"/><text class="ctext" x="324" y="37">24</text>
+              <text class="lbl bad" x="276" y="72">空的！</text>
+              <text class="lbl" x="180" y="94">放 24：算出 3 → 3、4 被佔 → ？</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 線性探測放錯了。</b>24 = 7 × 3 + 3，算出 3。第 3、4 格被佔，<b>第 5 格空著</b>，就該住第 5 格。線性探測只能一格一格往下，遇到的第一個空格就住，不能跳。跳到第 6 格的話，查 24 走到第 5 格看到空格就會停，回報「不存在」。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的說法</th><th>對嗎？</th><th>真相</th></tr></thead>
+            <tbody>
+              <tr><td>「雜湊表跟陣列是兩種完全不同的東西」</td><td class="verdict no">不對</td><td>雜湊表<b>底下就是一個陣列</b>。差別是：陣列要你自己給索引；雜湊表用雜湊函式從 key <b>算出</b>索引。</td></tr>
+              <tr><td>「雜湊值就是資料本身」</td><td class="verdict no">不對</td><td>雜湊值只是「桶號」。10 和 17 的雜湊值都是 3，但它們是兩筆不同的資料，所以找到第 3 格之後，<b>還要逐一比對</b>才知道是不是你要的那筆。</td></tr>
+              <tr><td>「發生碰撞代表程式寫錯了」</td><td class="verdict no">不對</td><td>鴿籠原理：key 比桶多，碰撞一定會發生。好的雜湊函式只是讓碰撞<b>少而且平均</b>，不是零。</td></tr>
+              <tr><td>「雜湊表裡的資料有照大小排好」</td><td class="verdict no">不對</td><td>資料住哪格只看 <code>key % m</code>，跟大小順序無關。例如 m = 7 時，20 住第 6 格，而比它大的 23 住第 2 格。想要排好順序，要用別的資料結構（例如第 11 關的二元搜尋樹）。</td></tr>
+              <tr><td>「開放定址刪除＝把那格清空」</td><td class="verdict no">不對</td><td>要放<b>墓碑</b>。清空會把探測路徑從中間弄斷，被擠到後面的資料就找不到了。鏈結法才是直接把那一節摘掉就好。</td></tr>
+              <tr><td>「雜湊表平均 O(1)」</td><td class="verdict ok">對，但有條件</td><td>前提是雜湊函式撒得勻、α 不太大。全部撞進同一桶時就退化成<b>最壞 O(n)</b>。「永遠 O(1)」是錯的。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>m = 7，空表依序放入 9、30。各算出第幾格？會碰撞嗎？兩種解法最後各長什麼樣？</summary>
+            <div class="ans">9 = 7 × 1 + 2，<code>9 % 7 = 2</code>；30 = 7 × 4 + 2，<code>30 % 7 = 2</code>。兩個都是第 2 格，<b>會碰撞</b>。鏈結法：第 2 格的鏈變成 <b>30 → 9</b>（新來的掛最前面）。線性探測：9 住第 2 格，30 發現第 2 格被佔，往下看第 3 格是空的，<b>住第 3 格</b>。</div>
+          </details>
+          <details>
+            <summary>表有 7 格，放了 8 筆不同的 key，一定會碰撞嗎？只放 2 筆有可能碰撞嗎？</summary>
+            <div class="ans">放 8 筆<b>一定會</b>：8 隻鴿子進 7 個籠子，至少一籠有 2 隻（鴿籠原理）。只放 2 筆<b>也有可能</b>：例如 10 和 17，<code>% 7</code> 都是 3。碰撞跟「表滿不滿」無關，只是越滿越常發生。（順帶一提：開放定址一格只住一筆，7 格最多放 7 筆，第 8 筆根本放不進去，一定要先 rehash。）</div>
+          </details>
+          <details>
+            <summary>7 格的表放了 5 筆，載入因子 α 是多少？有沒有超過本關的警戒線？rehash 成 17 格之後呢？</summary>
+            <div class="ans">α = 5 ÷ 7 ≈ <b>0.71</b>，超過 0.7 警戒線，該擴桶了。rehash 成 17 格後，α = 5 ÷ 17 ≈ <b>0.29</b>，表變得很空，碰撞和探測都會變少。</div>
+          </details>
+          <details>
+            <summary>m = 7，依序放入 7、14、21、28，查 28 要看幾筆？這說明了什麼？</summary>
+            <div class="ans">7、14、21、28 都是 7 的倍數，<code>% 7</code> <b>全部等於 0</b>，全擠進第 0 格。鏈結法：第 0 格的鏈是 28 → 21 → 14 → 7，查 28 剛好在第 1 節，<b>看 1 筆</b>；但如果查的是最早放的 7，要翻完整條鏈<b>看 4 筆</b>。線性探測：它們住第 0、1、2、3 格，查 28 要走 0 → 1 → 2 → 3，<b>看 4 格</b>。這就是<b>最壞 O(n)</b>：所有 key 撞在一起，雜湊表就退化成一筆一筆翻。所以雜湊函式要撒得勻、資料不能剛好跟 m 有規律。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手看兩張表怎麼處理碰撞。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- ============ 01 玩法與學習目標 ============ -->
   <section class="sec" id="s1">
@@ -785,11 +1070,11 @@ B. 開放定址＋墓碑（本頁右表的做法）
 
   var BADGE = {start:"START", hash:"HASH", cins:"CHAIN", probe:"PROBE", oins:"OPEN",
     cwalk:"WALK", chit:"HIT", cmiss:"MISS", oprobe:"PROBE", ohit:"HIT", omiss:"MISS",
-    cdel:"DEL", tomb:"TOMB", rewarn:"α!", reins:"MOVE", redone:"OK", done:"DONE", full:"FULL"};
+    cdel:"DEL", tomb:"TOMB", rewarn:"α!", reins:"MOVE", redone:"OK", done:"DONE", full:"FULL", dup:"DUP"};
   var K2SAY = {start:"start", hash:"hot", cins:"push", probe:"hot", oins:"push",
     cwalk:"hot", chit:"ok", cmiss:"no", oprobe:"hot", ohit:"ok", omiss:"no",
     cdel:"pop", tomb:"error", rewarn:"error", reins:"push", redone:"done",
-    done:"done", full:"error"};
+    done:"done", full:"error", dup:"no"};
 
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
@@ -877,6 +1162,13 @@ B. 開放定址＋墓碑（本頁右表的做法）
     }
 
     function doInsert(ki, h){
+      /* 已經在表裡 → 不重複放（對應完整版程式的 if (find(key)) return;） */
+      if(chain[h].indexOf(ki.disp) >= 0){
+        put({kind:"dup", key:ki.disp, h:h, line:3,
+          title:esc(ki.disp)+" 已經在表裡，不重複放",
+          msg:"第 "+h+" 格裡已經有 <b>"+esc(ki.disp)+"</b> 了。雜湊表裡每個 key 只能出現一次（就像一個學號只對應一個學生），所以這次插入直接略過，兩張表都不動。第 02 段完整版程式的 <code>if (find(key)) return;</code> 就是在做這件事。"});
+        return;
+      }
       /* 鏈結法 */
       var col = chain[h].length > 0;
       chain[h].unshift(ki.disp);
@@ -912,7 +1204,7 @@ B. 開放定址＋墓碑（本頁右表的做法）
       var wasTomb = !!(open[placed] && open[placed].tomb);
       open[placed] = {k:ki.disp, num:ki.num, tomb:false};
       var warn = (n/m > 0.7)
-        ? " <b>⚠ 載入因子 α = "+n+"/"+m+" ≈ "+fmtA(n/m)+"，超過 0.7 警戒線</b> —— 右表的探測腳印會越來越長，看側欄曲線，該擴桶了。" : "";
+        ? " <b>⚠ 載入因子 α = "+n+"/"+m+" ≈ "+fmtA(n/m)+"，超過 0.7 警戒線</b> —— 第 02 段的完整版程式在這一刻就會<b>自動 rehash</b>；遊戲故意先不擴桶，讓你看右表的探測腳印怎麼越拉越長、側欄曲線怎麼飆高，等操作序列裡的「!」才擴。" : "";
       var os = {kind:"oins", key:ki.disp, h:h, path:path.slice(), placed:placed,
         probes:path.length, line:5,
         title: path.length > 1
@@ -1100,7 +1392,7 @@ B. 開放定址＋墓碑（本頁右表的做法）
   /* ---------- 4. 畫面層：左右兩張表 ---------- */
   function paintTables(){
     var st = S.steps[S.cur], r, out, nodes, x, cls, cell, ord, foot, rowCls;
-    var chainKinds = {hash:1, cins:1, cwalk:1, chit:1, cmiss:1, cdel:1};
+    var chainKinds = {hash:1, cins:1, cwalk:1, chit:1, cmiss:1, cdel:1, dup:1};
 
     /* 左：鏈結法 */
     out = "";

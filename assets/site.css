@@ -207,6 +207,81 @@ code{font-family:var(--font-mono)}
 .callout[data-k="no"]{background:var(--alarm-soft);border-color:var(--alarm)}
 .callout[data-k="no"] .tag{background:var(--alarm);color:var(--surface)}
 
+/* ---------------- 00 先搞懂定義（給沒學過程式的人） ---------------- */
+/* 一句話定義：大字、置中感，整段最重要的一句 */
+.defbox{
+  border:2px solid var(--accent);border-radius:var(--r);
+  background:var(--accent-soft);padding:16px 18px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.defbox .deftag{font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.16em;color:var(--accent)}
+.defbox .defline{font-size:17px;font-weight:700;color:var(--ink);line-height:1.7}
+.defbox .defline em{font-style:normal;color:var(--accent)}
+.defbox p{font-size:14px;color:var(--ink-soft)}
+
+/* 名詞卡：一張卡一個名詞 —— 中文、英文、白話、比喻 */
+.terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.term{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r);
+  padding:12px 14px;display:flex;flex-direction:column;gap:5px;
+}
+.term .tn{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.term .tn small{font-family:var(--font-mono);font-size:11px;font-weight:600;
+  color:var(--ink-faint);letter-spacing:.04em}
+.term .td{font-size:13.5px;color:var(--ink-soft)}
+.term .td b{color:var(--ink)}
+.term .ta{font-size:12.5px;color:var(--ink-faint);border-top:1px dashed var(--line-soft);padding-top:5px}
+.term .ta::before{content:"比喻　";font-weight:700;color:var(--accent)}
+
+/* 小圖例：對／錯並排，每張圖底下一句判決 */
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.fig{
+  margin:0;background:var(--sunken);border:1px solid var(--line-soft);border-radius:var(--r);
+  padding:10px 10px 12px;display:flex;flex-direction:column;gap:6px;
+}
+.fig svg{display:block;width:100%;height:auto}
+.fig figcaption{font-size:13px;color:var(--ink-soft)}
+/* 只有一張圖時別撐滿整行：陣列、流程這類寬圖用 .solo 限寬 */
+.fig.solo{max-width:460px}
+.fig figcaption b{color:var(--ink)}
+.fig[data-k="ok"]{border-color:var(--jade)}
+.fig[data-k="no"]{border-color:var(--alarm)}
+.fig[data-k="ok"] figcaption .verdict{color:var(--jade)}
+.fig[data-k="no"] figcaption .verdict{color:var(--alarm)}
+/* 圖裡的節點：圓圈 + 數字，跟著明暗主題換色 */
+.fig .nd circle{fill:var(--surface);stroke:var(--ink-faint);stroke-width:1.6}
+.fig .nd text{fill:var(--ink);font-family:var(--font-mono);font-size:14px;font-weight:700;
+  text-anchor:middle;dominant-baseline:central}
+.fig .nd.bad circle{stroke:var(--alarm);stroke-width:2.4;fill:var(--alarm-soft)}
+.fig .nd.hot circle{stroke:var(--accent);stroke-width:2.4;fill:var(--accent-soft)}
+.fig .nd.good circle{stroke:var(--jade);stroke-width:2.4;fill:var(--jade-soft)}
+.fig .ed{stroke:var(--line);stroke-width:1.8}
+.fig .ed.bad{stroke:var(--alarm);stroke-dasharray:4 3}
+.fig .lbl{fill:var(--ink-faint);font-family:var(--font-mono);font-size:11px;text-anchor:middle}
+.fig .lbl.bad{fill:var(--alarm);font-weight:700}
+.fig .lbl.good{fill:var(--jade);font-weight:700}
+.fig .cell{fill:var(--surface);stroke:var(--ink-faint);stroke-width:1.4}
+.fig .cell.hot{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.2}
+.fig .cell.good{fill:var(--jade-soft);stroke:var(--jade);stroke-width:2.2}
+.fig .cell.bad{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:2.2}
+.fig .cell.dim{fill:var(--sunken);stroke:var(--line)}
+.fig .ctext{fill:var(--ink);font-family:var(--font-mono);font-size:13px;font-weight:700;
+  text-anchor:middle;dominant-baseline:central}
+
+/* 自我檢查：題目先出，答案點開才看到 */
+.check{display:flex;flex-direction:column;gap:8px}
+.check details{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r)}
+.check summary{cursor:pointer;padding:10px 14px;font-size:14px;font-weight:700;color:var(--ink);
+  list-style:none;display:flex;gap:10px;align-items:baseline}
+.check summary::-webkit-details-marker{display:none}
+.check summary::before{content:"Q";font-family:var(--font-mono);font-size:11px;font-weight:700;
+  background:var(--surface-2);color:var(--ink);border-radius:5px;padding:1px 7px;flex:0 0 auto}
+.check details[open] summary{border-bottom:1px dashed var(--line-soft)}
+.check details[open] summary::before{content:"A";background:var(--jade);color:var(--surface)}
+.check .ans{padding:10px 14px 12px;font-size:13.5px;color:var(--ink-soft)}
+.check .ans b{color:var(--ink)}
+
 /* 表格 */
 .tablewrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--r);background:var(--surface)}
 table{border-collapse:collapse;width:100%;font-size:13.5px}

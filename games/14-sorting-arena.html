@@ -93,6 +93,7 @@
     <a class="home" href="../index.html">← 資料結構遊戲場</a>
     <span class="crumb">14 · 排序</span>
     <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
       <a href="#s1"><span class="n">01</span>玩法</a>
       <a href="#s2"><span class="n">02</span>遊戲</a>
       <a href="#s3"><span class="n">03</span>原理</a>
@@ -116,6 +117,261 @@
       <div class="fact"><span>先備知識</span><b>陣列、迴圈、遞迴</b></div>
     </div>
   </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：排序（Sorting）到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面看五個演算法比賽才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>一句話定義</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 定義</span>
+          <div class="defline">排序（Sorting）就是把一排資料<em>重新換位置</em>，排成<em>「每一個都 ≤ 下一個」</em>的順序——也就是由小到大。</div>
+          <p><b>輸入</b>是一排順序亂七八糟的資料；<b>輸出</b>是<b>同一批</b>資料，一個不多、一個不少，只是位置換過了，而且從左看到右，每一個都不比右邊的鄰居大。</p>
+        </div>
+        <p>這句話裡藏了好幾個要講清楚的詞——「一排資料」、「≤」、「換位置」。下面一個一個拆。先記住排序想解決的事情：</p>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">資料<b>排好之後，很多事情都變簡單</b>：最小的在最左、最大的在最右，看一眼就有；一樣的值會擠在一起；要找某個值也能「翻字典」式地快速找。就像圖書館的書照編號排好上架——亂放的話，找一本書得整間翻一遍。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">演算法 <small>algorithm</small></div>
+            <div class="td">一份<b>步驟清楚、照做就一定會完成</b>的做事方法。同一件事可以有很多種演算法，有的快、有的慢。本關的五個選手，就是五種「排序的演算法」。</div>
+            <div class="ta">食譜：照著步驟一步一步做，菜就會出來。同一道菜，不同師傅有不同做法。</div>
+          </div>
+          <div class="term">
+            <div class="tn">陣列 / 索引 <small>array / index</small></div>
+            <div class="td">陣列是一排<b>連在一起、有編號的格子</b>，每格放一個資料。格子的編號叫「索引」，<b>從 0 開始數</b>。寫成 <code>a[0]</code>、<code>a[1]</code>……意思是「陣列 a 的第 0 格、第 1 格」。遊戲裡每根柱子底下的小數字就是索引。</div>
+            <div class="ta">車站的置物櫃：0 號櫃、1 號櫃、2 號櫃……報號碼就能直接打開那一格。</div>
+          </div>
+          <div class="term">
+            <div class="tn">排序 <small>sorting</small></div>
+            <div class="td">把陣列裡的資料重新換位置，讓<b>每一格都 ≤ 它右邊那一格</b>，也就是 <code>a[0] ≤ a[1] ≤ a[2] ≤ …</code>。只能換位置，<b>不能增加、刪掉或修改</b>任何一個資料。</div>
+            <div class="ta">把全班依身高排成一列：人還是那些人，只是站的位置換了。</div>
+          </div>
+          <div class="term">
+            <div class="tn">遞增 / 遞減 <small>ascending / descending</small></div>
+            <div class="td"><b>遞增</b>＝由小到大（左邊 ≤ 右邊），本關全部都是排這種。<b>遞減</b>＝由大到小（左邊 ≥ 右邊）。兩種做法完全一樣，只是比大小的方向反過來。注意<b>一樣大也算排好</b>，例如 <code>3, 7, 7, 10</code> 是遞增。</div>
+            <div class="ta">成績單「由低到高」或「由高到低」，看你要先看誰。</div>
+          </div>
+          <div class="term">
+            <div class="tn">比較 <small>comparison</small></div>
+            <div class="td">把<b>兩個</b>資料放在一起，問一個問題：「誰比較大？」排序演算法唯一能用來了解資料的方法就是比較。遊戲的計數器會數你做了幾次。</div>
+            <div class="ta">兩個人背靠背量身高，一次只能比兩個人。</div>
+          </div>
+          <div class="term">
+            <div class="tn">交換 <small>swap</small></div>
+            <div class="td">兩個格子裡的資料<b>互換位置</b>。電腦換的時候要借一個暫放的地方：先把 A 抄到旁邊，B 放進 A 的格子，再把剛抄的放進 B 的格子。</div>
+            <div class="ta">兩杯飲料要互換杯子，得先借第三個空杯。</div>
+          </div>
+          <div class="term">
+            <div class="tn">搬移 <small>move / shift</small></div>
+            <div class="td">把<b>一個</b>資料複製到另一格（通常是隔壁格），原本那格先不管。插入排序和合併排序主要靠搬移，不靠交換。本關把交換和搬移算在同一個計數器裡。</div>
+            <div class="ta">排隊時有人插隊，後面的人各往後退一步騰出位置。</div>
+          </div>
+          <div class="term">
+            <div class="tn">遞迴 <small>recursion</small></div>
+            <div class="td">一個做法在執行途中<b>叫自己去處理一個比較小的同類問題</b>，小到不能再小（例如只剩 1 個）就直接結束。合併排序和快速排序都是這樣：大問題切成小問題，小問題用同一招處理。</div>
+            <div class="ta">分配考卷：老師把一疊分成兩半交給兩位小老師，小老師再各分兩半……分到每人只剩一張就不用再分。</div>
+          </div>
+          <div class="term">
+            <div class="tn">Big-O：O(n²)、O(n log n) <small>Big-O 記號</small></div>
+            <div class="td">描述「資料變多時，工作量怎麼跟著變多」。n 是資料的數量。<b>O(n²)</b>：資料多一倍，工作變<b>四倍</b>。<b>O(n log n)</b>：資料多一倍，工作只比兩倍多一點點。n = 1000 時，n² 是 100 萬，n log₂ n 大約只有 1 萬。</div>
+            <div class="ta">O(n²) 像全班每兩個人都要握一次手；O(n log n) 像打淘汰賽，每輪人數砍半。</div>
+          </div>
+          <div class="term">
+            <div class="tn">最好 / 平均 / 最壞情況 <small>best / average / worst case</small></div>
+            <div class="td">同一個演算法遇到不同「長相」的資料，花的工夫不一樣。<b>最好情況</b>是最省事的那種資料（例如本來就排好），<b>最壞情況</b>是最折磨的那種（例如完全倒過來），<b>平均</b>是隨便亂排時的一般表現。</div>
+            <div class="ta">同一條路上班：清晨一路綠燈（最好）、下雨塞車（最壞）、平常日子（平均）。</div>
+          </div>
+          <div class="term">
+            <div class="tn">原地排序 <small>in-place sorting</small></div>
+            <div class="td">只在<b>原本那排格子裡</b>交換、搬移，<b>不需要另外準備一排跟資料一樣大的格子</b>（只借幾個暫放的小空位）。氣泡、選擇、插入、快速都算原地排序；合併排序要一個一樣大的「暫存盒」，所以不是。</div>
+            <div class="ta">在書架上直接把書換來換去（原地），vs. 先把書全部搬到地上排好再放回去（不是原地）。</div>
+          </div>
+          <div class="term">
+            <div class="tn">穩定排序 <small>stable sort</small></div>
+            <div class="td">遇到<b>一樣大</b>的資料時，排完後它們仍保持<b>原本的前後順序</b>，就叫穩定。例如小明和小華都考 80 分、名單上小明在前，穩定排序排完小明還是在小華前面；不穩定的排序可能把他們對調。</div>
+            <div class="ta">排隊買票時兩人同時到，先來的那位排完隊還是在前面，沒被插隊。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>本關的五位選手：一句話定義</h3>
+        <p>每一位都會把資料排好，差別只在<b>做法</b>和<b>花的工夫</b>。先有個印象，02 遊戲裡會一步一步演給你看：</p>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">氣泡排序 <small>bubble sort</small></div>
+            <div class="td">從左到右反覆比較<b>相鄰兩個</b>，左邊比右邊大就交換。每走完一輪，最大的就「浮」到最右邊定位。</div>
+            <div class="ta">一排人兩兩比身高，高的往右換，最高的那位一輪就換到最後面。</div>
+          </div>
+          <div class="term">
+            <div class="tn">選擇排序 <small>selection sort</small></div>
+            <div class="td">每一輪把還沒排的<b>全部看一遍</b>，挑出最小的，換到左邊下一個空位。比較很多次，交換卻很少。</div>
+            <div class="ta">從一堆牌裡每次挑出最小的那張，依序排到桌上。</div>
+          </div>
+          <div class="term">
+            <div class="tn">插入排序 <small>insertion sort</small></div>
+            <div class="td">左邊那段永遠保持排好；每次拿右邊下一個，往左找到該放的位置<b>插進去</b>，比它大的往右挪一格。</div>
+            <div class="ta">打牌時整理手牌：每摸一張新牌，就插進手上已排好的牌中間。</div>
+          </div>
+          <div class="term">
+            <div class="tn">合併排序 <small>merge sort</small></div>
+            <div class="td">用遞迴把整排<b>切半再切半</b>，切到只剩一個（一個自然是排好的）；再把兩疊排好的<b>合成一疊</b>：每次只比兩疊最上面那張，小的先放。</div>
+            <div class="ta">兩疊已照號碼排好的考卷，每次比最上面兩張，號碼小的先收，就能合成一疊排好的。</div>
+          </div>
+          <div class="term">
+            <div class="tn">快速排序 <small>quick sort</small></div>
+            <div class="td">挑一個資料當<b>基準值（pivot）</b>，把比它小的全趕到左邊、其他的留在右邊，基準值就落在正確位置；左右兩堆再用遞迴各做一次。本關固定拿區段<b>最右邊</b>那個當基準值。</div>
+            <div class="ta">老師說「比 160 公分矮的站左邊」，一聲令下全班分成兩隊，兩隊再各自照做。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>定義拆成兩個條件：缺一個就不算排好</h3>
+        <ol class="steps">
+          <li><b>順序條件</b>——由左到右，<b>每一個都 ≤ 下一個</b>（遞增）。只要有任何一對鄰居是「左 &gt; 右」，就不算排好。</li>
+          <li><b>內容條件</b>——輸出和輸入是<b>同一批資料</b>：不能多、不能少、不能改數字，只能換位置。</li>
+        </ol>
+        <p>題目：把 <code>[8, 2, 6, 4]</code> 由小到大排序。下面四個答案，自己先判斷每一個對不對，再看底下的說明：</p>
+        <div class="figs">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 72" role="img" aria-label="正確的遞增排序結果 2 4 6 8">
+              <rect class="cell good" x="12" y="8" width="42" height="36" rx="6"/><text class="ctext" x="33" y="26">2</text>
+              <rect class="cell good" x="64" y="8" width="42" height="36" rx="6"/><text class="ctext" x="85" y="26">4</text>
+              <rect class="cell good" x="116" y="8" width="42" height="36" rx="6"/><text class="ctext" x="137" y="26">6</text>
+              <rect class="cell good" x="168" y="8" width="42" height="36" rx="6"/><text class="ctext" x="189" y="26">8</text>
+              <text class="lbl good" x="110" y="62">2 ≤ 4 ≤ 6 ≤ 8</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 排好了。</b>每一對鄰居都是左 ≤ 右，而且 8、2、6、4 四個數字一個都沒少。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 72" role="img" aria-label="順序錯誤：6 排在 4 前面">
+              <rect class="cell" x="12" y="8" width="42" height="36" rx="6"/><text class="ctext" x="33" y="26">2</text>
+              <rect class="cell bad" x="64" y="8" width="42" height="36" rx="6"/><text class="ctext" x="85" y="26">6</text>
+              <rect class="cell bad" x="116" y="8" width="42" height="36" rx="6"/><text class="ctext" x="137" y="26">4</text>
+              <rect class="cell" x="168" y="8" width="42" height="36" rx="6"/><text class="ctext" x="189" y="26">8</text>
+              <text class="lbl bad" x="111" y="62">6 &gt; 4</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 順序條件不合格。</b>頭尾看起來對（最小 2 在最左、最大 8 在最右），但中間 6 和 4 這對鄰居是「左 &gt; 右」。每一對都要檢查。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 72" role="img" aria-label="內容錯誤：少了一個數字">
+              <rect class="cell" x="12" y="8" width="42" height="36" rx="6"/><text class="ctext" x="33" y="26">2</text>
+              <rect class="cell" x="64" y="8" width="42" height="36" rx="6"/><text class="ctext" x="85" y="26">4</text>
+              <rect class="cell" x="116" y="8" width="42" height="36" rx="6"/><text class="ctext" x="137" y="26">8</text>
+              <rect class="cell dim" x="168" y="8" width="42" height="36" rx="6" style="stroke-dasharray:4 3"/><text class="ctext" x="189" y="26">?</text>
+              <text class="lbl bad" x="189" y="62">6 不見了</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 內容條件不合格。</b>2 ≤ 4 ≤ 8 順序沒錯，但 6 不見了。排序只能換位置，丟掉資料再排「好」不算數。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 72" role="img" aria-label="遞減排序結果 8 6 4 2">
+              <rect class="cell good" x="12" y="8" width="42" height="36" rx="6"/><text class="ctext" x="33" y="26">8</text>
+              <rect class="cell good" x="64" y="8" width="42" height="36" rx="6"/><text class="ctext" x="85" y="26">6</text>
+              <rect class="cell good" x="116" y="8" width="42" height="36" rx="6"/><text class="ctext" x="137" y="26">4</text>
+              <rect class="cell good" x="168" y="8" width="42" height="36" rx="6"/><text class="ctext" x="189" y="26">2</text>
+              <text class="lbl good" x="110" y="62">8 ≥ 6 ≥ 4 ≥ 2</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 是正確的「遞減」排序</b>（但不是這題要的遞增）。由大到小也是一種排好，只是比大小的方向反過來。題目說要哪一種，就排哪一種。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>穩定 vs 不穩定：數字一樣時，誰排前面？</h3>
+        <p>名單上原本的順序是：小明 80 分、小華 80 分、小美 70 分。現在要<b>照分數由低到高</b>排序。小明和小華同分，排完誰在前？先自己想，再看下面兩種結果：</p>
+        <div class="figs">
+          <figure class="fig">
+            <svg viewBox="0 0 220 74" role="img" aria-label="原始名單：小明 80、小華 80、小美 70">
+              <rect class="cell hot" x="12" y="8" width="56" height="36" rx="6"/><text class="ctext" x="40" y="26">80</text>
+              <rect class="cell hot" x="82" y="8" width="56" height="36" rx="6"/><text class="ctext" x="110" y="26">80</text>
+              <rect class="cell" x="152" y="8" width="56" height="36" rx="6"/><text class="ctext" x="180" y="26">70</text>
+              <text class="lbl" x="40" y="62">小明</text><text class="lbl" x="110" y="62">小華</text><text class="lbl" x="180" y="62">小美</text>
+            </svg>
+            <figcaption><b>排序前。</b>同分的兩人：<b>小明在前、小華在後</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 74" role="img" aria-label="穩定排序結果：小美 70、小明 80、小華 80">
+              <rect class="cell" x="12" y="8" width="56" height="36" rx="6"/><text class="ctext" x="40" y="26">70</text>
+              <rect class="cell good" x="82" y="8" width="56" height="36" rx="6"/><text class="ctext" x="110" y="26">80</text>
+              <rect class="cell good" x="152" y="8" width="56" height="36" rx="6"/><text class="ctext" x="180" y="26">80</text>
+              <text class="lbl" x="40" y="62">小美</text><text class="lbl good" x="110" y="62">小明</text><text class="lbl good" x="180" y="62">小華</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 穩定。</b>分數排好了，而且同分的小明仍在小華前面，跟原本一樣。氣泡、插入、合併排序都會得到這個結果。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 74" role="img" aria-label="不穩定排序結果：小美 70、小華 80、小明 80">
+              <rect class="cell" x="12" y="8" width="56" height="36" rx="6"/><text class="ctext" x="40" y="26">70</text>
+              <rect class="cell bad" x="82" y="8" width="56" height="36" rx="6"/><text class="ctext" x="110" y="26">80</text>
+              <rect class="cell bad" x="152" y="8" width="56" height="36" rx="6"/><text class="ctext" x="180" y="26">80</text>
+              <text class="lbl" x="40" y="62">小美</text><text class="lbl bad" x="110" y="62">小華</text><text class="lbl bad" x="180" y="62">小明</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 不穩定</b>（但分數一樣是排好的）。這是選擇排序的結果：第一輪找到最小的 70（小美），把它跟第 0 格的小明<b>對調</b>，小明一下被丟到最後面，跳過了小華。</figcaption>
+          </figure>
+        </div>
+        <p>只看分數，兩種結果都「排好了」，所以穩定不穩定<b>不是對錯問題</b>，而是「同分的人有沒有被打亂」。當你要先照一個條件排、再照另一個條件排（例如先照名字、再照分數），就一定要用穩定排序，前一次排好的順序才不會被弄亂。</p>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>比較次數 vs 交換次數</td><td class="verdict no">不一樣</td><td>比較是「看」，交換是「動手換」，是兩種不同的成本。例如 14 個數字完全倒過來時，選擇排序比較 91 次，交換卻只有 13 次。</td></tr>
+              <tr><td>交換 vs 搬移</td><td class="verdict no">不一樣</td><td>交換是兩個資料<b>互換</b>；搬移只是把<b>一個</b>資料複製到另一格。插入排序靠「往右挪」的搬移，不是靠交換。</td></tr>
+              <tr><td>「穩定」vs「排對了」</td><td class="verdict no">不一樣</td><td>不穩定的排序結果<b>一樣是排好的</b>。穩定只管「一樣大的資料，前後順序有沒有被打亂」。</td></tr>
+              <tr><td>原地排序 vs 完全不用額外記憶體</td><td class="verdict no">不完全一樣</td><td>原地排序可以借<b>幾個</b>暫放的小空位（例如交換時用的那一格），只是不另開一整排。快速排序遞迴時也會用掉一點點空間，但通常仍算原地排序。</td></tr>
+              <tr><td>遞增 vs 遞減</td><td class="verdict ok">同一件事反過來</td><td>同一個演算法，只要把「比大小」的方向反過來，就從由小到大變成由大到小。</td></tr>
+              <tr><td>O(n log n) 一定比 O(n²) 快？</td><td class="verdict no">不一定</td><td>Big-O 說的是<b>資料很多時</b>的趨勢。資料只有十幾個，或本來就幾乎排好時，O(n²) 的插入排序常常反而更快。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary><code>[3, 7, 7, 10]</code> 算不算「由小到大排好」？</summary>
+            <div class="ans"><b>算。</b>逐對檢查：3 ≤ 7 ✔、7 ≤ 7 ✔、7 ≤ 10 ✔。定義用的是「≤」，一樣大的鄰居是允許的。</div>
+          </details>
+          <details>
+            <summary>用氣泡排序把 <code>[4, 1, 3]</code> 由小到大排好，總共比較幾次、交換幾次？</summary>
+            <div class="ans"><b>比較 3 次、交換 2 次。</b>第 1 輪：比 4 和 1 → 交換，變 <code>[1, 4, 3]</code>；比 4 和 3 → 交換，變 <code>[1, 3, 4]</code>，最大的 4 定位。第 2 輪：比 1 和 3 → 不用換，排序完成。3 個資料最多只要走 2 輪。</div>
+          </details>
+          <details>
+            <summary>五位選手裡，哪幾個是穩定排序？哪幾個是原地排序？</summary>
+            <div class="ans"><b>穩定：</b>氣泡、插入、合併。<b>原地：</b>氣泡、選擇、插入、快速（合併要另開一個一樣大的暫存盒）。兩個都符合的只有<b>氣泡和插入</b>。選擇和快速都會「跳著換」，可能把同分的資料越過同伴丟到後面，所以不穩定。</div>
+          </details>
+          <details>
+            <summary>有 1000 筆資料，O(n²) 和 O(n log n) 的工作量大概各是多少？</summary>
+            <div class="ans">O(n²) 大約 1000 × 1000 = <b>100 萬</b>步；O(n log n) 大約 1000 × 10 = <b>1 萬</b>步（log₂ 1000 約等於 10，因為 2¹⁰ = 1024）。差了大約 100 倍，而且資料越多差越多。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 讓五位選手拿同一份資料比賽，親眼看比較和交換次數怎麼跳。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- ============ 01 玩法與學習目標 ============ -->
   <section class="sec" id="s1">
@@ -372,7 +628,7 @@ int main() {
           <table>
             <thead><tr><th>資料集</th><th class="mono">長相</th><th>誰佔便宜</th><th>誰吃虧</th></tr></thead>
             <tbody>
-              <tr><td><b>隨機亂序</b></td><td class="mono">17, 3, 28, 9, …</td><td>合併、快速（平均 O(n log n)）</td><td>三個 O(n²) 選手</td></tr>
+              <tr><td><b>隨機亂序</b></td><td class="mono">18, 4, 26, 10, …</td><td>合併、快速（平均 O(n log n)）</td><td>三個 O(n²) 選手</td></tr>
               <tr><td><b>幾乎排好</b></td><td class="mono">2, 4, 8, 6, 10, …</td><td style="color:var(--jade);font-weight:700">插入（接近 O(n)）、氣泡（提前收工）</td><td>選擇（照樣全掃）、固定 pivot 的快速</td></tr>
               <tr><td><b>完全逆序</b></td><td class="mono">30, 28, 26, …</td><td>合併（照常 n log n）</td><td style="color:var(--alarm);font-weight:700">氣泡（每一對都要換，最壞情況）</td></tr>
               <tr><td><b>大量重複</b></td><td class="mono">14, 6, 22, 14, 6, …</td><td>看穩定性的好教材</td><td>單邊分堆的快速</td></tr>
@@ -387,11 +643,11 @@ int main() {
         <ul class="bullets no">
           <li><b>氣泡排序</b> —— 比較 91 次、交換 91 次：每一對相鄰柱子都是錯的，每一次比較都得動手。</li>
           <li><b>選擇排序</b> —— 比較 91 次、但交換只有 13 次：它比較不省，交換卻極省。「比較次數」和「交換次數」是兩種不同的成本。</li>
-            <li><b>合併排序</b> —— 比較 30 次上下就結束：它根本不跟你玩相鄰互換，直接把問題切半。</li>
+            <li><b>合併排序</b> —— 比較 25 次就結束：它根本不跟你玩相鄰互換，直接把問題切半。</li>
         </ul>
         <div class="callout" data-k="key">
           <span class="tag">關鍵</span>
-          <span class="txt">n = 14 時是 91 比 30；n = 10000 時是 <b>5000 萬比 13 萬</b>。演算法的差距不是快一點點，是隨著資料變大<b>拉開到不能忽視</b>。</span>
+          <span class="txt">n = 14 時是 91 比 25；n = 10000 時是 <b>5000 萬比約 6.5 萬</b>（換成隨機亂序，合併也只要約 12 萬）。演算法的差距不是快一點點，是隨著資料變大<b>拉開到不能忽視</b>。</span>
         </div>
       </div>
 
@@ -513,7 +769,7 @@ int main() {
         <h3>整體設計：先算完，再播放——競技場也一樣</h3>
         <p>五個演算法各自先<b>一口氣跑完</b>，把每一步的完整柱狀圖快照存進自己的 steps 陣列；畫面只負責把「第 N 步」畫出來。競技模式沒有任何並行魔法——只是五份 steps 陣列<b>共用同一個進度數字 T</b>，每按一步大家的游標一起 +1，誰的陣列先走到底誰完賽。</p>
         <div class="arch">
-          <div class="node" data-k="in">同一份資料 <small>data = [17, 3, 28, …]</small></div>
+          <div class="node" data-k="in">同一份資料 <small>data = [18, 4, 26, …]</small></div>
           <div class="arrow"></div>
           <div class="node" data-k="core">buildBubble / buildSelection / buildInsertion / buildMerge / buildQuick <small>各自把整趟排序跑完</small></div>
           <div class="arrow"></div>

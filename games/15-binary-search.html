@@ -79,6 +79,7 @@
     <a class="home" href="../index.html">← 資料結構遊戲場</a>
     <span class="crumb">15 · 二分搜尋</span>
     <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
       <a href="#s1"><span class="n">01</span>玩法</a>
       <a href="#s2"><span class="n">02</span>遊戲</a>
       <a href="#s3"><span class="n">03</span>原理</a>
@@ -102,6 +103,315 @@
       <div class="fact"><span>先備知識</span><b>陣列、大小比較</b></div>
     </div>
   </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：二分搜尋到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>一句話定義</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 定義</span>
+          <div class="defline">二分搜尋（Binary Search）是一種找東西的方法：資料必須<em>「已經由小到大排好」</em>，每次只看<em>「目前範圍的正中間」</em>那一格，比一比，就把<em>「不可能的那一半」整片丟掉</em>。</div>
+          <p>一直重複，直到<b>找到</b>，或是範圍被丟光、<b>確定沒有</b>為止。1000 筆資料，最多只要看 10 次。</p>
+        </div>
+        <p>這句話裡有好幾個沒聽過的詞——「排好」、「範圍」、「正中間」。別急，下面一個一個拆。先記住二分搜尋想解決的事情只有一件：</p>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">資料很多的時候，<b>不要一筆一筆翻</b>，也能很快找到想要的那一筆（或很快確定「沒有」）。就像查紙本字典：要查「monkey」，你不會從第 1 頁開始翻，而是<b>從中間攤開</b>，看攤到的字在 m 前面還是後面，然後只翻剩下的那半本。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">陣列 / 索引 <small>array / index</small></div>
+            <div class="td">陣列是一排<b>連在一起、有編號的格子</b>，每格放一個資料。格子的編號叫「索引」，<b>從 0 開始數</b>，所以 8 格的陣列，編號是 0 到 7。</div>
+            <div class="ta">車站的置物櫃：0 號櫃、1 號櫃、2 號櫃……報號碼就能直接打開那一格。</div>
+          </div>
+          <div class="term">
+            <div class="tn">a[i] 的寫法 <small>element access</small></div>
+            <div class="td">程式裡寫 <code>a[3]</code>，意思是「陣列 a 第 3 號格子<b>裡面裝的值</b>」。要分清楚：<b>3 是位置</b>，a[3] 才是那格的內容。</div>
+            <div class="ta">「3 號櫃」是位置；「3 號櫃裡放的那把雨傘」才是內容。</div>
+          </div>
+          <div class="term">
+            <div class="tn">搜尋 <small>search</small></div>
+            <div class="td">一個「問題」的名字。<b>輸入</b>：一堆資料＋一個要找的值。<b>輸出</b>：那個值在<b>第幾格</b>；如果根本不在裡面，就回答<b>「找不到」</b>。</div>
+            <div class="ta">在全班名單裡找「王小明」：找到就說他是第幾號，沒這個人就說「沒有」。</div>
+          </div>
+          <div class="term">
+            <div class="tn">目標值 <small>target</small></div>
+            <div class="td">這一次<b>要找的那個值</b>。程式裡通常叫 <code>target</code>。在猜數字模式裡，目標值就是對方心裡藏的那個數。</div>
+            <div class="ta">尋人啟事上要找的那個人。</div>
+          </div>
+          <div class="term">
+            <div class="tn">回傳 / -1 <small>return value</small></div>
+            <div class="td">程式做完事，把答案「交回來」叫做回傳。本頁的程式找到就回傳<b>格子編號</b>；找不到就回傳 <b>-1</b>。因為格子編號不可能是負的，-1 就被拿來當「找不到」的暗號。</div>
+            <div class="ta">店員查庫存：「在 3 號架」或「沒有貨」。</div>
+          </div>
+          <div class="term">
+            <div class="tn">線性搜尋 <small>linear search</small></div>
+            <div class="td">最老實的搜尋法：從第 0 格開始，<b>一格一格</b>跟目標比，比到找到、或全部比完為止。資料不用排好也能用，但資料多時很慢。</div>
+            <div class="ta">從名單第一行開始，一行一行往下看。</div>
+          </div>
+          <div class="term">
+            <div class="tn">已排序 <small>sorted</small></div>
+            <div class="td">資料<b>由小到大</b>排好順序（本頁一律是由小到大）。這是二分搜尋的<b>前提</b>——前提就是「一定要先成立的條件」，沒成立就不能用。</div>
+            <div class="ta">字典裡的字照字母順序排；亂排的字典，從中間攤開也判斷不了要往哪翻。</div>
+          </div>
+          <div class="term">
+            <div class="tn">二分搜尋 <small>binary search</small></div>
+            <div class="td">在<b>已排序</b>的資料裡，每次看正中間、丟掉一半的搜尋法。「二分」就是「分成兩半」的意思。也有課本叫它「二元搜尋」。</div>
+            <div class="ta">猜數字：每次都猜正中間，聽「太大」還是「太小」，砍掉一半。</div>
+          </div>
+          <div class="term">
+            <div class="tn">搜尋範圍 <small>search range</small></div>
+            <div class="td">「目標<b>還可能</b>躲在哪幾格」。一開始是整個陣列；每看一次正中間，範圍就縮成原本的一半左右。</div>
+            <div class="ta">警察辦案：嫌疑人名單越刪越短。</div>
+          </div>
+          <div class="term">
+            <div class="tn">左界 lo / 右界 hi <small>low / high</small></div>
+            <div class="td">用兩個數字記住範圍：<b>lo</b> 是範圍最左邊那格的編號，<b>hi</b> 是最右邊那格的編號。lo 到 hi 之間（包含兩端）就是還要找的格子。一開始 lo = 0，hi = 最後一格。</div>
+            <div class="ta">書本裡夾著兩張書籤，答案一定在兩張書籤中間。</div>
+          </div>
+          <div class="term">
+            <div class="tn">整數除法 <small>integer division</small></div>
+            <div class="td">C++ 裡兩個整數相除，<b>小數部分直接丟掉</b>，不是四捨五入。例如 7 / 2 得到 <b>3</b>（不是 3.5），19 / 2 得到 9，1 / 2 得到 0。</div>
+            <div class="ta">7 顆蘋果分給 2 個人，每人整顆拿 3 顆，剩下半顆不算。</div>
+          </div>
+          <div class="term">
+            <div class="tn">中間位置 mid <small>middle</small></div>
+            <div class="td">範圍正中間那格的<b>編號</b>：<code>mid = lo + (hi − lo) / 2</code>。用了整數除法，所以範圍是偶數格時會<b>偏左</b>那一格。例：lo = 0、hi = 7 → mid = 0 + 7/2 = <b>3</b>。</div>
+            <div class="ta">兩張書籤中間對半攤開的那一頁。</div>
+          </div>
+          <div class="term">
+            <div class="tn">迴圈 / 一刀 <small>loop / iteration</small></div>
+            <div class="td">迴圈＝「同樣的步驟一直重複做」。二分搜尋每重複一輪：算 mid → 比一次 → 丟一半。這一頁把每一輪叫做<b>「一刀」</b>。</div>
+            <div class="ta">切蛋糕，每一刀都把剩下的對半切。</div>
+          </div>
+          <div class="term">
+            <div class="tn">範圍空了 <small>lo &gt; hi</small></div>
+            <div class="td">一直丟到 <b>lo 跑到 hi 的右邊</b>（lo &gt; hi），代表範圍裡一格都不剩：每一格都被排除過了，所以<b>確定找不到</b>。這是正常結局，不是程式壞掉。</div>
+            <div class="ta">兩張書籤交錯了，中間一頁都不剩。</div>
+          </div>
+          <div class="term">
+            <div class="tn">log₂n <small>logarithm, base 2</small></div>
+            <div class="td">「n 一直除以 2，要除幾次才剩 1？」的次數。也可以反過來問：「2 自己乘幾次會到 n？」例：2 乘 10 次是 1024，所以 log₂1000 大約是 10。<b>二分搜尋最多的刀數就跟它差不多</b>。</div>
+            <div class="ta">一張紙對摺幾次，厚度就翻倍幾次——反過來算就是 log。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(n)、O(log n)、O(1) <small>Big-O 記號</small></div>
+            <div class="td">描述「資料變多時，工作量怎麼跟著變多」。n 是資料筆數。<b>O(n)</b>：資料多一倍，工作也多一倍（線性搜尋）。<b>O(log n)</b>：資料多一倍，工作只多<b>一步</b>（二分搜尋）。<b>O(1)</b>：不管資料多少，都一樣多。</div>
+            <div class="ta">O(n) 像從頭翻每一頁；O(log n) 像翻字典，每翻一次丟掉一半。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>定義拆開來看：輸入、輸出、前提</h3>
+        <ol class="steps">
+          <li><b>輸入</b>——一個陣列 a（共 n 格）和一個目標值 target。</li>
+          <li><b>前提</b>——陣列<b>已經由小到大排好</b>。沒排好，答案就不可信。</li>
+          <li><b>輸出</b>——target 所在的格子編號；不在裡面就回傳 <b>-1</b>（找不到）。</li>
+        </ol>
+        <p>看下面三排資料，自己先判斷：<b>哪幾排可以直接用本頁的二分搜尋？</b>想好了再看底下的說明。</p>
+        <div class="figs">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 360 96" role="img" aria-label="由小到大排好的 8 格陣列">
+              <text class="lbl" x="24" y="12">[0]</text><text class="lbl" x="68" y="12">[1]</text><text class="lbl" x="112" y="12">[2]</text><text class="lbl" x="156" y="12">[3]</text>
+              <text class="lbl" x="200" y="12">[4]</text><text class="lbl" x="244" y="12">[5]</text><text class="lbl" x="288" y="12">[6]</text><text class="lbl" x="332" y="12">[7]</text>
+              <rect class="cell" x="4" y="20" width="40" height="34" rx="6"/><text class="ctext" x="24" y="37">2</text>
+              <rect class="cell" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">5</text>
+              <rect class="cell" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">8</text>
+              <rect class="cell" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">12</text>
+              <rect class="cell" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">16</text>
+              <rect class="cell" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">23</text>
+              <rect class="cell" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">38</text>
+              <rect class="cell" x="312" y="20" width="40" height="34" rx="6"/><text class="ctext" x="332" y="37">56</text>
+              <text class="lbl good" x="180" y="76">由小到大 →</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 可以。</b>每一格都比左邊那格大，是已排序。下面「範圍怎麼縮小」就用這一排來示範。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 360 96" role="img" aria-label="有重複值但排好序的 6 格陣列">
+              <text class="lbl" x="68" y="12">[0]</text><text class="lbl" x="112" y="12">[1]</text><text class="lbl" x="156" y="12">[2]</text>
+              <text class="lbl" x="200" y="12">[3]</text><text class="lbl" x="244" y="12">[4]</text><text class="lbl" x="288" y="12">[5]</text>
+              <rect class="cell" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">1</text>
+              <rect class="cell" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">3</text>
+              <rect class="cell good" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">3</text>
+              <rect class="cell" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">3</text>
+              <rect class="cell" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">5</text>
+              <rect class="cell" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">8</text>
+              <text class="lbl" x="68" y="72">lo</text><text class="lbl good" x="156" y="72">mid</text><text class="lbl" x="288" y="72">hi</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 也可以。</b>有重複的 3 沒關係，只要「右邊不比左邊小」就算排好。找 3：mid = 0 + 5/2 = 2，a[2] 就是 3，一刀命中。（有好幾個 3 時，它回傳的是「其中一個」，不一定是第一個。）</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 360 96" role="img" aria-label="亂序陣列：二分搜尋把答案丟掉了">
+              <text class="lbl" x="46" y="12">[0]</text><text class="lbl" x="90" y="12">[1]</text><text class="lbl" x="134" y="12">[2]</text><text class="lbl" x="178" y="12">[3]</text>
+              <text class="lbl" x="222" y="12">[4]</text><text class="lbl" x="266" y="12">[5]</text><text class="lbl" x="310" y="12">[6]</text>
+              <rect class="cell" x="26" y="20" width="40" height="34" rx="6"/><text class="ctext" x="46" y="37">9</text>
+              <rect class="cell" x="70" y="20" width="40" height="34" rx="6"/><text class="ctext" x="90" y="37">3</text>
+              <rect class="cell" x="114" y="20" width="40" height="34" rx="6"/><text class="ctext" x="134" y="37">27</text>
+              <rect class="cell hot" x="158" y="20" width="40" height="34" rx="6"/><text class="ctext" x="178" y="37">8</text>
+              <rect class="cell dim" x="202" y="20" width="40" height="34" rx="6"/><text class="ctext" x="222" y="37">5</text>
+              <rect class="cell dim" x="246" y="20" width="40" height="34" rx="6"/><text class="ctext" x="266" y="37">40</text>
+              <rect class="cell bad" x="290" y="20" width="40" height="34" rx="6"/><text class="ctext" x="310" y="37">1</text>
+              <text class="lbl" x="46" y="72">lo</text><text class="lbl" x="178" y="72">mid</text><text class="lbl" x="310" y="72">hi</text>
+              <text class="lbl bad" x="290" y="90">1 被丟掉了！</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 不行。</b>這排沒排序。找 1：mid = 0 + 6/2 = 3，a[3] = 8 比 1 大，二分就推論「1 在左邊」，把右半（第 3～6 格）整片丟掉——可是 1 偏偏在第 6 格。繼續找下去，最後會回報「找不到」，答案是錯的。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">記住</span>
+          <span class="txt">二分搜尋敢把一半丟掉，靠的是「排好序」這個保證：中間比目標大，右邊只會更大，所以目標一定不在右邊。<b>沒排序，這個推論就不成立</b>，找出來的答案不能信。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>一步一步看：範圍怎麼縮小</h3>
+        <p>在 <code>[2, 5, 8, 12, 16, 23, 38, 56]</code> 裡找 <b>38</b>。先看老實的線性搜尋要比幾次，再看二分搜尋。圖裡<b>淡掉的格子</b>是已經被丟掉、不用再看的；<b>橘框</b>是這一刀看的 mid；<b>綠框</b>是找到的位置。每一張先猜猜看下一步 lo 或 hi 會變成多少，再讀說明。</p>
+        <div class="figs">
+          <figure class="fig">
+            <svg viewBox="0 0 360 96" role="img" aria-label="線性搜尋：一格一格比到第 6 格">
+              <text class="lbl" x="24" y="12">[0]</text><text class="lbl" x="68" y="12">[1]</text><text class="lbl" x="112" y="12">[2]</text><text class="lbl" x="156" y="12">[3]</text>
+              <text class="lbl" x="200" y="12">[4]</text><text class="lbl" x="244" y="12">[5]</text><text class="lbl" x="288" y="12">[6]</text><text class="lbl" x="332" y="12">[7]</text>
+              <rect class="cell dim" x="4" y="20" width="40" height="34" rx="6"/><text class="ctext" x="24" y="37">2</text>
+              <rect class="cell dim" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">5</text>
+              <rect class="cell dim" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">8</text>
+              <rect class="cell dim" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">12</text>
+              <rect class="cell dim" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">16</text>
+              <rect class="cell dim" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">23</text>
+              <rect class="cell good" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">38</text>
+              <rect class="cell" x="312" y="20" width="40" height="34" rx="6"/><text class="ctext" x="332" y="37">56</text>
+              <text class="lbl" x="24" y="72">1</text><text class="lbl" x="68" y="72">2</text><text class="lbl" x="112" y="72">3</text><text class="lbl" x="156" y="72">4</text>
+              <text class="lbl" x="200" y="72">5</text><text class="lbl" x="244" y="72">6</text><text class="lbl good" x="288" y="72">7</text>
+            </svg>
+            <figcaption><b>對照組：線性搜尋。</b>格子下面的數字是「第幾次比較」。從第 0 格一格一格比，比到<b>第 7 次</b>才在第 6 格找到 38。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 360 96" role="img" aria-label="二分第 1 刀：lo=0 hi=7 mid=3">
+              <text class="lbl" x="24" y="12">[0]</text><text class="lbl" x="68" y="12">[1]</text><text class="lbl" x="112" y="12">[2]</text><text class="lbl" x="156" y="12">[3]</text>
+              <text class="lbl" x="200" y="12">[4]</text><text class="lbl" x="244" y="12">[5]</text><text class="lbl" x="288" y="12">[6]</text><text class="lbl" x="332" y="12">[7]</text>
+              <rect class="cell" x="4" y="20" width="40" height="34" rx="6"/><text class="ctext" x="24" y="37">2</text>
+              <rect class="cell" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">5</text>
+              <rect class="cell" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">8</text>
+              <rect class="cell hot" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">12</text>
+              <rect class="cell" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">16</text>
+              <rect class="cell" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">23</text>
+              <rect class="cell" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">38</text>
+              <rect class="cell" x="312" y="20" width="40" height="34" rx="6"/><text class="ctext" x="332" y="37">56</text>
+              <text class="lbl" x="24" y="72">lo</text><text class="lbl" x="156" y="72">mid</text><text class="lbl" x="332" y="72">hi</text>
+            </svg>
+            <figcaption><b>二分第 1 刀。</b>範圍是全部 8 格：lo = 0、hi = 7。mid = 0 + 7/2 = <b>3</b>（3.5 的小數丟掉）。a[3] = 12，<b>12 &lt; 38</b>，目標一定在右邊 → lo = mid + 1 = <b>4</b>，左邊 4 格（含 mid）整片丟掉。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 360 96" role="img" aria-label="二分第 2 刀：lo=4 hi=7 mid=5">
+              <text class="lbl" x="24" y="12">[0]</text><text class="lbl" x="68" y="12">[1]</text><text class="lbl" x="112" y="12">[2]</text><text class="lbl" x="156" y="12">[3]</text>
+              <text class="lbl" x="200" y="12">[4]</text><text class="lbl" x="244" y="12">[5]</text><text class="lbl" x="288" y="12">[6]</text><text class="lbl" x="332" y="12">[7]</text>
+              <rect class="cell dim" x="4" y="20" width="40" height="34" rx="6"/><text class="ctext" x="24" y="37">2</text>
+              <rect class="cell dim" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">5</text>
+              <rect class="cell dim" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">8</text>
+              <rect class="cell dim" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">12</text>
+              <rect class="cell" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">16</text>
+              <rect class="cell hot" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">23</text>
+              <rect class="cell" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">38</text>
+              <rect class="cell" x="312" y="20" width="40" height="34" rx="6"/><text class="ctext" x="332" y="37">56</text>
+              <text class="lbl" x="200" y="72">lo</text><text class="lbl" x="244" y="72">mid</text><text class="lbl" x="332" y="72">hi</text>
+            </svg>
+            <figcaption><b>二分第 2 刀。</b>範圍剩 4 格：lo = 4、hi = 7。mid = 4 + (7−4)/2 = 4 + 1 = <b>5</b>。a[5] = 23，<b>23 &lt; 38</b>，還是在右邊 → lo = <b>6</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 360 96" role="img" aria-label="二分第 3 刀：lo=6 hi=7 mid=6，找到">
+              <text class="lbl" x="24" y="12">[0]</text><text class="lbl" x="68" y="12">[1]</text><text class="lbl" x="112" y="12">[2]</text><text class="lbl" x="156" y="12">[3]</text>
+              <text class="lbl" x="200" y="12">[4]</text><text class="lbl" x="244" y="12">[5]</text><text class="lbl" x="288" y="12">[6]</text><text class="lbl" x="332" y="12">[7]</text>
+              <rect class="cell dim" x="4" y="20" width="40" height="34" rx="6"/><text class="ctext" x="24" y="37">2</text>
+              <rect class="cell dim" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">5</text>
+              <rect class="cell dim" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">8</text>
+              <rect class="cell dim" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">12</text>
+              <rect class="cell dim" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">16</text>
+              <rect class="cell dim" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">23</text>
+              <rect class="cell good" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">38</text>
+              <rect class="cell" x="312" y="20" width="40" height="34" rx="6"/><text class="ctext" x="332" y="37">56</text>
+              <text class="lbl good" x="288" y="72">lo mid</text><text class="lbl" x="332" y="72">hi</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 第 3 刀找到。</b>範圍剩 2 格：lo = 6、hi = 7。mid = 6 + (7−6)/2 = 6 + 0 = <b>6</b>。a[6] = 38，<b>相等</b> → 回傳 6。線性搜尋比 7 次，二分只比 3 次。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 360 96" role="img" aria-label="找不到：lo=5 跑到 hi=4 的右邊">
+              <text class="lbl" x="24" y="12">[0]</text><text class="lbl" x="68" y="12">[1]</text><text class="lbl" x="112" y="12">[2]</text><text class="lbl" x="156" y="12">[3]</text>
+              <text class="lbl" x="200" y="12">[4]</text><text class="lbl" x="244" y="12">[5]</text><text class="lbl" x="288" y="12">[6]</text><text class="lbl" x="332" y="12">[7]</text>
+              <rect class="cell dim" x="4" y="20" width="40" height="34" rx="6"/><text class="ctext" x="24" y="37">2</text>
+              <rect class="cell dim" x="48" y="20" width="40" height="34" rx="6"/><text class="ctext" x="68" y="37">5</text>
+              <rect class="cell dim" x="92" y="20" width="40" height="34" rx="6"/><text class="ctext" x="112" y="37">8</text>
+              <rect class="cell dim" x="136" y="20" width="40" height="34" rx="6"/><text class="ctext" x="156" y="37">12</text>
+              <rect class="cell dim" x="180" y="20" width="40" height="34" rx="6"/><text class="ctext" x="200" y="37">16</text>
+              <rect class="cell dim" x="224" y="20" width="40" height="34" rx="6"/><text class="ctext" x="244" y="37">23</text>
+              <rect class="cell dim" x="268" y="20" width="40" height="34" rx="6"/><text class="ctext" x="288" y="37">38</text>
+              <rect class="cell dim" x="312" y="20" width="40" height="34" rx="6"/><text class="ctext" x="332" y="37">56</text>
+              <text class="lbl" x="200" y="72">hi</text><text class="lbl" x="244" y="72">lo</text>
+              <text class="lbl bad" x="222" y="90">lo &gt; hi：範圍空了</text>
+            </svg>
+            <figcaption><b>換找 20（不在裡面）。</b>第 1 刀 mid = 3，12 &lt; 20 → lo = 4。第 2 刀 mid = 5，23 &gt; 20 → hi = 4。第 3 刀 mid = 4，16 &lt; 20 → lo = 5。現在 <b>lo = 5、hi = 4</b>，lo 跑到 hi 右邊，一格都不剩 → 回傳 <b>-1</b>（找不到）。</figcaption>
+          </figure>
+        </div>
+        <p>範圍大小的變化是 8 → 4 → 2 → 1：每一刀<b>至少砍掉一半</b>。8 格最多 4 刀（例如找最右邊的 56：mid 依序是 3、5、6、7）。資料變成 1000 筆也只要 10 刀，這就是 <b>O(log n)</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>跟二分搜尋一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>線性搜尋</td><td class="verdict no">不一樣</td><td>線性搜尋一格一格看，<b>不用排序</b>，但最壞要看 n 次（O(n)）。二分搜尋<b>一定要排序</b>，最壞只看約 log₂n 次（O(log n)）。</td></tr>
+              <tr><td>排序（把資料排好）</td><td class="verdict no">不一樣</td><td>排序是「把資料排整齊」，搜尋是「在資料裡找東西」。二分搜尋<b>不會幫你排序</b>，它是假設資料<b>已經</b>排好。</td></tr>
+              <tr><td>mid 和 a[mid]</td><td class="verdict no">不一樣</td><td>mid 是<b>位置</b>（第幾格），a[mid] 是那格<b>裡面的值</b>。跟目標比大小時，比的是 a[mid]；移動 lo、hi 時，用的是 mid。</td></tr>
+              <tr><td>二元搜尋樹 BST（第 11 關）</td><td class="verdict ok">相關</td><td>名字很像，想法也一樣（比一下就丟掉一邊），但 BST 是把資料擺成一棵「樹」；本關的二分搜尋是在一排<b>陣列</b>裡做。</td></tr>
+              <tr><td>回傳 -1</td><td class="verdict no">不是出錯</td><td>-1 是「確定找不到」的正常答案。程式沒有壞掉，它是把每一格都排除過了才這樣說。</td></tr>
+              <tr><td>由大到小排好的陣列</td><td class="verdict no">不能照抄</td><td>也算排好，二分的想法可以用，但比大小的方向要整個反過來。本頁的程式只適用<b>由小到大</b>。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>lo = 10、hi = 13 的時候，mid 是多少？</summary>
+            <div class="ans">mid = 10 + (13 − 10) / 2 = 10 + 3/2 = 10 + <b>1</b> = <b>11</b>。3/2 是 1.5，整數除法把 .5 丟掉，所以是 1。（第 03 段手算表的第 3 刀就是這一步。）</div>
+          </details>
+          <details>
+            <summary>在 <code>[2, 5, 8, 12, 16, 23, 38, 56]</code> 裡找 56，要比幾次？每一刀的 mid 是多少？</summary>
+            <div class="ans"><b>4 次。</b>第 1 刀 lo=0、hi=7，mid=3，12 &lt; 56 → lo=4。第 2 刀 mid=5，23 &lt; 56 → lo=6。第 3 刀 mid=6，38 &lt; 56 → lo=7。第 4 刀 lo=hi=7，mid=7，a[7]=56 相等 → 回傳 7。8 格最多就是 4 刀，這題剛好碰到最壞情況。</div>
+          </details>
+          <details>
+            <summary>程式什麼時候可以確定「找不到」？</summary>
+            <div class="ans">當 <b>lo &gt; hi</b>（左界跑到右界的右邊）時。這代表範圍裡一格都不剩，每一格都被排除過了，所以回傳 -1。例如在遊戲的 20 格陣列裡找 44，最後會停在 lo = 14、hi = 13。</div>
+          </details>
+          <details>
+            <summary>電話簿有 100 萬筆、已經照號碼排好。用二分搜尋最多要比幾次？用線性搜尋呢？</summary>
+            <div class="ans">二分最多 <b>20 次</b>：2 乘 20 次是 1,048,576，超過 100 萬，所以砍 20 刀一定見底。線性搜尋最壞要比 <b>1,000,000 次</b>（要找的剛好在最後一筆，或根本不在裡面）。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手砍一刀一刀、看 lo、mid、hi 怎麼夾住答案。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- ============ 01 玩法與學習目標 ============ -->
   <section class="sec" id="s1">
@@ -146,7 +456,7 @@
             <li><b>砍一半的威力</b> —— n 個可能每次砍一半，砍幾次剩 1 個？就是 log₂n。1000→10 刀、100 萬→20 刀、10 億→30 刀。</li>
             <li><b>lo / mid / hi 三根指標</b> —— 左界、正中間、右界怎麼夾住「還可能」的範圍，每一輪必定縮小。</li>
             <li><b>前提：資料要排好序</b> —— 為什麼亂序陣列用二分會找不到明明存在的東西（第 03 段有反例）。</li>
-            <li><b>兩個經典陷阱</b> —— <code>(lo+hi)/2</code> 的溢位問題，和 <code>hi=mid</code> 造成的死迴圈。</li>
+            <li><b>兩個經典陷阱</b> —— <code>(lo+hi)/2</code> 的溢位問題，和忘了 ±1（<code>lo=mid</code>、<code>hi=mid</code>）造成的死迴圈。</li>
             <li><b>「找不到」長什麼樣</b> —— lo 越過 hi 不是程式壞掉，是「確定不存在」的正常收斂。</li>
             <li><b>複雜度</b> —— 為什麼時間是 O(log n)、空間是 O(1)。</li>
           </ul>
@@ -430,8 +740,12 @@ int guessGame(int secret) {
         <ul class="bullets ok">
           <li><b>安全寫法：mid = lo + (hi − lo) / 2</b> —— 先相減再除，中間結果永遠不會超過 hi，數學上跟 (lo+hi)/2 完全等價。這也是本頁 C++ 用的寫法。</li>
         </ul>
-        <h4>陷阱二：hi = mid 會死迴圈</h4>
-        <p>有人覺得「mid 也許還有用，砍的時候保守一點寫 <code>hi = mid</code>」。手算 lo = 5、hi = 6 看看：mid = (5+6)/2 = 5（整數除法偏左）。如果這一輪判斷要往左砍，<code>hi = mid</code> 之後 hi 還是……等等，hi 從 6 變 5，有縮。真正的殺手是往<b>右</b>砍時寫 <code>lo = mid</code>：mid = 5，lo = mid 之後 lo 還是 5，<b>範圍一格都沒縮</b>，下一輪 mid 又是 5，永遠轉圈圈。</p>
+        <h4>陷阱二：忘了 ±1（寫成 lo = mid 或 hi = mid）會死迴圈</h4>
+        <p>有人覺得「mid 也許還有用，砍的時候保守一點，把 mid 留著」。在 <code>while (lo &lt;= hi)</code> 這套寫法裡，兩邊都會出事，只是卡住的時機不同：</p>
+        <ul class="bullets no">
+          <li><b>往右砍寫 <code>lo = mid</code>，剩兩格時卡住</b> —— lo = 5、hi = 6：mid = (5+6)/2 = 5（整數除法偏左）。目標在右邊，lo = mid 之後 lo 還是 5，<b>範圍一格都沒縮</b>，下一輪 mid 又是 5，永遠轉圈圈。</li>
+          <li><b>往左砍寫 <code>hi = mid</code>，剩一格時卡住</b> —— lo = hi = 5：mid = 5。目標比 a[5] 小、要往左砍，hi = mid 之後 hi 還是 5，lo ≤ hi 一直成立，同樣永遠轉圈圈。（剩兩格時 hi 從 6 變 5 有縮，所以這個錯比較難發現。）</li>
+        </ul>
         <ul class="bullets ok">
           <li><b>鐵律：每一輪範圍必須嚴格變小。</b>mid 已經檢查過，就要用 mid+1 / mid−1 把它排除在新範圍外。</li>
           <li>某些「答案二分」的變形確實會寫 <code>hi = mid</code>，但那套模板的迴圈條件是 <code>while (lo &lt; hi)</code> 而且 mid 取法要配合調整——換模板要整組換，不能混搭。</li>

@@ -111,6 +111,7 @@ svg.graph{display:block;width:100%;max-width:660px;margin:0 auto;height:auto}
     <a class="home" href="../index.html">← 資料結構遊戲場</a>
     <span class="crumb">17 · Dijkstra</span>
     <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
       <a href="#s1"><span class="n">01</span>玩法</a>
       <a href="#s2"><span class="n">02</span>遊戲</a>
       <a href="#s3"><span class="n">03</span>原理</a>
@@ -134,6 +135,253 @@ svg.graph{display:block;width:100%;max-width:660px;margin:0 auto;height:auto}
       <div class="fact"><span>先備知識</span><b>07 迷宮 BFS、佇列</b></div>
     </div>
   </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：Dijkstra 最短路徑到底在算什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>一句話定義</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 定義</span>
+          <div class="defline">Dijkstra（戴克斯特拉）演算法是一套固定步驟：在一張<em>「每條路都標好長度、而且長度都不是負數」</em>的地圖上，從一個起點出發，<em>算出到每一個地點的最短距離</em>。</div>
+          <p>它的做法只有一句話：<b>每次都先處理「目前已知離起點最近」的那個點</b>，再用它去更新鄰居的距離。名字來自荷蘭電腦科學家 Edsger Dijkstra，他在 1956 年想出這個方法。</p>
+        </div>
+        <p>這句話裡有好幾個沒聽過的詞——「地圖」在電腦裡叫什麼、「長度」怎麼標、「更新距離」是什麼意思。別急，下面一個一個拆。先記住 Dijkstra 想解決的事情只有一件：</p>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">給你一張路網和一個出發點，回答「<b>到每個地方最快要多久、該怎麼走</b>」。就像消防隊的派遣中心：消防局固定在一個地方，城裡任何一個地址起火，都要馬上知道<b>最快幾分鐘能到、走哪幾條路</b>。導航 App 幫你找路，核心也是這件事。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">演算法 <small>algorithm</small></div>
+            <div class="td">解決一個問題的<b>固定步驟</b>。每一步都寫得很清楚，照著做一定會結束，而且一定得到答案。Dijkstra 就是一套演算法。</div>
+            <div class="ta">食譜：照「先切菜、再熱鍋、再下鍋」的順序做，誰來做都煮得出同一道菜。</div>
+          </div>
+          <div class="term">
+            <div class="tn">圖 <small>graph</small></div>
+            <div class="td">一堆「點」，加上連接這些點的「線」。電腦科學裡的「圖」不是照片或圖表，而是專門用來表示<b>誰和誰相連</b>的資料。</div>
+            <div class="ta">捷運路線圖：一個個車站，用路線連起來。</div>
+          </div>
+          <div class="term">
+            <div class="tn">節點 / 頂點 <small>node / vertex</small></div>
+            <div class="td">圖上的<b>每一個點</b>（遊戲裡的每個圓圈）。在這一關，一個節點就是一個地點，用 A、B、C……命名。「節點」和「頂點」是同一個東西的兩種叫法。</div>
+            <div class="ta">捷運路線圖上的每一個車站。</div>
+          </div>
+          <div class="term">
+            <div class="tn">邊 / 鄰居 <small>edge / neighbor</small></div>
+            <div class="td">連接兩個節點的<b>一條線</b>，代表這兩地之間有路可以直接走。被一條邊直接連到的節點，叫做彼此的<b>鄰居</b>。</div>
+            <div class="ta">兩個相鄰車站之間的那一段軌道；相鄰的兩站就是鄰居。</div>
+          </div>
+          <div class="term">
+            <div class="tn">無向圖 / 有向圖 <small>undirected / directed</small></div>
+            <div class="td">邊沒有方向、兩頭都能走，叫<b>無向圖</b>；邊有箭頭、只能照箭頭方向走，叫<b>有向圖</b>。<b>本關的地圖全部是無向圖</b>：A–B 這條路，A 到 B、B 到 A 都可以走，花的時間一樣。</div>
+            <div class="ta">無向＝雙向道；有向＝單行道。</div>
+          </div>
+          <div class="term">
+            <div class="tn">權重 <small>weight</small></div>
+            <div class="td">寫在每條邊上的<b>數字</b>，代表走這條邊要付出的成本（本關當作「幾分鐘」）。有權重的圖叫<b>加權圖</b>。Dijkstra 要求權重<b>都不是負數</b>（0 或正數）。</div>
+            <div class="ta">每一段路要開幾分鐘；也可以是油錢、過路費。</div>
+          </div>
+          <div class="term">
+            <div class="tn">路徑 / 路徑長度 <small>path / path length</small></div>
+            <div class="td"><b>路徑</b>＝沿著邊一站接一站走的路線，例如 A → B → D。<b>路徑長度</b>＝路上每條邊的權重<b>全部加起來</b>，不是數經過幾條邊。</div>
+            <div class="ta">搭公車轉兩次車：總時間是每一段車程相加，不是「搭了幾段」。</div>
+          </div>
+          <div class="term">
+            <div class="tn">最短路徑 <small>shortest path</small></div>
+            <div class="td">從起點到某個節點的所有路徑裡，<b>路徑長度最小</b>的那一條。它的長度就叫起點到那個節點的<b>最短距離</b>。</div>
+            <div class="ta">從家到學校有好幾種走法，最省時的那一種。</div>
+          </div>
+          <div class="term">
+            <div class="tn">無限大 ∞ <small>infinity</small></div>
+            <div class="td">比任何數字都大的「數」。在這一關，∞ 的意思是<b>「目前還不知道怎麼去」</b>。一開始除了起點，每個點的距離都先寫 ∞；程式裡用一個超大的數 <code>INF</code> 來代替。</div>
+            <div class="ta">筆記本上先寫「未知」，等找到路再改成真正的分鐘數。</div>
+          </div>
+          <div class="term">
+            <div class="tn">距離表 / parent 表 <small>dist / parent</small></div>
+            <div class="td"><b>dist 表</b>：每個節點一格，記「目前已知從起點到這裡最快幾分鐘」，起點是 0、其他先填 ∞。<b>parent 表</b>：記「這條最快走法裡，到這裡的<b>上一站</b>是誰」。從終點沿 parent 一路往回找，就能還原整條路線。</div>
+            <div class="ta">一本筆記本，每個地點一行：「到 X 最快 n 分鐘，上一站是 Y」。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鬆弛 <small>relax</small></div>
+            <div class="td">站在節點 u，看它的一條邊 u–v（權重 w）：如果「先到 u 再走這條邊」的 <b>dist[u] + w 比 dist[v] 小</b>，就把 dist[v] 改成這個更小的數，並記 parent[v] = u。沒有比較小就什麼都不改。</div>
+            <div class="ta">發現一條更快的走法，就把筆記擦掉重寫。名字聽起來怪，記住「鬆弛＝試著更新成更短」就好。</div>
+          </div>
+          <div class="term">
+            <div class="tn">優先佇列 <small>priority queue</small></div>
+            <div class="td">一種候位名單：東西隨時放進去，每次拿出來的都是<b>數值最小</b>的那個（不是最早來的那個）。本關放進去的是 <code>(dist, 節點)</code> 這樣的「票」。它的內部就是<a href="13-heap.html">第 13 關</a>的堆積（heap），只是反過來讓「最小的」站最上面。</div>
+            <div class="ta">一般佇列是排隊買票，先到先服務；優先佇列是急診檢傷，最急的先看。</div>
+          </div>
+          <div class="term">
+            <div class="tn">出爐（定案） <small>settled / visited</small></div>
+            <div class="td">一個節點從優先佇列被取出、而且驗過是有效的票，那一刻它的 dist 就<b>定案，之後永遠不會再變</b>。本頁叫「出爐」；別的課本常叫「已確定」或「已拜訪（visited）」。</div>
+            <div class="ta">麵包出爐就定型了；這個地點的最短距離蓋章確認，不再修改。</div>
+          </div>
+          <div class="term">
+            <div class="tn">過期條目 <small>stale entry</small></div>
+            <div class="td">同一個節點可能在佇列裡有好幾張票。dist 被鬆弛變小後，新票放進去，<b>舊票不刪</b>。等舊票被取出時，發現票上的數字比 dist 表上的大，就知道它過期，直接丟掉（這招叫 lazy deletion，懶惰刪除）。</div>
+            <div class="ta">改過時間的舊車票：上車時剪票員一看日期不對，直接作廢。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(V+E)、O((V+E) log V) <small>Big-O 記號</small></div>
+            <div class="td">描述「圖變大時，工作量怎麼跟著變多」。V＝節點個數，E＝邊的條數。<b>O(V+E)</b>：工作量大約跟「點數＋邊數」成正比。Dijkstra 是 <b>O((V+E) log V)</b>：再多乘一個 log V——它長得很慢，V 是 1000 時 log V 大約才 10。</div>
+            <div class="ta">O(V+E) 像把每個車站、每段軌道都走過一次；多乘的 log V 是每次排隊候位要付的一點手續費。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>把問題說精確：輸入什麼、輸出什麼</h3>
+        <ol class="steps">
+          <li><b>輸入</b>——一張圖（有哪些節點、哪些邊、每條邊的權重，權重都 ≥ 0），再加上一個<b>起點</b>。</li>
+          <li><b>輸出</b>——起點到<b>每一個</b>節點的最短距離（完全沒有路相連的點，答案就是 ∞）。順便留下 parent 表，任何一個點的最短路線都能還原出來。</li>
+          <li><b>「最短」的意思</b>——路徑上所有邊的<b>權重加起來最小</b>。不是經過的邊最少，也不是畫面上看起來最近。</li>
+        </ol>
+        <p>看下面兩張圖，是同一張地圖。從 S 到 G，哪一條才是最短路徑？自己先判斷，再看底下的說明：</p>
+        <div class="figs">
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 140" role="img" aria-label="邊最少的路線：S 直達 G，總長 9">
+              <line class="ed" x1="28" y1="96" x2="78" y2="30"/><line class="ed" x1="78" y1="30" x2="142" y2="30"/>
+              <line class="ed" x1="142" y1="30" x2="192" y2="96"/><line class="ed bad" x1="28" y1="96" x2="192" y2="96"/>
+              <text class="lbl" x="42" y="58">2</text><text class="lbl" x="110" y="22">3</text>
+              <text class="lbl" x="178" y="58">1</text><text class="lbl bad" x="110" y="112">9</text>
+              <g class="nd bad"><circle cx="28" cy="96" r="15"/><text x="28" y="96">S</text></g>
+              <g class="nd"><circle cx="78" cy="30" r="15"/><text x="78" y="30">A</text></g>
+              <g class="nd"><circle cx="142" cy="30" r="15"/><text x="142" y="30">B</text></g>
+              <g class="nd bad"><circle cx="192" cy="96" r="15"/><text x="192" y="96">G</text></g>
+              <text class="lbl bad" x="110" y="132">走 1 條邊，總長 9</text>
+            </svg>
+            <figcaption><b class="verdict">✘ 不是最短路徑。</b>S → G 直達，只走 1 條邊，看起來最省事——但這條路的權重是 9，總長就是 9。「邊最少」只是<b>站數最少</b>，不是時間最少。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 140" role="img" aria-label="權重加總最小的路線：S 到 A 到 B 到 G，總長 6">
+              <line class="ed" x1="28" y1="96" x2="78" y2="30"/><line class="ed" x1="78" y1="30" x2="142" y2="30"/>
+              <line class="ed" x1="142" y1="30" x2="192" y2="96"/><line class="ed" x1="28" y1="96" x2="192" y2="96"/>
+              <text class="lbl good" x="42" y="58">2</text><text class="lbl good" x="110" y="22">3</text>
+              <text class="lbl good" x="178" y="58">1</text><text class="lbl" x="110" y="112">9</text>
+              <g class="nd good"><circle cx="28" cy="96" r="15"/><text x="28" y="96">S</text></g>
+              <g class="nd good"><circle cx="78" cy="30" r="15"/><text x="78" y="30">A</text></g>
+              <g class="nd good"><circle cx="142" cy="30" r="15"/><text x="142" y="30">B</text></g>
+              <g class="nd good"><circle cx="192" cy="96" r="15"/><text x="192" y="96">G</text></g>
+              <text class="lbl good" x="110" y="132">走 3 條邊，總長 2+3+1 = 6</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 這才是最短路徑。</b>S → A → B → G 繞了一圈、走 3 條邊，但總長 2 + 3 + 1 = <b>6</b>，比直達的 9 還短。S 到 G 的最短距離是 6。這正是<a href="07-bfs-maze.html">第 07 關</a> BFS 會答錯的地方：BFS 只數邊數，會選左邊那條。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>鬆弛長什麼樣：一次只看一條邊</h3>
+        <p>Dijkstra 整個過程，就是「取出目前最近的點 → 對它的每條邊做鬆弛」一直重複。下面三張圖取自第 1 關「教學小圖」的真實片段。先看第一張，自己算算看 C 的筆記要不要改：</p>
+        <div class="figs">
+          <figure class="fig">
+            <svg viewBox="0 0 240 170" role="img" aria-label="鬆弛之前：B 剛出爐，檢查邊 B 到 C">
+              <line class="ed" x1="40" y1="58" x2="118" y2="22"/><line class="ed" x1="40" y1="58" x2="118" y2="96"/>
+              <line class="ed" x1="118" y1="22" x2="118" y2="96"/>
+              <text class="lbl" x="72" y="32">2</text><text class="lbl" x="70" y="94">5</text><text class="lbl" x="130" y="63">1</text>
+              <g class="nd good"><circle cx="40" cy="58" r="15"/><text x="40" y="58">A</text></g>
+              <g class="nd hot"><circle cx="118" cy="22" r="15"/><text x="118" y="22">B</text></g>
+              <g class="nd"><circle cx="118" cy="96" r="15"/><text x="118" y="96">C</text></g>
+              <text class="lbl" x="192" y="46">經 B 到 C</text><text class="lbl" x="192" y="62">要多久？</text>
+              <rect class="cell good" x="20" y="118" width="50" height="28" rx="6"/><text class="ctext" x="45" y="132">0</text>
+              <rect class="cell hot" x="95" y="118" width="50" height="28" rx="6"/><text class="ctext" x="120" y="132">2</text>
+              <rect class="cell" x="170" y="118" width="50" height="28" rx="6"/><text class="ctext" x="195" y="132">5</text>
+              <text class="lbl" x="45" y="162">dist[A]</text><text class="lbl" x="120" y="162">dist[B]</text><text class="lbl" x="195" y="162">dist[C]</text>
+            </svg>
+            <figcaption><b>鬆弛之前。</b>A 已出爐（dist 0），它把 B 標成 2、C 標成 5。現在 B 被取出（dist 2），要檢查邊 B–C（權重 1）。C 的筆記上寫 5。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 240 170" role="img" aria-label="鬆弛成功：dist[C] 從 5 改成 3">
+              <line class="ed" x1="40" y1="58" x2="118" y2="22"/><line class="ed" x1="40" y1="58" x2="118" y2="96"/>
+              <line class="ed" x1="118" y1="22" x2="118" y2="96"/>
+              <text class="lbl" x="72" y="32">2</text><text class="lbl" x="70" y="94">5</text><text class="lbl good" x="130" y="63">1</text>
+              <g class="nd good"><circle cx="40" cy="58" r="15"/><text x="40" y="58">A</text></g>
+              <g class="nd hot"><circle cx="118" cy="22" r="15"/><text x="118" y="22">B</text></g>
+              <g class="nd"><circle cx="118" cy="96" r="15"/><text x="118" y="96">C</text></g>
+              <text class="lbl" x="192" y="38">2 + 1 = 3</text><text class="lbl good" x="192" y="56">3 &lt; 5 → 改！</text>
+              <text class="lbl" x="192" y="74">parent[C]=B</text>
+              <rect class="cell good" x="20" y="118" width="50" height="28" rx="6"/><text class="ctext" x="45" y="132">0</text>
+              <rect class="cell hot" x="95" y="118" width="50" height="28" rx="6"/><text class="ctext" x="120" y="132">2</text>
+              <rect class="cell good" x="170" y="118" width="50" height="28" rx="6"/><text class="ctext" x="195" y="132">5 → 3</text>
+              <text class="lbl" x="45" y="162">dist[A]</text><text class="lbl" x="120" y="162">dist[B]</text><text class="lbl" x="195" y="162">dist[C]</text>
+            </svg>
+            <figcaption><b class="verdict">✔ 鬆弛成功，要改。</b>先到 B（2 分鐘）再走 B–C（1 分鐘）只要 2 + 1 = <b>3</b>，比筆記上的 5 快。所以 dist[C] 改成 3、parent[C] 記 B。A–C 那條直達路（5）雖然邊比較少，反而比較慢。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 240 170" role="img" aria-label="鬆弛不成立：dist[D] 維持 6">
+              <line class="ed" x1="40" y1="60" x2="140" y2="60"/>
+              <text class="lbl" x="90" y="52">1</text>
+              <g class="nd hot"><circle cx="40" cy="60" r="15"/><text x="40" y="60">E</text></g>
+              <g class="nd"><circle cx="140" cy="60" r="15"/><text x="140" y="60">D</text></g>
+              <text class="lbl" x="200" y="44">5 + 1 = 6</text><text class="lbl" x="200" y="62">6 &lt; 6？</text>
+              <text class="lbl bad" x="200" y="80">不成立</text>
+              <rect class="cell hot" x="40" y="118" width="50" height="28" rx="6"/><text class="ctext" x="65" y="132">5</text>
+              <rect class="cell" x="140" y="118" width="50" height="28" rx="6"/><text class="ctext" x="165" y="132">6</text>
+              <text class="lbl" x="65" y="162">dist[E]</text><text class="lbl" x="165" y="162">dist[D]</text>
+            </svg>
+            <figcaption><b>鬆弛不成立，不改。</b>同一關稍後，E 出爐（dist 5），檢查邊 E–D（權重 1）：5 + 1 = 6，而 D 的筆記早已是 6（從 B 走過去 2 + 4）。<b>一樣快不算更快</b>，筆記不動、也不發新票。</figcaption>
+          </figure>
+        </div>
+        <p>小提醒：如果筆記上寫的是 ∞（還不知道怎麼去），那任何真正的數字都比它小，第一次碰到就一定會更新。這就是一開始要填 ∞ 的原因。</p>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>跟最短路徑一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>經過最少條邊的路</td><td class="verdict no">不一樣</td><td>最短路徑看的是<b>權重加總</b>。上面的例子：S → G 直達只有 1 條邊卻要 9；繞 3 條邊只要 6。</td></tr>
+              <tr><td>畫面上看起來最近</td><td class="verdict no">不一樣</td><td>圖上節點畫在哪裡只是為了好看。兩個點畫得再近，權重寫 100 就是要 100 分鐘。距離只看邊上的數字。</td></tr>
+              <tr><td>BFS 廣度優先搜尋（<a href="07-bfs-maze.html">第 07 關</a>）</td><td class="verdict ok">特例</td><td>BFS 用普通佇列，只數邊數；所以只有在<b>每條邊權重都一樣</b>時，它找到的才是最短路徑。Dijkstra 把普通佇列換成優先佇列，權重不同也能算對。</td></tr>
+              <tr><td>優先佇列 vs. 堆積 heap（<a href="13-heap.html">第 13 關</a>）</td><td class="verdict ok">相關</td><td>優先佇列是「要做什麼」（每次拿最小的），heap 是「怎麼做」。第 13 關是最大堆積；Dijkstra 用的是<b>最小堆積</b>，規則反過來而已。</td></tr>
+              <tr><td>有負權重的圖</td><td class="verdict no">不能用</td><td>Dijkstra 相信「路只會越走越長」，所以敢說「取出就定案」。有負數的邊時，繞遠路可能反而更短，這個保證就破了，答案可能是錯的。這種圖要改用 Bellman-Ford 演算法。</td></tr>
+              <tr><td>dist 表上「目前的數字」</td><td class="verdict no">還不一定</td><td>出爐之前，dist 只是「目前已知最快」，之後還可能被鬆弛得更小（例如 C：∞ → 5 → 3）。<b>出爐那一刻</b>才是最終答案。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>第 1 關「教學小圖」從 A 出發，6 個點 A～F。還沒開始跑之前，dist 表應該長什麼樣子？為什麼其他點不先填 0？</summary>
+            <div class="ans">dist 表是 <b>A = 0，B、C、D、E、F 全部 = ∞</b>。起點到自己不用走，所以是 0；其他點還不知道怎麼去，所以是 ∞。如果先填 0，意思就變成「已經知道 0 分鐘能到」，鬆弛時要找「比 0 更小」的數字——永遠找不到，筆記就再也不會被更新，答案全錯。</div>
+          </details>
+          <details>
+            <summary>同一張教學小圖裡，A 和 C 之間有一條權重 5 的直達道路。為什麼最後 dist[C] 是 3，不是 5？</summary>
+            <div class="ans">因為還有一條路：<b>A → B → C</b>，長度 2 + 1 = <b>3</b>，比直達的 5 短。最短距離看的是權重加總，不是邊數。演算法先把 C 標成 5（從 A 鬆弛），等 B 出爐後再鬆弛成 3。佇列裡那張 (5, C) 舊票之後被取出時，就是一張<b>過期條目</b>，直接跳過。</div>
+          </details>
+          <details>
+            <summary>現在要鬆弛邊 u–v，權重 w = 4。已知 dist[u] = 7。如果 dist[v] = 10，要不要改？如果 dist[v] = ∞ 呢？</summary>
+            <div class="ans">先算 dist[u] + w = 7 + 4 = <b>11</b>。<br>・dist[v] = 10：11 沒有比 10 小 → <b>不改</b>，dist[v] 維持 10，也不發新票。<br>・dist[v] = ∞：11 比 ∞ 小 → <b>要改</b>，dist[v] 變成 11、parent[v] = u，並把 (11, v) 放進優先佇列。</div>
+          </details>
+          <details>
+            <summary>有三條單行道：A→B 權重 2、A→C 權重 5、C→B 權重 −4。從 A 出發，Dijkstra「取出就定案」的保證哪裡出問題？</summary>
+            <div class="ans">優先佇列裡 B（2）比 C（5）小，所以 <b>B 先被取出，宣布 dist[B] = 2 定案</b>。但真正最短的是 A → C → B：5 + (−4) = <b>1</b>，比 2 還小。「取出就定案」是靠「路只會越走越長、繞路不可能更快」撐起來的；負權重讓繞路反而變快，這個保證就不成立了。所以 <b>Dijkstra 只能用在權重都 ≥ 0 的圖</b>。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手看優先佇列怎麼一步一步把節點「出爐」。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- ============ 01 玩法與學習目標 ============ -->
   <section class="sec" id="s1">
@@ -476,10 +724,12 @@ vector&lt;int&gt; dijkstra(int n, const vector&lt;vector&lt;pair&lt;int,int&gt;&
 
       <div class="block">
         <h3>負權重為什麼會壞掉</h3>
-        <p>想像三個點：A–B 權重 2，A–C 權重 5，C–B 權重 <b>−4</b>（走這段路反而倒賺時間，現實少見，但匯率換匯、某些成本模型會出現）。</p>
+        <p>想像三個點、三條<b>單行道</b>：A→B 權重 2，A→C 權重 5，C→B 權重 <b>−4</b>（走這段路反而倒賺時間，現實少見，但匯率換匯、某些成本模型會出現）。</p>
+        <p>為什麼一定要是單行道？如果 C–B 是雙向的 −4，就能在 B、C 之間來回繞，每繞一圈總長再少 8，「最短路」可以無限小，根本沒有答案——這叫<b>負環</b>。本頁的地圖都是雙向路，所以這個例子要特別說成單行道。</p>
         <ul class="bullets no">
           <li>Dijkstra 從 A 出發，第二輪就把 B 以 dist = 2 <b>出爐定案</b>——因為 2 比 5 小。</li>
-          <li>但真正的最短是 A → C → B：5 + (−4) = <b>1</b>。B 已經出爐，永遠不會再被更新——答案錯了。</li>
+          <li>但真正的最短是 A → C → B：5 + (−4) = <b>1</b>。教科書版的 Dijkstra（有「已出爐就不再處理」的 visited 標記）不會回頭改 B——答案錯了。</li>
+          <li>本頁的「懶惰刪除」寫法沒有 visited 標記，這個小例子剛好會把 B 重新放回佇列、算出 1；但「<b>取出就定案</b>」的保證已經破功，圖再大一點，同一個點可能被反覆重算非常多次，效率保證就沒了。</li>
           <li>壞掉的原因就在「關鍵觀察」的第 3 步：貪心的證明用了「<b>路只會越走越長</b>」。負權重讓繞路可能更快，整個證明垮掉。</li>
         </ul>
         <div class="callout" data-k="no">
