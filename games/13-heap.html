@@ -106,7 +106,7 @@
             <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
             <tbody>
               <tr><td><b>白話</b></td><td>排得整整齊齊的樹，每個爸爸 ≥ 自己的孩子。</td></tr>
-              <tr><td><b>樹的說法</b></td><td>① 形狀：完全二元樹。② 大小：對每個節點 x 和它的每個孩子 c，<b>x 的值 ≥ c 的值</b>。</td></tr>
+              <tr><td><b>樹的說法</b></td><td>① 形狀：<a href="#cbt">完全二元樹</a>。② 大小：對每個節點 x 和它的每個孩子 c，<b>x 的值 ≥ c 的值</b>。</td></tr>
               <tr><td><b>陣列的說法</b><br><small>（電腦真正存的樣子）</small></td><td>資料存在陣列 h[0]、h[1]、……、h[n−1]，中間沒有空格。對每一個 i ≥ 1：<b class="mono">h[(i−1)÷2] ≥ h[i]</b>。（(i−1)÷2 就是 i 的爸爸，下面會解釋）</td></tr>
               <tr><td><b>直接結果</b></td><td>最大值一定是 <b class="mono">h[0]</b>（根）。</td></tr>
             </tbody>
@@ -178,7 +178,7 @@
           <div class="term">
             <div class="tn">完全二元樹 <small>complete binary tree</small></div>
             <div class="td">一種<b>排得很整齊</b>的二元樹：上面一層坐滿才能往下一層，而且每一層都<b>從左到右依序坐、不跳位</b>。只有最後一層可以沒坐滿，但空位只能在右邊。</div>
-            <div class="ta">電影院從第一排、從最左邊的座位開始依序入座，中間不能留空位。</div>
+            <div class="ta">電影院從第一排、從最左邊的座位開始依序入座，中間不能留空位。（名詞卡後面有<a href="#cbt">完整定義和圖例</a>）</div>
           </div>
           <div class="term">
             <div class="tn">堆積性質 <small>heap property</small></div>
@@ -205,6 +205,87 @@
             <div class="td">描述「資料變多時，工作量怎麼跟著變多」。n 是資料的數量。<b>O(n)</b>：資料多一倍，工作也多一倍。<b>O(log n)</b>：資料多一倍，工作只多<b>一步</b>——非常快。</div>
             <div class="ta">O(n) 像從頭到尾翻每一頁找名字；O(log n) 像翻字典，每翻一次就丟掉一半。</div>
           </div>
+        </div>
+      </div>
+
+      <div class="block" id="cbt">
+        <h3>先定義：完全二元樹（Complete Binary Tree）</h3>
+        <p>Max-Heap 的定義第一句就是「完全二元樹」，所以先把它講清楚。它是一種<b>二元樹</b>（每個節點最多兩個孩子），而且有規定「形狀」：</p>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 完全二元樹 Complete Binary Tree</span>
+          <div class="defline">一棵二元樹，如果<em>除了最後一層以外，每一層都坐滿</em>，而且<em>最後一層的節點全部從最左邊開始、連續靠左排</em>，就叫完全二元樹。</div>
+          <p>白話：像電影院入座——一排坐滿才能坐下一排，每一排都從最左邊的位子依序坐，<b>中間不可以留空位</b>。只有最後一排可以沒坐滿，空位只能在右邊。</p>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>一層一層看</b></td><td>第 0 層（根）最多 1 個、第 1 層最多 2 個、第 2 層最多 4 個、第 k 層最多 2<sup>k</sup> 個。除了最後一層，每層都要剛好坐滿；最後一層的人全部擠在左邊。</td></tr>
+              <tr><td><b>編號的說法</b><br><small>（最好用的判斷法）</small></td><td>從根開始，<b>上到下、每層左到右</b>，給每個節點依序編號 0、1、2、3……。如果 n 個節點的編號剛好是 <b class="mono">0 到 n−1、一個都沒跳</b>，它就是完全二元樹；中間跳號就不是。</td></tr>
+              <tr><td><b>長出新節點時</b></td><td>新節點<b>只能</b>放在下一個號碼 n 的位置；要拿掉節點時<b>只能</b>拿最後一號 n−1。其他位置一動，就會跳號。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>下面每張圖，圓圈裡的數字是那個<b>位置的編號</b>（從根開始，上到下、每層左到右數）。編號<b>連續不跳</b>就是完全二元樹，<b>跳號</b>就不是。先自己判斷，再看說明：</p>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 150" role="img" aria-label="六個節點的完全二元樹"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">0</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">1</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">2</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">3</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">4</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">5</text></g></svg>
+            <figcaption><b class="verdict">✔ 是。</b>第 0、1 層坐滿；最後一層從左邊坐了 3 個，空位只在最右邊。編號 0～5 連續。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 150" role="img" aria-label="七個節點、每層都滿"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><line class="ed" x1="160" y1="70" x2="132" y2="118"/><line class="ed" x1="160" y1="70" x2="188" y2="118"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">0</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">1</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">2</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">3</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">4</text></g><g class="nd"><circle cx="132" cy="118" r="15"/><text x="132" y="118">5</text></g><g class="nd"><circle cx="188" cy="118" r="15"/><text x="188" y="118">6</text></g></svg>
+            <figcaption><b class="verdict">✔ 是。</b>每一層都坐滿了，這種叫<b>滿二元樹</b>。滿的一定也是完全的。編號 0～6 連續。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 150" role="img" aria-label="四個節點的完全二元樹"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">0</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">1</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">2</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">3</text></g></svg>
+            <figcaption><b class="verdict">✔ 是。</b>最後一層只坐了最左邊 1 個也可以——重點是<b>從左邊開始、不跳位</b>。編號 0～3 連續。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 150" role="img" aria-label="最後一層跳位"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><line class="ed bad" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">0</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">1</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">2</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">4</text></g><g class="nd bad"><circle cx="32" cy="118" r="15" style="stroke-dasharray:4 3"/><text x="32" y="118">空</text></g><text class="lbl bad" x="32" y="147">缺 3 號</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>最後一層最左邊的位子空著，卻坐到了右邊。編號是 0、1、2、4——<b>跳過了 3</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 150" role="img" aria-label="上一層沒坐滿就開下一層"><line class="ed" x1="110" y1="22" x2="60" y2="70"/><line class="ed bad" x1="110" y1="22" x2="160" y2="70"/><line class="ed" x1="60" y1="70" x2="32" y2="118"/><line class="ed" x1="60" y1="70" x2="88" y2="118"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">0</text></g><g class="nd"><circle cx="60" cy="70" r="15"/><text x="60" y="70">1</text></g><g class="nd"><circle cx="32" cy="118" r="15"/><text x="32" y="118">3</text></g><g class="nd"><circle cx="88" cy="118" r="15"/><text x="88" y="118">4</text></g><g class="nd bad"><circle cx="160" cy="70" r="15" style="stroke-dasharray:4 3"/><text x="160" y="70">空</text></g><text class="lbl bad" x="160" y="99">缺 2 號</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>第 1 層右邊還空著，就有人坐到第 2 層——上一層沒滿就開下一層。編號 0、1、3、4，<b>跳過了 2</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 150" role="img" aria-label="只有右孩子"><line class="ed bad" x1="110" y1="22" x2="60" y2="70"/><line class="ed" x1="110" y1="22" x2="160" y2="70"/><g class="nd"><circle cx="110" cy="22" r="15"/><text x="110" y="22">0</text></g><g class="nd"><circle cx="160" cy="70" r="15"/><text x="160" y="70">2</text></g><g class="nd bad"><circle cx="60" cy="70" r="15" style="stroke-dasharray:4 3"/><text x="60" y="70">空</text></g><text class="lbl bad" x="60" y="99">缺 1 號</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>只有右孩子、沒有左孩子。同一層要<b>先坐左邊</b>。編號 0、2，<b>跳過了 1</b>。</figcaption>
+          </figure>
+        </div>
+        <h4>它跟 heap 有什麼關係？</h4>
+        <ul class="bullets">
+          <li><b>可以直接放進陣列。</b>編號 0～n−1 沒有跳號，所以編號就直接當陣列的格子號碼，一格都不浪費。第 i 號的爸爸在 (i−1)÷2、左孩子在 2i+1、右孩子在 2i+2——<b>這三條公式只有在不跳號時才成立</b>。</li>
+          <li><b>樹一定很矮。</b>每往下一層，能坐的人數就翻倍，所以 n 個節點只要大約 log₂n 層：7 個人 3 層、1000 個人 10 層、100 萬人 20 層。上浮、下沉最多走樹高那麼多步，所以才快。</li>
+          <li><b>insert 放最後一格、pop 拿最後一格補洞</b>——就是為了守住「不跳號」。</li>
+        </ul>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>名詞</th><th>規定</th><th>例子</th></tr></thead>
+            <tbody>
+              <tr><td><b>二元樹</b></td><td>只規定每個節點最多兩個孩子，形狀隨便。</td><td>上面六張圖<b>全部</b>都是二元樹</td></tr>
+              <tr><td><b>完全二元樹</b></td><td>二元樹 ＋ 除最後一層外都坐滿 ＋ 最後一層靠左連續。</td><td>上面三張 ✔</td></tr>
+              <tr><td><b>滿二元樹</b></td><td>每一層都坐滿（節點數剛好是 1、3、7、15……）。</td><td>只有第二張</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">注意</span>
+          <span class="txt">有些英文課本的 <b>full binary tree</b> 意思是「每個節點不是 0 個就是 2 個孩子」，跟中文「滿二元樹」不一樣。看英文資料時要留意它用哪一種定義。不管哪一種，<b>heap 要求的都是 complete（完全）</b>。</span>
+        </div>
+        <div class="check">
+          <details>
+            <summary>一棵完全二元樹有 10 個節點，它有幾層？最後一層有幾個？</summary>
+            <div class="ans">前三層最多坐 1 + 2 + 4 = 7 個，剩下 10 − 7 = <b>3 個</b>坐在第 4 層（第 3 層，從 0 數），擠在最左邊。所以總共 <b>4 層</b>，樹高 3。</div>
+          </details>
+          <details>
+            <summary>接著第 11 個節點要放在哪？它是誰的孩子、左還是右？</summary>
+            <div class="ans">放在下一個號碼 <b>10</b>。爸爸是 (10−1)÷2 = <b>4 號</b>；4 號的左孩子是 2×4+1 = 9、右孩子是 2×4+2 = 10，所以它是 4 號的<b>右孩子</b>。</div>
+          </details>
+          <details>
+            <summary>一棵二元樹只有根和它的右孩子，是完全二元樹嗎？</summary>
+            <div class="ans"><b>不是。</b>照順序編號，第 1 號位子（根的左孩子）是空的，右孩子卻是第 2 號——跳號了。改成「根和它的左孩子」才是。</div>
+          </details>
         </div>
       </div>
 

@@ -242,6 +242,8 @@ code{font-family:var(--font-mono)}
 }
 .fig svg{display:block;width:100%;height:auto}
 .fig figcaption{font-size:13px;color:var(--ink-soft)}
+/* 對錯圖例要「一排對、一排錯」時用 .three：寬螢幕固定一排三張，手機自動變一張 */
+.figs.three{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
 /* 只有一張圖時別撐滿整行：陣列、流程這類寬圖用 .solo 限寬 */
 .fig.solo{max-width:460px}
 .fig figcaption b{color:var(--ink)}
