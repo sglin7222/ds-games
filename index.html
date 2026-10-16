@@ -8,7 +8,7 @@
 <style>
 /* ============ 首頁專用：課程地圖 ============ */
 .pattern{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0;
   background:var(--surface);border:1px solid var(--line-soft);
   border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);
 }
@@ -354,12 +354,44 @@
 
       <div class="group">
         <div class="group-head">
-          <h2>圖</h2><span class="rule"></span><span class="count">17 · 可以玩</span>
+          <h2>圖（由淺入深：21 → 22 → 23 → 24 → 17）</h2><span class="rule"></span><span class="count">21 – 24、17 · 全部可玩</span>
         </div>
         <div class="cards">
 
+          <a class="card is-live" href="games/21-graph-basics.html">
+            <div class="top"><span class="no">21</span><span class="state">第 1 步</span></div>
+            <h3>圖的基本概念</h3>
+            <p>頂點、邊、有向無向、權重、度數、路徑、環、連通，一次講清楚。點兩個頂點就能加一條邊，鄰接矩陣和鄰接串列同步更新，看懂電腦怎麼存一張圖。</p>
+            <div class="tags"><span class="tag ds">Graph</span><span class="tag">入門</span><span class="tag">矩陣 vs 串列</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
+
+          <a class="card is-live" href="games/22-graph-traversal.html">
+            <div class="top"><span class="no">22</span><span class="state">第 2 步</span></div>
+            <h3>圖的走訪 DFS／BFS</h3>
+            <p>從同一個起點出發，DFS 用堆疊一路走到底、BFS 用佇列一圈一圈往外。為什麼圖一定要有 visited 標記，以及怎麼數出有幾座「孤島」。</p>
+            <div class="tags"><span class="tag ds">DFS／BFS</span><span class="tag">入門</span><span class="tag">O(V+E)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
+
+          <a class="card is-live" href="games/23-topological-sort.html">
+            <div class="top"><span class="no">23</span><span class="state">第 3 步</span></div>
+            <h3>拓撲排序</h3>
+            <p>修課有先修順序：哪門課要先修？把入度是 0 的課一門一門拿出來。遇到「互為先修」的環，就排不出來。</p>
+            <div class="tags"><span class="tag ds">DAG</span><span class="tag">中階</span><span class="tag">O(V+E)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
+
+          <a class="card is-live" href="games/24-mst.html">
+            <div class="top"><span class="no">24</span><span class="state">第 4 步</span></div>
+            <h3>最小生成樹</h3>
+            <p>用最短的線把校園六棟建築全部連起來。Kruskal 從最短的邊挑起、用併查集擋掉會成環的邊；Prim 從一棟建築慢慢長出去。</p>
+            <div class="tags"><span class="tag ds">MST</span><span class="tag">中階</span><span class="tag">O(E log E)</span></div>
+            <span class="go">開始玩 →</span>
+          </a>
+
           <a class="card is-live" href="games/17-dijkstra.html">
-            <div class="top"><span class="no">17</span><span class="state">可以玩</span></div>
+            <div class="top"><span class="no">17</span><span class="state">第 5 步</span></div>
             <h3>最短路徑派遣</h3>
             <p>Dijkstra 一步一步鬆弛。看優先佇列怎麼決定下一個要展開哪個點 —— 就是把 07 迷宮的佇列升級。</p>
             <div class="tags"><span class="tag ds">Dijkstra</span><span class="tag">進階</span><span class="tag">O((V+E) log V)</span></div>
@@ -377,12 +409,17 @@
     <div class="sec-head">
       <span class="sec-num">說明</span>
       <div>
-        <h2>每一頁都是同樣四段</h2>
+        <h2>每一頁的固定結構</h2>
         <p class="sub">結構固定，所以你永遠知道要找的東西在哪一段。</p>
       </div>
     </div>
     <div class="sec-body">
       <div class="pattern">
+        <div>
+          <span class="n">00</span>
+          <h3>先搞懂定義</h3>
+          <p>寫給沒學過程式的人：一句話定義、名詞卡、對錯圖例、自我檢查。（13 關之後的每一關）</p>
+        </div>
         <div>
           <span class="n">01</span>
           <h3>怎麼玩・學什麼</h3>

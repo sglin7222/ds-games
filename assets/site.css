@@ -168,10 +168,11 @@ code{font-family:var(--font-mono)}
 
 /* 有序步驟 / 條列 */
 .steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;counter-reset:st}
-.steps li{display:flex;gap:11px;font-size:14px;color:var(--ink-soft)}
+/* li 用 block + 絕對定位的編號：li 裡有 <b> 時文字才能正常換行（flex 會把 <b> 和文字拆成好幾欄） */
+.steps li{position:relative;padding-left:31px;font-size:14px;color:var(--ink-soft)}
 .steps li::before{
   counter-increment:st;content:counter(st);
-  flex:0 0 20px;height:20px;margin-top:3px;
+  position:absolute;left:0;top:3px;width:20px;height:20px;
   display:grid;place-items:center;
   font-family:var(--font-mono);font-size:11px;font-weight:700;
   background:var(--surface-2);color:var(--ink);border-radius:5px;

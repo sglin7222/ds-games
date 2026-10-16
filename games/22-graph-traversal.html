@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>圖的走訪 DFS／BFS — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：
+   地圖 SVG、佇列／呼叫堆疊面板、visited 標記列、走訪順序條。 */
+
+/* 00 段小圖：走訪樹的邊（綠色粗線） */
+.fig .ed.tree{stroke:var(--jade);stroke-width:3.4}
+
+.gbox{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;padding:4px}
+svg.gsvg{display:block;width:100%;max-width:640px;height:auto;margin:0 auto}
+
+/* 邊 */
+.ge{stroke:var(--line);stroke-width:2.4;transition:stroke var(--dur),stroke-width var(--dur)}
+.ge.tree{stroke:var(--jade);stroke-width:4.6}
+.ge.ghost{stroke:var(--accent);stroke-width:3;stroke-dasharray:3 6}
+.ge.hot{stroke:var(--accent);stroke-width:4.6;stroke-dasharray:8 5}
+
+/* 頂點 */
+.gv circle{fill:var(--surface);stroke:var(--ink-faint);stroke-width:2;
+  transition:fill var(--dur),stroke var(--dur),stroke-width var(--dur)}
+.gv .gid{fill:var(--ink);font-family:var(--font-mono);font-size:17px;font-weight:700;
+  text-anchor:middle;dominant-baseline:central}
+.gv .gname{fill:var(--ink-soft);font-size:14px;font-weight:600;
+  paint-order:stroke;stroke:var(--sunken);stroke-width:4px}
+.gv .gtop{fill:var(--accent);font-family:var(--font-mono);font-size:13px;font-weight:700;
+  text-anchor:middle;paint-order:stroke;stroke:var(--sunken);stroke-width:4px}
+.gv.fr circle{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.6}
+.gv.done circle{fill:var(--jade-soft);stroke:var(--jade);stroke-width:2.6}
+.gv.done .gtop{fill:var(--jade)}
+.gv.bad circle{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:2.6}
+.gv.bad .gtop{fill:var(--alarm)}
+.gv.cur circle{fill:var(--accent);stroke:var(--accent);stroke-width:3}
+.gv.cur .gid{fill:var(--surface)}
+.gv.look circle{stroke:var(--accent);stroke-width:4;stroke-dasharray:5 3}
+
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:11.5px;color:var(--ink-soft)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:14px;height:14px;border-radius:50%;border:2px solid var(--ink-faint);background:var(--surface)}
+.legend i.l-fr{background:var(--accent-soft);border-color:var(--accent)}
+.legend i.l-done{background:var(--jade-soft);border-color:var(--jade)}
+.legend i.l-cur{background:var(--accent);border-color:var(--accent)}
+.legend i.l-tree{border-radius:3px;height:5px;background:var(--jade);border:0}
+.legend i.l-hot{border-radius:3px;height:5px;background:var(--accent);border:0}
+
+.vlabel{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;
+  color:var(--ink-faint);font-weight:600}
+
+/* 佇列（橫的）與呼叫堆疊（直的） */
+.frbox{background:var(--sunken);border-radius:8px;padding:8px;min-height:50px}
+.qrow{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end}
+.qcell{display:flex;flex-direction:column;align-items:center;gap:2px}
+.qcell .qb{width:40px;height:38px;display:grid;place-items:center;border-radius:7px;
+  font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--ink);
+  background:var(--accent-soft);border:1.8px solid var(--accent)}
+.qcell.front .qb{background:var(--accent);color:var(--surface)}
+.qcell.isnew .qb{box-shadow:0 0 0 3px var(--accent-soft);transform:translateY(-3px)}
+.qcell.bad .qb{background:var(--alarm-soft);border-color:var(--alarm)}
+.qcell.bad.front .qb{background:var(--alarm);color:var(--surface)}
+.qcell small{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-faint);letter-spacing:.04em;height:13px}
+.fr-empty{font-size:12.5px;color:var(--ink-faint);padding:8px 4px}
+.stk{display:flex;flex-direction:column;gap:4px}
+.frame{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:5px 9px;border-radius:7px;
+  background:var(--surface-2);border:1.5px solid var(--line);font-family:var(--font-mono);font-size:12.5px}
+.frame.top{background:var(--accent-soft);border-color:var(--accent)}
+.frame .fn{font-weight:700;color:var(--ink);min-width:62px}
+.frame .nbs{display:flex;gap:4px;flex-wrap:wrap}
+.frame .nb{padding:0 6px;border-radius:5px;border:1px solid var(--line);color:var(--ink-soft);background:var(--surface)}
+.frame .nb.seen{opacity:.5}
+.frame .nb.now{border-color:var(--accent);color:var(--ink);font-weight:700;box-shadow:0 0 0 2px var(--accent-soft)}
+.frame .ft{margin-left:auto;font-size:10.5px;color:var(--ink-faint)}
+
+/* visited 標記列 */
+.vrow{display:flex;flex-wrap:wrap;gap:5px}
+.vcell{display:flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;border-radius:6px;
+  background:var(--surface-2);border:1.5px solid var(--line-soft);font-family:var(--font-mono);font-size:13px;color:var(--ink-faint)}
+.vcell b{color:var(--ink-soft)}
+.vcell.on{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.vcell.on b{color:var(--ink)}
+.vcell.flash{box-shadow:0 0 0 2.5px var(--accent-soft);border-color:var(--accent)}
+
+/* 走訪順序條 */
+.orow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:40px}
+.oc{display:flex;flex-direction:column;align-items:center;min-width:38px;padding:3px 6px;border-radius:7px;
+  background:var(--jade-soft);border:1.6px solid var(--jade)}
+.oc b{font-family:var(--font-mono);font-size:16px;color:var(--ink)}
+.oc small{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-faint)}
+.oc.last{box-shadow:0 0 0 3px var(--accent-soft);border-color:var(--accent)}
+.oc.dup{background:var(--alarm-soft);border-color:var(--alarm)}
+.oarrow{color:var(--ink-faint);font-size:12px}
+.memo{font-size:12.5px;color:var(--ink-soft);padding:2px 2px 0}
+.memo b{font-family:var(--font-mono);color:var(--accent)}
+
+.custom{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.custom label{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">22 · 圖的走訪</span>
+    <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 22 · Graph Traversal</p>
+    <h1>圖的走訪 DFS／BFS</h1>
+    <p class="lede">第 21 關把校園地圖存成了一張圖。這一關要把整張圖「逛一遍」：從一個頂點出發，每個走得到的頂點都剛好拜訪一次。兩種逛法——DFS 一條路走到底再退回，BFS 一圈一圈往外擴——差別只在待辦清單用的是堆疊還是佇列。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>圖＋堆疊／佇列</b></div>
+      <div class="fact"><span>難度</span><b>入門～中階</b></div>
+      <div class="fact"><span>時間</span><b>O(V+E)</b></div>
+      <div class="fact"><span>先備知識</span><b>21 圖的基本概念</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：圖的走訪（DFS／BFS）到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>定義：圖的走訪（Graph Traversal）</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 走訪 Traversal</span>
+          <div class="defline">從一個<em>起點</em>出發，沿著邊走，把<em>所有走得到的頂點</em>都拜訪<em>剛好一次</em>——不漏掉、也不重複。</div>
+          <p>「拜訪」就是輪到它的時候做事，例如把它的名字記下來。記下來的先後，就叫<b>走訪順序</b>。最常用的兩種走法是 <b>DFS（深度優先）</b>和 <b>BFS（廣度優先）</b>。</p>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>白話</b></td><td>拿著地圖把校園逛完：能走到的每棟樓都進去一次，進過的就不再進。</td></tr>
+              <tr><td><b>兩種走法</b></td><td><b>DFS</b>：一條路一直走到底，走不下去才<b>退回</b>上一個岔路口換路。<b>BFS</b>：先把離起點 1 步的都走完，再走 2 步的、3 步的……像水波<b>一圈一圈</b>往外擴。</td></tr>
+              <tr><td><b>需要的三樣東西</b></td><td>① <b>visited 標記</b>：記住誰已經來過。② <b>待辦清單</b>：DFS 用<b>堆疊</b>（或遞迴），BFS 用<b>佇列</b>。③ <b>order</b>：記下拜訪順序。</td></tr>
+              <tr><td><b>做完的結果</b></td><td>一串走訪順序，加上一棵<b>走訪樹</b>（每個頂點是從誰那裡被發現的）。走不到的頂點不會出現——它們在另一座「島」上。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">很多問題的第一步都是「把圖逛一遍」：<b>從 A 走得到 B 嗎？</b>地圖分成<b>幾座島</b>？迷宮<b>最少幾步</b>走出去？比喻：新生第一週拿著校園地圖，想把每棟樓都去一次。沒有規則亂走，會在同一條環狀步道上一直繞；照 DFS 或 BFS 的規則走，保證每棟剛好去一次就收工。</span>
+        </div>
+        <div class="callout">
+          <span class="tag">先備</span>
+          <span class="txt">這一關用到：<a href="21-graph-basics.html">第 21 關「圖的基本概念」</a>（頂點、邊、鄰居、鄰接串列）、<a href="18-queue-basics.html">第 18 關「佇列」</a>（先進先出）、<a href="04-call-stack.html">第 04 關「呼叫堆疊」</a>（後進先出、遞迴）。<a href="07-bfs-maze.html">第 07 關的迷宮</a>其實就是一張圖——每一格是頂點、相鄰兩格之間有邊——那裡的 BFS／DFS，這一關搬到一般的圖上。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">頂點、邊、鄰居 <small>vertex / edge / neighbor</small></div>
+            <div class="td">第 21 關學過：<b>頂點</b>是地點，<b>邊</b>是連接兩個地點的路，有邊直接相連的兩個頂點互為<b>鄰居</b>。這一關的圖都是<b>無向圖</b>，路可以雙向走。</div>
+            <div class="ta">建築物、步道、隔壁棟。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鄰接串列 <small>adjacency list</small></div>
+            <div class="td">每個頂點一列，列出它所有的鄰居。本站規定<b>鄰居一律照字母順序排</b>，走訪順序才會唯一。</div>
+            <div class="ta">每棟樓門口貼一張「隔壁有哪幾棟」的告示。</div>
+          </div>
+          <div class="term">
+            <div class="tn">走訪 <small>traversal</small></div>
+            <div class="td">從起點出發，把<b>走得到的</b>每個頂點都拜訪<b>剛好一次</b>。</div>
+            <div class="ta">把校園每棟樓都逛過一次。</div>
+          </div>
+          <div class="term">
+            <div class="tn">起點 <small>start / source</small></div>
+            <div class="td">走訪開始的那個頂點。同一張圖換一個起點，順序就不一樣。這一關常用 <b>D 系館</b>當起點。</div>
+            <div class="ta">從哪棟樓開始逛。</div>
+          </div>
+          <div class="term">
+            <div class="tn">visited 標記 <small>visited</small></div>
+            <div class="td">每個頂點一個「來過了沒」的記號，一開始全是「沒有」。<b>發現它的當下</b>就打勾，之後再碰到就跳過，不再處理第二次。</div>
+            <div class="ta">逛過的樓在地圖上打勾。</div>
+          </div>
+          <div class="term">
+            <div class="tn">佇列 <small>queue · FIFO</small></div>
+            <div class="td"><b>先進先出</b>：從後面排進去，從前面出來。BFS 用它當待辦清單。（第 18 關）</div>
+            <div class="ta">餐廳排隊，先來的先點餐。</div>
+          </div>
+          <div class="term">
+            <div class="tn">堆疊 <small>stack · LIFO</small></div>
+            <div class="td"><b>後進先出</b>：最後放上去的最先拿走。DFS 用它記住「走到一半、等一下要回來的地方」。（第 01、04 關）</div>
+            <div class="ta">疊盤子，最上面那個先拿。</div>
+          </div>
+          <div class="term">
+            <div class="tn">遞迴 <small>recursion</small></div>
+            <div class="td">一個函式在做事的途中<b>呼叫自己</b>去處理一個小一點的問題。電腦會用<b>呼叫堆疊</b>記住每一層做到哪，做完一層就退回上一層接著做。</div>
+            <div class="ta">「逛 B」逛到一半，先去「逛 A」；逛完 A 再回來把 B 剩下的逛完。</div>
+          </div>
+          <div class="term">
+            <div class="tn">DFS 深度優先 <small>depth-first search</small></div>
+            <div class="td">看到一個還沒去過的鄰居就<b>馬上走過去</b>，一路走到底；走不下去才<b>退回</b>上一個頂點，看它還有沒有別的鄰居。用<b>遞迴</b>（或自己準備的<b>堆疊</b>）寫。</div>
+            <div class="ta">走迷宮時右手扶牆，一條路走到死巷才回頭。</div>
+          </div>
+          <div class="term">
+            <div class="tn">BFS 廣度優先 <small>breadth-first search</small></div>
+            <div class="td">先把起點的鄰居<b>全部</b>排進<b>佇列</b>，再一個一個拿出來、把它們的新鄰居排到後面。結果是離起點近的一定先被走到。</div>
+            <div class="ta">石頭丟進池塘，水波一圈一圈往外。</div>
+          </div>
+          <div class="term">
+            <div class="tn">走訪順序 <small>visit order</small></div>
+            <div class="td">頂點被拜訪（記下來）的先後。<b>同一張圖、同一個起點、同一個鄰居順序</b>，結果才唯一。</div>
+            <div class="ta">逛樓的打卡紀錄。</div>
+          </div>
+          <div class="term">
+            <div class="tn">距離（邊數） <small>hops</small></div>
+            <div class="td">從起點出發<b>最少要經過幾條邊</b>。BFS 會順便算出來：第 1 圈距離 1，第 2 圈距離 2……注意它<b>只數幾條邊，不管權重</b>。</div>
+            <div class="ta">「轉幾次車」，不是「花幾分鐘」。</div>
+          </div>
+          <div class="term">
+            <div class="tn">走訪樹 / parent <small>traversal tree</small></div>
+            <div class="td">每個頂點（除了起點）記住它是<b>從誰那裡被發現的</b>，這叫 parent。把這些「發現用的邊」畫出來，剛好是一棵樹，遊戲裡畫成<b>綠色粗線</b>。</div>
+            <div class="ta">每個新生記下「是誰帶我認識這棟樓的」。</div>
+          </div>
+          <div class="term">
+            <div class="tn">連通元件 <small>connected component</small></div>
+            <div class="td">彼此走得到的頂點圍成的一群。一張圖可能分成好幾群，群和群之間<b>沒有任何路</b>。從一個起點走訪，只會逛完自己這一群。</div>
+            <div class="ta">好幾座島，島和島之間沒有橋。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(V+E) <small>時間複雜度</small></div>
+            <div class="td"><b>V</b> 是頂點數、<b>E</b> 是邊數。O(V+E) 的意思是：每個頂點處理一次、每條邊從兩頭各看一次，工作量跟「頂點數＋邊數」成正比。</div>
+            <div class="ta">每棟樓進去一次，每條步道從兩頭各看一眼。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>這一關的地圖：海大校園（不看權重）</h3>
+        <p>跟第 21 關同一張圖，只是把步行分鐘拿掉——走訪只在乎「有沒有路」，不在乎路多長。6 個頂點、9 條邊：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:620px">
+            <svg viewBox="0 0 540 320" role="img" aria-label="海大校園地圖：6 個頂點、9 條邊，不看權重"><line class="ed" x1="60" y1="160" x2="190" y2="60"/><line class="ed" x1="60" y1="160" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="480" y2="160"/><line class="ed" x1="350" y1="260" x2="480" y2="160"/><g class="nd"><circle cx="60" cy="160" r="22"/><text x="60" y="160">A</text></g><text class="lbl" x="60" y="198" style="text-anchor:middle;font-size:13px">校門</text><g class="nd"><circle cx="190" cy="60" r="22"/><text x="190" y="60">B</text></g><text class="lbl" x="160" y="64" style="text-anchor:end;font-size:13px">圖書館</text><g class="nd"><circle cx="190" cy="260" r="22"/><text x="190" y="260">C</text></g><text class="lbl" x="160" y="264" style="text-anchor:end;font-size:13px">餐廳</text><g class="nd"><circle cx="350" cy="60" r="22"/><text x="350" y="60">D</text></g><text class="lbl" x="380" y="64" style="text-anchor:start;font-size:13px">系館</text><g class="nd"><circle cx="350" cy="260" r="22"/><text x="350" y="260">E</text></g><text class="lbl" x="380" y="264" style="text-anchor:start;font-size:13px">宿舍</text><g class="nd"><circle cx="480" cy="160" r="22"/><text x="480" y="160">F</text></g><text class="lbl" x="480" y="198" style="text-anchor:middle;font-size:13px">體育館</text></svg>
+            <figcaption>A 校門、B 圖書館、C 餐廳、D 系館、E 宿舍、F 體育館。</figcaption>
+          </figure>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>頂點</th><th>鄰居（照字母順序）</th><th class="mono">度數</th></tr></thead>
+            <tbody>
+              <tr><td><b>A</b> 校門</td><td class="mono">B, C</td><td class="mono">2</td></tr>
+              <tr><td><b>B</b> 圖書館</td><td class="mono">A, C, D</td><td class="mono">3</td></tr>
+              <tr><td><b>C</b> 餐廳</td><td class="mono">A, B, D, E</td><td class="mono">4</td></tr>
+              <tr><td><b>D</b> 系館</td><td class="mono">B, C, E, F</td><td class="mono">4</td></tr>
+              <tr><td><b>E</b> 宿舍</td><td class="mono">C, D, F</td><td class="mono">3</td></tr>
+              <tr><td><b>F</b> 體育館</td><td class="mono">D, E</td><td class="mono">2</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>為什麼一定要 visited：樹不用，圖要</h3>
+        <p>第 12 關走訪<b>樹</b>的時候，從來不用記「來過沒」：樹沒有環，從根一路往孩子走，永遠回不到走過的地方。<b>圖不一樣</b>——A、B、C 三個點互相連成一個<b>環</b>，沿著邊走會繞回原處：</p>
+        <div class="figs three">
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 160" role="img" aria-label="沒有 visited：在 A、B、C 的環上一直繞"><line class="ed bad" x1="110" y1="32" x2="45" y2="118"/><line class="ed bad" x1="110" y1="32" x2="175" y2="118"/><line class="ed bad" x1="45" y1="118" x2="175" y2="118"/><g class="nd bad"><circle cx="110" cy="32" r="15"/><text x="110" y="32">A</text></g><g class="nd bad"><circle cx="45" cy="118" r="15"/><text x="45" y="118">B</text></g><g class="nd bad"><circle cx="175" cy="118" r="15"/><text x="175" y="118">C</text></g><text class="lbl bad" x="110" y="152">A→B→C→A→B→C→……</text></svg>
+            <figcaption><b class="verdict">✘ 沒有 visited。</b>A 把 B 加進待辦，B 又把 A 加回來，A 再把 B 加回來……<b>永遠跑不完</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 160" role="img" aria-label="有 visited：每個頂點只走一次"><line class="ed" x1="110" y1="32" x2="45" y2="118"/><line class="ed" x1="110" y1="32" x2="175" y2="118"/><line class="ed" x1="45" y1="118" x2="175" y2="118"/><g class="nd good"><circle cx="110" cy="32" r="15"/><text x="110" y="32">A</text></g><g class="nd good"><circle cx="45" cy="118" r="15"/><text x="45" y="118">B</text></g><g class="nd good"><circle cx="175" cy="118" r="15"/><text x="175" y="118">C</text></g><text class="lbl good" x="110" y="152">A、B、C 各走一次就停</text></svg>
+            <figcaption><b class="verdict">✔ 有 visited。</b>B 看到 A 已經打勾，就跳過。每個頂點只處理一次，一定會結束。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 160" role="img" aria-label="樹沒有環，往下走不會回到原處"><line class="ed" x1="110" y1="28" x2="60" y2="78"/><line class="ed" x1="110" y1="28" x2="160" y2="78"/><line class="ed" x1="60" y1="78" x2="35" y2="125"/><g class="nd good"><circle cx="110" cy="28" r="15"/><text x="110" y="28">1</text></g><g class="nd good"><circle cx="60" cy="78" r="15"/><text x="60" y="78">2</text></g><g class="nd good"><circle cx="160" cy="78" r="15"/><text x="160" y="78">3</text></g><g class="nd good"><circle cx="35" cy="125" r="15"/><text x="35" y="125">4</text></g><text class="lbl good" x="140" y="140">只往孩子走，回不到原處</text></svg>
+            <figcaption><b class="verdict">✔ 樹不需要。</b>樹沒有環，從根只往孩子走，不會繞回來，所以第 12 關的前序、中序走訪都不用 visited。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">visited 要在<b>發現的當下</b>就打勾（BFS 放進佇列時、DFS 一進入頂點時），不要等到「拿出來處理」才打勾——否則同一個頂點會被不同鄰居重複排進待辦清單好幾次。第 07 關的迷宮也是這樣做的。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>看圖走一次：從 D 出發，DFS 和 BFS 各走出什麼</h3>
+        <p>鄰居照字母順序看。<b>#k</b> 是第幾個被拜訪，<b>距 d</b> 是離 D 幾條邊；綠色粗線是<b>走訪樹</b>（誰發現了誰）。</p>
+        <div class="figs">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 270 192" role="img" aria-label="從 D 出發的 BFS：順序 D B C E F A，綠色粗線是走訪樹"><line class="ed tree" x1="30" y1="100" x2="95" y2="45"/><line class="ed" x1="30" y1="100" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="95" y2="150"/><line class="ed tree" x1="95" y1="45" x2="175" y2="45"/><line class="ed tree" x1="95" y1="150" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="150"/><line class="ed tree" x1="175" y1="45" x2="175" y2="150"/><line class="ed tree" x1="175" y1="45" x2="240" y2="100"/><line class="ed" x1="175" y1="150" x2="240" y2="100"/><g class="nd good"><circle cx="30" cy="100" r="14"/><text x="30" y="100">A</text></g><g class="nd good"><circle cx="95" cy="45" r="14"/><text x="95" y="45">B</text></g><g class="nd good"><circle cx="95" cy="150" r="14"/><text x="95" y="150">C</text></g><g class="nd hot"><circle cx="175" cy="45" r="14"/><text x="175" y="45">D</text></g><g class="nd good"><circle cx="175" cy="150" r="14"/><text x="175" y="150">E</text></g><g class="nd good"><circle cx="240" cy="100" r="14"/><text x="240" y="100">F</text></g><text class="lbl" x="175" y="21">#1 · 距0</text><text class="lbl" x="95" y="21">#2 · 距1</text><text class="lbl" x="95" y="178">#3 · 距1</text><text class="lbl" x="175" y="178">#4 · 距1</text><text class="lbl" x="240" y="129">#5 · 距1</text><text class="lbl" x="30" y="129">#6 · 距2</text></svg>
+            <figcaption><b class="verdict">BFS：D, B, C, E, F, A。</b>D 先把 4 個鄰居 B、C、E、F 全排進佇列（距離 1 的一圈），全部處理完才輪到 B 發現的 A（距離 2）。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 270 192" role="img" aria-label="從 D 出發的 DFS：順序 D B A C E F，綠色粗線是走訪樹"><line class="ed tree" x1="30" y1="100" x2="95" y2="45"/><line class="ed tree" x1="30" y1="100" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="95" y2="150"/><line class="ed tree" x1="95" y1="45" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="45"/><line class="ed tree" x1="95" y1="150" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="240" y2="100"/><line class="ed tree" x1="175" y1="150" x2="240" y2="100"/><g class="nd good"><circle cx="30" cy="100" r="14"/><text x="30" y="100">A</text></g><g class="nd good"><circle cx="95" cy="45" r="14"/><text x="95" y="45">B</text></g><g class="nd good"><circle cx="95" cy="150" r="14"/><text x="95" y="150">C</text></g><g class="nd hot"><circle cx="175" cy="45" r="14"/><text x="175" y="45">D</text></g><g class="nd good"><circle cx="175" cy="150" r="14"/><text x="175" y="150">E</text></g><g class="nd good"><circle cx="240" cy="100" r="14"/><text x="240" y="100">F</text></g><text class="lbl" x="175" y="21">#1</text><text class="lbl" x="95" y="21">#2</text><text class="lbl" x="30" y="129">#3</text><text class="lbl" x="95" y="178">#4</text><text class="lbl" x="175" y="178">#5</text><text class="lbl" x="240" y="129">#6</text></svg>
+            <figcaption><b class="verdict">DFS：D, B, A, C, E, F。</b>D 先去 B，B 馬上去 A，A 再去 C，C 去 E，E 去 F——一條路走到底。F 沒有新鄰居，一層一層退回，發現大家都走過了，結束。</figcaption>
+          </figure>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>比較</th><th>DFS 深度優先</th><th>BFS 廣度優先</th></tr></thead>
+            <tbody>
+              <tr><td>待辦清單</td><td>堆疊（或遞迴的呼叫堆疊），<b>後進先出</b></td><td>佇列，<b>先進先出</b></td></tr>
+              <tr><td>走的樣子</td><td>一條路鑽到底，再退回換路</td><td>一圈一圈往外擴</td></tr>
+              <tr><td>走訪樹的形狀</td><td>又細又長（D→B→A→C→E→F 一條線）</td><td>又矮又寬（D 底下直接掛 4 個）</td></tr>
+              <tr><td>順便得到</td><td>「有沒有路」、哪裡有環</td><td>每個頂點離起點<b>最少幾條邊</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>這是「從 D 出發」的 BFS 順序嗎？</h3>
+        <p>判斷規則只有一條：BFS 一定<b>先走完距離 1 的全部，才輪到距離 2</b>（同一圈裡誰先誰後，要看鄰居排的順序）。先自己判斷，再看說明：</p>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 270 192" role="img" aria-label="順序 D B C E F A"><line class="ed" x1="30" y1="100" x2="95" y2="45"/><line class="ed" x1="30" y1="100" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="240" y2="100"/><line class="ed" x1="175" y1="150" x2="240" y2="100"/><g class="nd good"><circle cx="30" cy="100" r="14"/><text x="30" y="100">A</text></g><g class="nd good"><circle cx="95" cy="45" r="14"/><text x="95" y="45">B</text></g><g class="nd good"><circle cx="95" cy="150" r="14"/><text x="95" y="150">C</text></g><g class="nd hot"><circle cx="175" cy="45" r="14"/><text x="175" y="45">D</text></g><g class="nd good"><circle cx="175" cy="150" r="14"/><text x="175" y="150">E</text></g><g class="nd good"><circle cx="240" cy="100" r="14"/><text x="240" y="100">F</text></g><text class="lbl" x="175" y="21">#1 · 距0</text><text class="lbl" x="95" y="21">#2 · 距1</text><text class="lbl" x="95" y="178">#3 · 距1</text><text class="lbl" x="175" y="178">#4 · 距1</text><text class="lbl" x="240" y="129">#5 · 距1</text><text class="lbl" x="30" y="129">#6 · 距2</text></svg>
+            <figcaption><b class="verdict">✔ 是。</b>D, B, C, E, F, A：距離 0 → 1, 1, 1, 1 → 2。這就是本站規定的「鄰居照字母順序」得到的那一個。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 270 192" role="img" aria-label="順序 D C B E F A"><line class="ed" x1="30" y1="100" x2="95" y2="45"/><line class="ed" x1="30" y1="100" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="240" y2="100"/><line class="ed" x1="175" y1="150" x2="240" y2="100"/><g class="nd good"><circle cx="30" cy="100" r="14"/><text x="30" y="100">A</text></g><g class="nd good"><circle cx="95" cy="45" r="14"/><text x="95" y="45">B</text></g><g class="nd good"><circle cx="95" cy="150" r="14"/><text x="95" y="150">C</text></g><g class="nd hot"><circle cx="175" cy="45" r="14"/><text x="175" y="45">D</text></g><g class="nd good"><circle cx="175" cy="150" r="14"/><text x="175" y="150">E</text></g><g class="nd good"><circle cx="240" cy="100" r="14"/><text x="240" y="100">F</text></g><text class="lbl" x="175" y="21">#1 · 距0</text><text class="lbl" x="95" y="178">#2 · 距1</text><text class="lbl" x="95" y="21">#3 · 距1</text><text class="lbl" x="175" y="178">#4 · 距1</text><text class="lbl" x="240" y="129">#5 · 距1</text><text class="lbl" x="30" y="129">#6 · 距2</text></svg>
+            <figcaption><b class="verdict">✔ 也是。</b>D, C, B, E, F, A：距離一樣是 0 → 1 → 2，只是 D 的鄰居先看 C 再看 B。<b>BFS 順序不唯一</b>，所以本站規定鄰居照字母排。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 270 192" role="img" aria-label="順序 D B A C E F"><line class="ed" x1="30" y1="100" x2="95" y2="45"/><line class="ed" x1="30" y1="100" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="95" y2="150"/><line class="ed" x1="95" y1="45" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="45"/><line class="ed" x1="95" y1="150" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="175" y2="150"/><line class="ed" x1="175" y1="45" x2="240" y2="100"/><line class="ed" x1="175" y1="150" x2="240" y2="100"/><g class="nd bad"><circle cx="30" cy="100" r="14"/><text x="30" y="100">A</text></g><g class="nd good"><circle cx="95" cy="45" r="14"/><text x="95" y="45">B</text></g><g class="nd good"><circle cx="95" cy="150" r="14"/><text x="95" y="150">C</text></g><g class="nd hot"><circle cx="175" cy="45" r="14"/><text x="175" y="45">D</text></g><g class="nd good"><circle cx="175" cy="150" r="14"/><text x="175" y="150">E</text></g><g class="nd good"><circle cx="240" cy="100" r="14"/><text x="240" y="100">F</text></g><text class="lbl" x="175" y="21">#1 · 距0</text><text class="lbl" x="95" y="21">#2 · 距1</text><text class="lbl bad" x="30" y="129">#3 · 距2</text><text class="lbl" x="95" y="178">#4 · 距1</text><text class="lbl" x="175" y="178">#5 · 距1</text><text class="lbl" x="240" y="129">#6 · 距1</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>D, B, A, C, E, F：距離 2 的 A 排在距離 1 的 C 前面——一圈還沒走完就跳到下一圈。這其實是 <b>DFS</b> 的順序。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>連通元件：一張圖有幾座島？</h3>
+        <p>在校園旁邊再加上 G 碼頭–H 海洋館（兩棟之間有路），和孤零零的 I 燈塔。從 D 出發不管用 DFS 或 BFS，都只會逛完 A～F，<b>G、H、I 走不到</b>：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:760px">
+            <svg viewBox="0 0 760 330" role="img" aria-label="三個連通元件：校園 A 到 F、碼頭和海洋館、燈塔自己一個"><line class="ed" x1="60" y1="160" x2="190" y2="60"/><line class="ed" x1="60" y1="160" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="480" y2="160"/><line class="ed" x1="350" y1="260" x2="480" y2="160"/><line class="ed" x1="610" y1="70" x2="610" y2="250"/><g class="nd good"><circle cx="60" cy="160" r="22"/><text x="60" y="160">A</text></g><text class="lbl" x="60" y="198" style="text-anchor:middle;font-size:13px">校門</text><g class="nd good"><circle cx="190" cy="60" r="22"/><text x="190" y="60">B</text></g><text class="lbl" x="160" y="64" style="text-anchor:end;font-size:13px">圖書館</text><g class="nd good"><circle cx="190" cy="260" r="22"/><text x="190" y="260">C</text></g><text class="lbl" x="160" y="264" style="text-anchor:end;font-size:13px">餐廳</text><g class="nd good"><circle cx="350" cy="60" r="22"/><text x="350" y="60">D</text></g><text class="lbl" x="380" y="64" style="text-anchor:start;font-size:13px">系館</text><g class="nd good"><circle cx="350" cy="260" r="22"/><text x="350" y="260">E</text></g><text class="lbl" x="380" y="264" style="text-anchor:start;font-size:13px">宿舍</text><g class="nd good"><circle cx="480" cy="160" r="22"/><text x="480" y="160">F</text></g><text class="lbl" x="480" y="198" style="text-anchor:middle;font-size:13px">體育館</text><g class="nd hot"><circle cx="610" cy="70" r="22"/><text x="610" y="70">G</text></g><text class="lbl" x="640" y="74" style="text-anchor:start;font-size:13px">碼頭</text><g class="nd hot"><circle cx="610" cy="250" r="22"/><text x="610" y="250">H</text></g><text class="lbl" x="640" y="254" style="text-anchor:start;font-size:13px">海洋館</text><g class="nd"><circle cx="700" cy="160" r="22"/><text x="700" y="160">I</text></g><text class="lbl" x="700" y="198" style="text-anchor:middle;font-size:13px">燈塔</text><text class="lbl good" x="270" y="318" style="font-size:13px">島 1：A～F</text><text class="lbl" x="610" y="318" style="font-size:13px;fill:var(--accent);font-weight:700">島 2：G、H</text><text class="lbl" x="700" y="230" style="font-size:13px;font-weight:700">島 3：I</text></svg>
+            <figcaption>3 個連通元件：{A, B, C, D, E, F}、{G, H}、{I}。一個頂點自己沒有任何邊，也算一座島。</figcaption>
+          </figure>
+        </div>
+        <p><b>數島的方法</b>：從 A 開始把每個頂點看一遍，遇到<b>還沒打勾</b>的，就代表發現了一座新島——島數加 1，從它做一次走訪，把整座島打勾。之後再遇到這座島的頂點都已打勾，直接跳過。A 開出第 1 座、G 開出第 2 座、I 開出第 3 座，答案是 <b>3</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>跟這一關一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>第 12 關「樹的走訪」（前序、中序、後序）</td><td class="verdict ok">親戚</td><td>樹的前序走訪就是從根做 DFS。樹沒有環，所以不用 visited；圖有環，一定要。</td></tr>
+              <tr><td>第 07 關的迷宮 BFS／DFS</td><td class="verdict ok">一樣</td><td>迷宮的每一格是頂點、上下左右相鄰是邊。這一關把「上下左右」換成鄰接串列，演算法一模一樣。</td></tr>
+              <tr><td>BFS 的「距離」＝ 最短路徑？</td><td class="verdict no">只對一半</td><td>BFS 算的是<b>最少幾條邊</b>。路有長短（權重）時，邊最少不等於分鐘最少，要用<a href="17-dijkstra.html">第 17 關 Dijkstra</a>。</td></tr>
+              <tr><td>「DFS 的順序只有一種」</td><td class="verdict no">不對</td><td>鄰居的排列順序不同，DFS 和 BFS 的結果都會不同，而且都算對。規定鄰居照字母排，答案才唯一。</td></tr>
+              <tr><td>「走訪會走過所有頂點」</td><td class="verdict no">不一定</td><td>只走得到<b>同一個連通元件</b>裡的。要全部走完，得對每個沒打勾的頂點再走一次。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>從 F 出發做 BFS（鄰居照字母順序），順序是什麼？每個頂點離 F 幾條邊？</summary>
+            <div class="ans"><b>F, D, E, B, C, A。</b>F 的鄰居 D、E（距離 1）；D 帶出 B、C（距離 2）；E 的鄰居 C、D、F 都已打勾；B 帶出 A（距離 3）。</div>
+          </details>
+          <details>
+            <summary>從 F 出發做 DFS（遞迴、鄰居照字母順序），順序是什麼？</summary>
+            <div class="ans"><b>F, D, B, A, C, E。</b>F→D（F 的第一個鄰居）→B（D 的第一個鄰居）→A→C（A 的鄰居 B 已走過，下一個 C）→E（C 的鄰居 A、B、D 都走過）。遊戲第 3 關就是這一題。</div>
+          </details>
+          <details>
+            <summary>從 A 出發，BFS 和 DFS 的順序都是 A, B, C, D, E, F。所以兩個演算法在這裡一樣？</summary>
+            <div class="ans"><b>順序剛好一樣，走法不一樣。</b>BFS 的走訪樹是 A 掛 B、C，B 掛 D，C 掛 E，D 掛 F（距離 0,1,1,2,2,3）；DFS 的走訪樹是 A→B→C→D→E→F 一整條線。所以這一關改用 D、F 當起點，差別才看得出來。</div>
+          </details>
+          <details>
+            <summary>如果 BFS 改成「拿出來的時候才打勾」，從 D 出發會發生什麼？</summary>
+            <div class="ans">D 拿出來時，B、C、E、F 都還沒打勾，全部排進佇列；B 拿出來時，C 還沒打勾（還在排隊），<b>C 會被排第二次</b>……最後順序還是對的（第二次拿出來時發現打過勾就跳過），但佇列塞了一堆重複的東西。正確作法是<b>放進去的當下就打勾</b>。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手看佇列和堆疊怎麼帶著你逛完整張圖。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>上面是地圖：<b>橘底</b>是已發現、還在待辦清單裡的頂點，<b>實心橘</b>是正在處理的，<b>綠色</b>是處理完的；綠色粗線是走訪樹，橘色虛線是正在看的那條邊。下面依序是待辦清單（BFS 的佇列或 DFS 的呼叫堆疊）、visited 標記列、走訪順序。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>，或在下方選演算法和起點，按「套用」自己出題。</li>
+            <li>按 <b>下一步</b>：BFS 每一輪「從佇列前面拿一個 → 記下來 → 把沒打勾的鄰居打勾、排到後面」；DFS 每一層「打勾記下來 → 看下一個鄰居 → 沒去過就走過去，看完了就退回」。</li>
+            <li>下面的 C++ 程式會亮出<b>正在執行的那一行</b>，旁邊有白話說明。</li>
+            <li>隨時 <b>上一步</b> 倒回去，反覆走看不懂的地方。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你回答：下一個從佇列出來的是誰？哪些鄰居會被排進去？這個鄰居打過勾了嗎？DFS 下一步走去哪、還是退回？整張圖有幾座島？</li>
+            <li>每一關開始還會請你<b>預測整串走訪順序</b>。答對得分、連對加分；答錯立刻解釋。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>BFS ＝ 佇列</b> —— 一圈一圈往外，順便算出每個頂點離起點最少幾條邊。</li>
+            <li><b>DFS ＝ 遞迴（呼叫堆疊）</b> —— 一條路走到底，走不下去就退回上一層。</li>
+            <li><b>visited 為什麼不能少</b> —— 圖有環，沒有它會繞圈繞到天荒地老（第 5 關親眼看）。</li>
+            <li><b>走訪樹</b> —— 每個頂點記住 parent，「發現用的邊」剛好組成一棵樹。</li>
+            <li><b>連通元件</b> —— 對每個沒打勾的頂點開一次走訪，開了幾次就有幾座島。</li>
+            <li><b>O(V+E)</b> —— 每個頂點進出一次、每條邊兩頭各看一次。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">第 1 關 BFS → 第 2 關 DFS（都從 D 出發）→ 第 3 關從 F 出發兩個連著跑、比一比 → 第 4 關數島 → 第 5 關看拿掉 visited 會怎樣。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看佇列和堆疊怎麼帶著你逛完整張圖。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">自訂</span>
+        <form class="custom" id="customForm">
+          <label for="selAlgo">演算法</label>
+          <select id="selAlgo">
+            <option value="bfs">BFS（佇列）</option>
+            <option value="dfs">DFS（遞迴）</option>
+          </select>
+          <label for="selStart">起點</label>
+          <select id="selStart"></select>
+          <button class="btn" type="submit">套用</button>
+        </form>
+        <span class="panel-note" id="customNote">用目前關卡的地圖，換演算法或起點重跑。</span>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title" id="graphTitle">地圖</h3>
+            <span class="panel-note" id="graphNote"></span>
+          </div>
+
+          <div class="gbox">
+            <svg class="gsvg" id="graph" viewBox="0 0 540 320" role="img" aria-label="走訪中的圖"></svg>
+          </div>
+
+          <div class="legend">
+            <span><i class="l-cur"></i>正在處理</span>
+            <span><i class="l-fr"></i>已發現、在待辦清單</span>
+            <span><i class="l-done"></i>處理完</span>
+            <span><i></i>還沒發現</span>
+            <span><i class="l-tree"></i>走訪樹的邊</span>
+            <span><i class="l-hot"></i>正在看的邊</span>
+          </div>
+
+          <div class="vlabel" id="frLabel">QUEUE · 佇列</div>
+          <div class="frbox" id="frbox"></div>
+
+          <div class="vlabel">VISITED · 標記（打勾＝已發現，不會再處理第二次）</div>
+          <div class="vrow" id="vrow"></div>
+
+          <div class="vlabel">ORDER · 走訪順序</div>
+          <div class="orow" id="orow"></div>
+          <div class="memo" id="memo"></div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">統計</h3>
+              <span class="panel-note" id="phaseNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="ok"><div class="k">已走訪</div><div class="v" id="stVis">0</div></div>
+              <div class="stat" data-k="hot"><div class="k" id="stFrK">佇列長度</div><div class="v" id="stFr">0</div></div>
+              <div class="stat"><div class="k" id="stDepK">目前距離</div><div class="v" id="stDep">—</div></div>
+              <div class="stat"><div class="k">連通元件</div><div class="v" id="stComp">—</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">BFS 第 3～15 行 · DFS 第 16～23 行 · 數島第 24～32 行</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，就是下面這些。頂點用編號 0～5 代表 A～F，鄰接串列每一列都照字母順序排好。DFS 用的是<b>遞迴</b>版本（遊戲裡的「呼叫堆疊」就是電腦替遞迴準備的那個堆疊）：</p>
+        <pre class="code">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+vector&lt;bool&gt; visited;                <i>// visited[x]：x 被發現（打勾）了沒</i>
+vector&lt;int&gt; order, dist, parent;     <i>// 走訪順序、BFS 距離（幾條邊）、從誰發現的</i>
+
+void bfs(const vector&lt;vector&lt;int&gt;&gt;&amp; adj, int s) {
+    queue&lt;int&gt; q;
+    visited[s] = true; dist[s] = 0; q.push(s);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (int v : adj[u]) {
+            if (visited[v]) continue;
+            visited[v] = true; dist[v] = dist[u] + 1; parent[v] = u;
+            q.push(v);
+        }
+    }
+}
+
+void dfs(const vector&lt;vector&lt;int&gt;&gt;&amp; adj, int u) {
+    visited[u] = true; order.push_back(u);
+    for (int v : adj[u]) {
+        if (visited[v]) continue;
+        parent[v] = u;
+        dfs(adj, v);
+    }
+}
+
+int countComponents(const vector&lt;vector&lt;int&gt;&gt;&amp; adj, bool useBFS) {
+    int comp = 0;
+    for (int s = 0; s &lt; (int)adj.size(); s++) {
+        if (visited[s]) continue;
+        comp++;
+        if (useBFS) bfs(adj, s); else dfs(adj, s);
+    }
+    return comp;
+}
+
+void reset(int n) {                     <i>// 每次重新走訪前，全部清空</i>
+    visited.assign(n, false); order.clear();
+    dist.assign(n, -1); parent.assign(n, -1);
+}
+
+int main() {
+    <i>// 0=A 校門 1=B 圖書館 2=C 餐廳 3=D 系館 4=E 宿舍 5=F 體育館</i>
+    vector&lt;vector&lt;int&gt;&gt; adj = {
+        {1, 2},          <i>// A: B C</i>
+        {0, 2, 3},       <i>// B: A C D</i>
+        {0, 1, 3, 4},    <i>// C: A B D E</i>
+        {1, 2, 4, 5},    <i>// D: B C E F</i>
+        {2, 3, 5},       <i>// E: C D F</i>
+        {3, 4}           <i>// F: D E</i>
+    };
+    const char* name = "ABCDEFGHI";
+
+    reset(6); bfs(adj, 3);                          <i>// 從 D 出發</i>
+    for (int x : order) cout &lt;&lt; name[x] &lt;&lt; ' ';     <i>// D B C E F A</i>
+    cout &lt;&lt; '\n';
+
+    reset(6); dfs(adj, 3);
+    for (int x : order) cout &lt;&lt; name[x] &lt;&lt; ' ';     <i>// D B A C E F</i>
+    cout &lt;&lt; '\n';
+
+    adj.push_back({7});                             <i>// 6=G 碼頭：鄰居 H</i>
+    adj.push_back({6});                             <i>// 7=H 海洋館：鄰居 G</i>
+    adj.push_back({});                              <i>// 8=I 燈塔：沒有鄰居</i>
+    reset(9);
+    cout &lt;&lt; countComponents(adj, true) &lt;&lt; '\n';     <i>// 3</i>
+}</pre>
+        <p>遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">一個待辦清單、一份 visited 標記，換掉清單的種類就從 BFS 變 DFS。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一張無向圖（V 個頂點、E 條邊，用鄰接串列存）和一個起點 s，列出<b>所有從 s 走得到的頂點</b>，每個<b>剛好一次</b>。延伸問題：整張圖有幾個連通元件？每個頂點離 s 最少幾條邊？</p>
+      </div>
+
+      <div class="block">
+        <h3>破除錯誤直覺</h3>
+        <h4>直覺 1：「沿著邊一直走，總會走完吧？」</h4>
+        <p>圖有環的話不會。從 K 出發、沒有 visited 的 BFS：K 把 L、N 排進去，L 又把 K 排回來，K 再把 L、N 排回來……佇列只會越來越長（遊戲第 5 關前半段實際跑給你看：拿出 6 個之後佇列已經有 7 個在排）。<b>visited 是「一定會結束」的保證</b>：每個頂點只會被打勾一次、只會進待辦清單一次。</p>
+        <h4>直覺 2：「DFS 或 BFS 的答案是固定的」</h4>
+        <p>不是。演算法只規定「先處理誰的鄰居」，沒規定<b>同一個頂點的鄰居先看哪個</b>。從 D 出發，D, B, C, E, F, A 和 D, C, B, E, F, A 都是正確的 BFS 順序。考試和本站都規定「鄰居照字母（或編號）由小到大」，答案才唯一。</p>
+        <h4>直覺 3：「用堆疊把鄰居照字母順序推進去，就是照字母順序的 DFS」</h4>
+        <p>堆疊<b>後進先出</b>：照 B, C, E, F 推進去，最先拿出來的是 <b>F</b>。從 D 出發會得到 D, F, E, C, B, A——這也是一個合法的 DFS，但<b>不是</b>遞迴版的 D, B, A, C, E, F。想要一樣，就要<b>反過來推</b>（見下面的演算法 3）。</p>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察</h3>
+        <ul class="bullets">
+          <li><b>兩種走法是同一個模板</b> —— 「從待辦清單拿一個 → 看它的鄰居 → 沒打勾的打勾、放進清單」。清單是佇列就是 BFS，是堆疊就是 DFS。第 07 關說過：差別只在「拿出來」那一行。</li>
+          <li><b>BFS 一圈一圈</b> —— 佇列裡永遠是「距離 d 的在前、距離 d+1 的在後」，最多只有兩種距離。所以第一次發現某個頂點時，用的一定是最少的邊數。</li>
+          <li><b>DFS 一路到底</b> —— 呼叫堆疊從底到頂，剛好是「從起點走到現在這裡的那條路」。退回，就是把最上面那層拿掉。</li>
+          <li><b>發現就打勾</b> —— 每個頂點只會被打勾一次，所以每個頂點只會進待辦清單一次。這是 O(V+E) 的關鍵。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>演算法 1：BFS（佇列）</h3>
+        <ol class="steps">
+          <li>起點打勾、距離 0、放進佇列。</li>
+          <li>佇列不是空的就重複：從<b>前面</b>拿出 u，把 u 記進順序。</li>
+          <li>照順序看 u 的每個鄰居 v：打過勾就跳過；沒打過勾 → 打勾、距離 = u 的距離 + 1、parent = u、排到佇列<b>後面</b>。</li>
+        </ol>
+        <h3>演算法 2：DFS（遞迴）</h3>
+        <ol class="steps">
+          <li>dfs(u)：u 打勾，記進順序。</li>
+          <li>照順序看 u 的每個鄰居 v：打過勾就跳過；沒打過勾 → 記下 parent[v] = u，<b>立刻呼叫 dfs(v)</b>。</li>
+          <li>dfs(v) 整個做完回來，才接著看 u 的下一個鄰居。鄰居全部看完，dfs(u) 結束，退回呼叫它的那一層。</li>
+        </ol>
+        <h3>演算法 3：DFS（自己準備堆疊，不用遞迴）</h3>
+        <p>遞迴太深（例如 100 萬個頂點排成一條線）可能把電腦的呼叫堆疊撐爆，這時改用自己的 stack。要得到跟遞迴<b>一樣的順序</b>，有兩個細節：<b>拿出來時才打勾</b>（同一個頂點可能被推進去好幾次，拿出來發現打過勾就丟掉），以及鄰居<b>反過來推</b>。</p>
+        <pre class="code">void dfsIter(const vector&lt;vector&lt;int&gt;&gt;&amp; adj, int s) {
+    stack&lt;int&gt; st;
+    st.push(s);
+    while (!st.empty()) {
+        int u = st.top(); st.pop();
+        if (visited[u]) continue;                  <i>// 推過好幾次的，第二次起直接丟掉</i>
+        visited[u] = true; order.push_back(u);
+        for (int k = (int)adj[u].size() - 1; k &gt;= 0; k--)   <i>// 反過來推：字母小的最後推、最先拿</i>
+            if (!visited[adj[u][k]]) st.push(adj[u][k]);
+    }
+}</pre>
+        <p>從 D 出發，它也得到 D, B, A, C, E, F。不管哪張圖、從哪個起點出發，這個版本走出來的順序都跟遞迴版一模一樣（遊戲用的是遞迴版）。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：BFS 從 D 出發</h3>
+        <p>考試在紙上追蹤時就畫這張表。佇列左邊是前端：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>輪</th><th>拿出</th><th>看鄰居（照字母）</th><th>新打勾、排進去</th><th class="mono">佇列（之後）</th><th class="mono">順序</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>—</td><td>起點 D 打勾、距離 0</td><td>D</td><td class="mono">[D]</td><td class="mono">—</td></tr>
+              <tr><td>1</td><td><b>D</b></td><td>B、C、E、F 都沒打勾</td><td>B、C、E、F（距離 1）</td><td class="mono">[B, C, E, F]</td><td class="mono">D</td></tr>
+              <tr><td>2</td><td><b>B</b></td><td>A 沒打勾；C、D 打過</td><td>A（距離 2）</td><td class="mono">[C, E, F, A]</td><td class="mono">D B</td></tr>
+              <tr><td>3</td><td><b>C</b></td><td>A、B、D、E 都打過</td><td>—</td><td class="mono">[E, F, A]</td><td class="mono">D B C</td></tr>
+              <tr><td>4</td><td><b>E</b></td><td>C、D、F 都打過</td><td>—</td><td class="mono">[F, A]</td><td class="mono">D B C E</td></tr>
+              <tr><td>5</td><td><b>F</b></td><td>D、E 都打過</td><td>—</td><td class="mono">[A]</td><td class="mono">D B C E F</td></tr>
+              <tr><td>6</td><td><b>A</b></td><td>B、C 都打過</td><td>—</td><td class="mono">[ ]</td><td class="mono">D B C E F A</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>距離：D 0；B、C、E、F 1；A 2。走訪樹：D–B、D–C、D–E、D–F、B–A。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：DFS（遞迴）從 D 出發</h3>
+        <p>呼叫堆疊左邊是最底層（最早呼叫的），右邊是正在做的那一層：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>步</th><th class="mono">呼叫堆疊</th><th>發生什麼</th><th class="mono">順序</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td class="mono">[D]</td><td>dfs(D)：D 打勾。第一個鄰居 B 沒打勾 → 呼叫 dfs(B)</td><td class="mono">D</td></tr>
+              <tr><td>2</td><td class="mono">[D, B]</td><td>dfs(B)：第一個鄰居 A 沒打勾 → dfs(A)</td><td class="mono">D B</td></tr>
+              <tr><td>3</td><td class="mono">[D, B, A]</td><td>dfs(A)：B 打過；C 沒打勾 → dfs(C)</td><td class="mono">D B A</td></tr>
+              <tr><td>4</td><td class="mono">[D, B, A, C]</td><td>dfs(C)：A、B、D 打過；E 沒打勾 → dfs(E)</td><td class="mono">D B A C</td></tr>
+              <tr><td>5</td><td class="mono">[D, B, A, C, E]</td><td>dfs(E)：C、D 打過；F 沒打勾 → dfs(F)</td><td class="mono">D B A C E</td></tr>
+              <tr><td>6</td><td class="mono">[D, B, A, C, E, F]</td><td>dfs(F)：D、E 都打過 → 結束，退回 E</td><td class="mono">D B A C E F</td></tr>
+              <tr><td>7</td><td class="mono">[D, B, A, C, E] → … → [ ]</td><td>E 的鄰居看完 → 退回 C → 看完 → 退回 A → 看完 → 退回 B：C、D 打過 → 退回 D：C、E、F 打過 → 全部結束</td><td class="mono">D B A C E F</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>走訪樹：D–B、B–A、A–C、C–E、E–F，一整條線。最深的時候堆疊有 6 層。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度：O(V+E)，但前提是鄰接串列</h3>
+        <ul class="bullets">
+          <li><b>每個頂點 O(1) 次</b> —— 打勾一次、進出待辦清單一次，合計 O(V)。</li>
+          <li><b>每條邊 2 次</b> —— 無向邊 u–v 會在看 u 的鄰居時看一次、看 v 的鄰居時再看一次。所有鄰居串列加起來長度是 2E（第 21 關：度數總和 = 2 × 邊數），合計 O(E)。</li>
+          <li><b>鄰接矩陣會變成 O(V²)</b> —— 用矩陣存時，要找 u 的鄰居得把那一整列 V 格看完，不管實際只有幾個鄰居。V 個頂點各看一列，就是 V × V。</li>
+          <li><b>額外空間 O(V)</b> —— visited、dist、parent 各 V 格；佇列或堆疊最多 V 個。</li>
+        </ul>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>圖的大小</th><th class="mono">鄰接串列 O(V+E)</th><th class="mono">鄰接矩陣 O(V²)</th></tr></thead>
+            <tbody>
+              <tr><td>校園：V = 6、E = 9</td><td class="mono">6 + 18 = 24 次</td><td class="mono">36 格</td></tr>
+              <tr><td>城市路網：V = 100 萬、E = 300 萬</td><td class="mono" style="color:var(--jade);font-weight:700">約 700 萬次</td><td class="mono" style="color:var(--alarm);font-weight:700">1 兆格（10<sup>12</sup>）</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>（串列那欄是「V 個頂點 ＋ 2E 個鄰居」的實際次數：6 + 2×9 = 24；100 萬 + 2×300 萬 = 700 萬。）</p>
+      </div>
+
+      <div class="block">
+        <h3>走訪能拿來做什麼</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>應用</th><th>怎麼做</th><th>用哪個</th></tr></thead>
+            <tbody>
+              <tr><td><b>A 走得到 B 嗎？</b>（可達性）</td><td>從 A 走訪一次，看 B 有沒有打勾。</td><td>都可以</td></tr>
+              <tr><td><b>數連通元件</b>（幾座島）</td><td>對每個沒打勾的頂點開一次走訪，開幾次就是幾座。遊戲第 4 關。</td><td>都可以</td></tr>
+              <tr><td><b>迷宮最少幾步</b></td><td>格子當頂點，BFS 第一次碰到出口時的距離就是答案。第 07 關。</td><td>BFS</td></tr>
+              <tr><td><b>社群「幾度分隔」</b></td><td>朋友關係是邊，BFS 的距離就是「透過幾個人認識」。</td><td>BFS</td></tr>
+              <tr><td><b>找環、排先後順序</b></td><td>DFS 走到一個「還在呼叫堆疊上」的頂點，就代表有環。下一關的拓撲排序也會用到走訪。</td><td>DFS</td></tr>
+              <tr><td><b>油漆桶填色</b></td><td>同顏色相鄰的格子是一座島，從點下去的那格走訪。第 08 關。</td><td>都可以</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「visited 等拿出來處理時再打勾也一樣」</b> —— BFS 這樣寫，同一個頂點會被重複排進佇列；順序也許還對，但佇列變大、白做很多事。<b>放進去的當下就打勾。</b>（只有演算法 3 那種堆疊版 DFS，為了順序跟遞迴一樣，才刻意在拿出來時打勾。）</li>
+          <li><b>「BFS 找到的就是最短路徑」</b> —— 只有每條邊都一樣長（只數邊數）時才對。校園步道有 1 分鐘也有 10 分鐘的，要用<a href="17-dijkstra.html">第 17 關 Dijkstra</a>。例如從 D 到 C：BFS 說 1 條邊（D–C 直走，8 分鐘），但 D→B→C 雖然 2 條邊，只要 5 + 1 = 6 分鐘。</li>
+          <li><b>「BFS 比 DFS 快」</b> —— 兩個都是 O(V+E)。差別在順序和用途，不在速度。</li>
+          <li><b>「從一個起點走訪就會走完整張圖」</b> —— 只會走完起點所在的連通元件。</li>
+          <li><b>「DFS 一定要用遞迴」</b> —— 不用，演算法 3 就是用自己的堆疊。遞迴只是借用電腦的呼叫堆疊（第 04 關）。</li>
+        </ul>
+      </div>
+
+      <div class="callout" data-k="ok">
+        <span class="tag">下一關</span>
+        <span class="txt">會走訪了，接下來處理<b>有方向</b>的圖：選課有先修、做事有先後，怎麼排出一個不違反任何先後關係的順序？→ <a href="23-topological-sort.html">第 23 關「拓撲排序」</a>（會用到入度和佇列，跟這一關的 BFS 很像）。</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟前面幾關一樣：使用者按「下一步」之前，整個走訪就已經跑完了。<code>buildSteps</code> 照著 C++ 程式一行一行跑，每做一件事就存一份<b>快照</b>（visited、順序、佇列或呼叫堆疊、距離、parent）；畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 <small>地圖（頂點、邊）＋ 演算法 ＋ 起點 ＋ 模式</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(level) <small>bfsRun / dfsRun（遞迴）/ 數島迴圈，整個跑完一次</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格：快照 + 程式行號 + 說明 + 闖關題</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>DFS 的遞迴照樣能「倒帶」</b> —— 遞迴在 buildSteps 裡真的跑一次，呼叫堆疊另外用一個陣列記下來存進快照，所以上一步、下一步只是換一張快照。</li>
+          <li><b>鄰居順序只在一個地方決定</b> —— <code>mkGraph</code> 把每個鄰居串列照字母排好，後面所有步驟都照它走。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">mkGraph(def)<br>buildSteps(level)</td><td>mkGraph 把頂點、邊整理成鄰接串列；buildSteps 是唯一真正跑演算法的地方，裡面的 bfsRun、dfsRun 跟 C++ 一行對一行。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：目前關卡、圖、第幾步、模式、分數。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintGraph / paintFrontier<br>paintVisited / paintOrder<br>paintStats / paintAlgo / paintSay / paintLog</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">renderQuiz / answerQuiz</td><td>題目在 buildSteps 時就跟著步驟生好（step.quiz），這裡只出題、對答案、計分。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// start / init / pop / visit / skip / mark / push / empty /
+          //  enter / tree / back / ret / scan / newcomp / call / bad / stop / half / restart / done</i>
+  <b>algo</b>:   <i>// "bfs" / "dfs" / "bad"（第 5 關沒有 visited 的錯誤示範）</i>
+  <b>u, v</b>:   <i>// 正在處理的頂點、正在看的鄰居（頂點編號，-1 = 沒有）</i>
+  <b>vis, order, dist, par, comp</b>: <i>// 這一步之後的 visited、順序、距離、parent、屬於第幾座島</i>
+  <b>fr</b>:     <i>// BFS：佇列 [編號…]；DFS：呼叫堆疊 [{u, ni:正在看第幾個鄰居}…]</i>
+  <b>nComp</b>:  <i>// 目前數到幾座島</i>
+  <b>memo</b>:   <i>// 第 3 關：先跑完的 BFS 結果，留著跟 DFS 比</i>
+  <b>line</b>:   <i>// C++ 程式要高亮第幾行（-1 = 不亮）</i>
+  <b>title, msg, quiz</b>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{tag, n, d, g, algo, start, mode}</code></td><td>1 行</td></tr>
+              <tr><td>換一張地圖</td><td>照 <code>CAMPUS</code> 的格式寫一個新的 <code>{vb, vs, es}</code>（頂點座標、邊）</td><td>約 10 行</td></tr>
+              <tr><td>鄰居改成反字母順序</td><td><code>mkGraph</code> 裡排序鄰居的那一行，比較方向反過來</td><td>1 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作無向圖的 BFS 和 DFS，圖用 vector&lt;vector&lt;int&gt;&gt; 鄰接串列存。
+
+需要的函式：
+- void bfs(adj, s)：用 queue，放進佇列時就標記 visited，順便算 dist 和 parent
+- void dfs(adj, u)：遞迴版
+- void dfsIter(adj, s)：用 stack，順序要跟遞迴版一樣
+- int countComponents(adj)
+
+要求：
+1. 鄰居照編號由小到大處理
+2. 測試圖：A-B, A-C, B-C, B-D, C-D, C-E, D-E, D-F, E-F（A=0…F=5），從 D 出發
+   BFS 應印出 D B C E F A，DFS 應印出 D B A C E F
+3. 印出 BFS 每個頂點的距離和 parent，並用 parent 還原「D 到 A」的路徑
+4. 再加上 G-H 和孤立的 I，countComponents 應回傳 3
+5. 說明：為什麼 dfsIter 要把鄰居反過來推？</pre>
+        <h4>延伸題 1：沒有 visited 會怎樣</h4>
+        <pre class="code">把 bfs 的 visited 拿掉，在 4 個頂點的環上跑，每拿出一個就印出佇列長度。
+跑 20 輪看佇列長度怎麼變，解釋為什麼。</pre>
+        <h4>延伸題 2：判斷二分圖</h4>
+        <pre class="code">用 BFS 把每個頂點塗成兩種顏色（距離奇數、偶數），
+檢查有沒有一條邊兩端同色。校園地圖是二分圖嗎？為什麼？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 22 圖的走訪</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  /* 頂點：[代號, 名稱, x, y, 名稱位置 b/l/r（下、左、右）, 上方小字位置 t/b（上、下）] */
+  var CAMPUS = {
+    vb:"0 0 540 320",
+    vs:[["A","校門",60,160,"b","t"],["B","圖書館",190,60,"l","t"],["C","餐廳",190,260,"l","b"],
+        ["D","系館",350,60,"r","t"],["E","宿舍",350,260,"r","b"],["F","體育館",480,160,"b","t"]],
+    es:[["A","B"],["A","C"],["B","C"],["B","D"],["C","D"],["C","E"],["D","E"],["D","F"],["E","F"]]
+  };
+  var ISLANDS = {
+    vb:"0 0 760 320",
+    vs:CAMPUS.vs.concat([["G","碼頭",610,70,"r","t"],["H","海洋館",610,250,"r","b"],["I","燈塔",700,160,"b","t"]]),
+    es:CAMPUS.es.concat([["G","H"]])
+  };
+  var LOOP = {
+    vb:"0 0 540 320",
+    vs:[["K","北亭",170,70,"l","t"],["L","東亭",370,70,"r","t"],["M","南亭",370,250,"r","b"],["N","西亭",170,250,"l","b"]],
+    es:[["K","L"],["L","M"],["M","N"],["K","N"]]
+  };
+
+  var LEVELS = [
+    {tag:"BFS·D", n:"BFS 從 D 出發", g:CAMPUS, algo:"bfs", start:"D", mode:"one",
+     d:"從 D 系館出發做 BFS。D 的鄰居 B、C、E、F 會先全部排進佇列，處理完這一圈才輪到更遠的。注意每個頂點上方的「距離」。",
+     fin:"距離 1 的 B、C、E、F 全部走完，才輪到距離 2 的 A——這就是「一圈一圈」。"},
+    {tag:"DFS·D", n:"DFS 從 D 出發", g:CAMPUS, algo:"dfs", start:"D", mode:"one",
+     d:"從 D 系館出發做 DFS（遞迴版）。看到沒去過的鄰居就馬上走過去，一路走到底；下面的呼叫堆疊會一層一層長高，走不下去再一層一層退回。",
+     fin:"走訪樹 D–B–A–C–E–F 是一整條線：DFS 一路鑽到底。跟第 1 關 BFS 的 D, B, C, E, F, A 比一比。"},
+    {tag:"BFS vs DFS", n:"從 F 出發比一比", g:CAMPUS, algo:"both", start:"F", mode:"compare",
+     d:"同一張圖、同一個起點 F，先跑 BFS，記下結果，再跑 DFS。最後把兩串順序和兩棵走訪樹放在一起比。",
+     fin:""},
+    {tag:"islands", n:"數連通元件", g:ISLANDS, algo:"bfs", start:"A", mode:"comp",
+     d:"校園旁邊多了 G 碼頭–H 海洋館，和孤零零的 I 燈塔。程式從 A 開始把每個頂點看一遍：遇到沒打勾的就是一座新島，從它做一次 BFS 把整座島打勾。",
+     fin:"開了 3 次 BFS，就是 3 座島。I 燈塔沒有任何邊，自己也算一座。"},
+    {tag:"cycle", n:"沒有 visited 會怎樣", g:LOOP, algo:"bfs", start:"K", mode:"cycle",
+     d:"環湖步道上 4 個涼亭圍成一個環。先看「把 visited 拿掉」的錯誤版本跑起來會怎樣，再用正確的 BFS 重跑一次。",
+     fin:"有 visited，4 個涼亭各走一次就停；沒有 visited，佇列只會越排越長。"}
+  ];
+
+  var CODE = [
+    "vector<bool> visited;",
+    "vector<int> order, dist, parent;",
+    "void bfs(const vector<vector<int>>& adj, int s) {",
+    "    queue<int> q;",
+    "    visited[s] = true; dist[s] = 0; q.push(s);",
+    "    while (!q.empty()) {",
+    "        int u = q.front(); q.pop();",
+    "        order.push_back(u);",
+    "        for (int v : adj[u]) {",
+    "            if (visited[v]) continue;",
+    "            visited[v] = true; dist[v] = dist[u] + 1; parent[v] = u;",
+    "            q.push(v);",
+    "        }",
+    "    }",
+    "}",
+    "void dfs(const vector<vector<int>>& adj, int u) {",
+    "    visited[u] = true; order.push_back(u);",
+    "    for (int v : adj[u]) {",
+    "        if (visited[v]) continue;",
+    "        parent[v] = u;",
+    "        dfs(adj, v);",
+    "    }",
+    "}",
+    "int countComponents(const vector<vector<int>>& adj, bool useBFS) {",
+    "    int comp = 0;",
+    "    for (int s = 0; s < (int)adj.size(); s++) {",
+    "        if (visited[s]) continue;",
+    "        comp++;",
+    "        if (useBFS) bfs(adj, s); else dfs(adj, s);",
+    "    }",
+    "    return comp;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "準備一排「有沒有打勾」的格子，每個頂點一格（vector<bool> 就是一排只能放 true／false 的格子）。true 表示這個頂點已經被發現過了。",
+    "再準備三排數字格子：order 依序記下拜訪的頂點；dist 記每個頂點離起點幾條邊；parent 記每個頂點是被誰發現的（用來畫走訪樹）。",
+    "bfs（廣度優先）機器的開頭。交給它兩樣東西：adj 是鄰接串列（adj[u] 就是 u 的鄰居清單，已照字母排好），s 是起點。const & 的意思是「只看不改、也不複製」。",
+    "準備一個空的佇列 q：從後面排進去、從前面出來（先進先出）。",
+    "起點自己先處理：打勾、距離設成 0、排進佇列。注意「打勾」和「排進佇列」是同時做的。",
+    "while＝一直重複。只要佇列裡還有人在排（!q.empty() 讀作「q 不是空的」），就繼續做下一輪。",
+    "從佇列最前面拿出一個頂點，叫它 u。front() 是看最前面那個，pop() 是把它移出佇列。",
+    "把 u 記進走訪順序：輪到它了，這就是「拜訪」。",
+    "for 迴圈：照順序看 u 的每一個鄰居，每次叫它 v。鄰居已經照字母排好，所以結果是唯一的。",
+    "如果 v 已經打過勾（之前就被發現了，可能已經處理完，也可能還在佇列裡排隊），continue＝跳過，直接看下一個鄰居。",
+    "v 是新發現的：打勾、距離＝u 的距離＋1（多走一條邊）、記下 v 是被 u 發現的。一發現就打勾，之後別的鄰居再看到 v 就會跳過，不會重複排隊。",
+    "把 v 排到佇列最後面，等前面的人都處理完才輪到它。",
+    "鄰居迴圈的結尾，自動回到第 9 行看下一個鄰居。",
+    "while 迴圈的結尾，自動回到第 6 行檢查佇列還有沒有人。",
+    "bfs 結束：佇列空了，從 s 走得到的頂點都已經拜訪過。",
+    "dfs（深度優先，遞迴版）機器的開頭：從頂點 u 開始往深處走。這個函式會呼叫自己，電腦用「呼叫堆疊」記住每一層做到哪裡。",
+    "一進來就處理 u：打勾，並記進走訪順序。",
+    "照順序看 u 的每一個鄰居 v。",
+    "v 已經打過勾 → 跳過，看下一個鄰居。",
+    "v 是新的：記下 v 是被 u 發現的（走訪樹多一條邊）。",
+    "立刻呼叫 dfs(v)——馬上走過去，往更深處逛。u 這一層先暫停在這裡（記在呼叫堆疊上），等 dfs(v) 整個做完回來，才繼續看 u 的下一個鄰居。",
+    "鄰居迴圈的結尾，自動回到第 18 行看下一個鄰居。",
+    "dfs(u) 結束：u 的鄰居全部看完了。從呼叫堆疊拿掉這一層，退回呼叫它的那一層（第 21 行之後）繼續做。",
+    "countComponents（數連通元件）機器的開頭。useBFS 決定每座島用 bfs 還是 dfs 去走——兩個都可以，答案一樣。",
+    "comp 是島的數量，從 0 開始數。",
+    "for 迴圈：s 從第 0 個頂點（A）開始，一個一個看到最後一個。",
+    "s 已經打過勾 → 它屬於前面某座已經走過的島，跳過。",
+    "s 沒打過勾 → 它不屬於任何已知的島，發現新島！數量加 1。",
+    "從 s 做一次走訪，把這整座島的頂點全部打勾。之後迴圈再遇到它們都會在第 27 行跳過。",
+    "for 迴圈的結尾，回到第 26 行看下一個 s。",
+    "全部頂點都看過了，回傳島的數量。",
+    "countComponents 結束。"
+  ];
+
+  var BADGE = {start:"START", init:"INIT", pop:"POP", visit:"VISIT", skip:"SKIP", mark:"MARK", push:"PUSH",
+               empty:"EMPTY", enter:"ENTER", tree:"GO", back:"BACK", ret:"RET", scan:"SCAN", newcomp:"NEW",
+               call:"CALL", bad:"LOOP", stop:"STOP", half:"SWITCH", restart:"RESET", done:"DONE"};
+  /* say / log 的顏色（對應 site.css 的 data-k）*/
+  var KMAP  = {start:"start", init:"push", pop:"pop", visit:"ok", skip:"start", mark:"hot", push:"push",
+               empty:"done", enter:"push", tree:"hot", back:"pop", ret:"pop", scan:"start", newcomp:"hot",
+               call:"hot", bad:"error", stop:"error", half:"done", restart:"start", done:"done"};
+
+  var BAD_DOC = "錯誤示範：這一段跑的是「把第 10、11 行的 visited 拿掉」的壞程式，所以上面的程式不亮。拿出一個頂點，就把它所有鄰居都排進佇列，不管來過沒有。";
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    level:null, levelIdx:-1, G:null, steps:[], cur:0, mode:"demo", playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1, els:null
+  };
+
+  /* ---------- 2. 資料層 ---------- */
+
+  /* 把 {vs, es} 整理成鄰接串列；頂點照代號排序，鄰居也照代號（字母）排序 */
+  function mkGraph(def){
+    var vs = def.vs.slice().sort(function(a, b){ return a[0] < b[0] ? -1 : (a[0] > b[0] ? 1 : 0); });
+    var n = vs.length, ids = [], names = [], idx = {}, adj = [], edges = [], ekey = {}, i;
+    for(i = 0; i < n; i++){ ids.push(vs[i][0]); names.push(vs[i][1]); idx[vs[i][0]] = i; adj.push([]); }
+    for(i = 0; i < def.es.length; i++){
+      var a = idx[def.es[i][0]], b = idx[def.es[i][1]];
+      adj[a].push(b); adj[b].push(a);
+      ekey[Math.min(a,b) + "-" + Math.max(a,b)] = edges.length;
+      edges.push([a, b]);
+    }
+    for(i = 0; i < n; i++) adj[i].sort(function(x, y){ return x - y; });
+    /* 幾座島（給自訂模式判斷要不要用數島模式） */
+    var seen = [], nc = 0;
+    for(i = 0; i < n; i++) seen.push(false);
+    for(i = 0; i < n; i++){
+      if(seen[i]) continue;
+      nc++;
+      var st = [i]; seen[i] = true;
+      while(st.length){ var x = st.pop(); for(var k = 0; k < adj[x].length; k++){ if(!seen[adj[x][k]]){ seen[adj[x][k]] = true; st.push(adj[x][k]); } } }
+    }
+    return {n:n, ids:ids, names:names, idx:idx, adj:adj, edges:edges, ekey:ekey, vs:vs, ncomp:nc};
+  }
+
+  function fill(n, x){ var r = []; for(var i = 0; i < n; i++) r.push(x); return r; }
+
+  /* 參考順序（只用來出「預測順序」題的選項）。rev = 鄰居反過來看 */
+  function refOrder(adj, s, algo, rev){
+    var n = adj.length, vis = fill(n, false), out = [];
+    function nb(u){ var a = adj[u].slice(); if(rev) a.reverse(); return a; }
+    if(algo === "bfs"){
+      var q = [s]; vis[s] = true;
+      while(q.length){
+        var u = q.shift(); out.push(u);
+        nb(u).forEach(function(v){ if(!vis[v]){ vis[v] = true; q.push(v); } });
+      }
+    } else {
+      (function go(u){
+        vis[u] = true; out.push(u);
+        nb(u).forEach(function(v){ if(!vis[v]) go(v); });
+      })(s);
+    }
+    return out;
+  }
+
+  function buildSteps(level){
+    var G = mkGraph(level.g), n = G.n, adj = G.adj, ids = G.ids;
+    var steps = [], vis, order, dist, par, comp, fr, nComp = 0, memo = null;
+    var algo = (level.algo === "dfs") ? "dfs" : "bfs";
+    var compMode = (level.mode === "comp");
+    function reset(){ vis = fill(n, false); order = []; dist = fill(n, -1); par = fill(n, -1); comp = fill(n, -1); fr = []; }
+    reset();
+
+    function L(i){ return ids[i]; }
+    function list(a){ return a.length ? a.map(L).join("、") : "（空）"; }
+    function seq(a){ return a.map(L).join(", "); }
+    function qtxt(){ return "[" + fr.map(L).join(", ") + "]"; }
+    function nbTxt(u){ return adj[u].length ? adj[u].map(L).join("、") : "（沒有鄰居）"; }
+    function uniqOpts(arr){
+      var seen = {}, res = [];
+      for(var k = 0; k < arr.length; k++){
+        var o = arr[k];
+        if(o && !seen[o.t]){ seen[o.t] = 1; res.push(o); }
+      }
+      return res;
+    }
+    function put(o){
+      o.algo = o.algo || algo;
+      o.vis = vis.slice(); o.order = order.slice(); o.dist = dist.slice(); o.par = par.slice();
+      o.comp = comp.slice(); o.nComp = nComp; o.compMode = compMode;
+      o.fr = (o.algo === "dfs") ? fr.map(function(f){ return {u:f.u, ni:f.ni}; }) : fr.slice();
+      o.memo = memo;
+      if(o.u === undefined) o.u = -1;
+      if(o.v === undefined) o.v = -1;
+      if(o.quiz){
+        o.quiz.opts = uniqOpts(o.quiz.opts);
+        if(o.quiz.opts.length < 2) delete o.quiz;
+      }
+      steps.push(o);
+    }
+
+    /* 預測整串順序的題目 */
+    function predictQuiz(s, a){
+      var right = refOrder(adj, s, a, false);
+      var other = refOrder(adj, s, a === "bfs" ? "dfs" : "bfs", false);
+      var revd = refOrder(adj, s, a, true);
+      var alpha = [s].concat(right.filter(function(x){ return x !== s; }).sort(function(x, y){ return x - y; }));
+      var name = a === "bfs" ? "BFS" : "DFS";
+      return {q:"先預測：從 " + L(s) + " 出發，" + name + "（鄰居照字母順序）完整的走訪順序會是？", ans:"a", opts:[
+        {t:seq(right), s:"", v:"a"},
+        {t:seq(other), s:"", v:"b"},
+        {t:seq(alpha), s:"", v:"c"},
+        {t:seq(revd), s:"", v:"d"}]};
+    }
+
+    /* ---- BFS：跟 C++ 第 3～15 行一行對一行 ---- */
+    function bfsRun(s, ask){
+      algo = "bfs";
+      vis[s] = true; dist[s] = 0; fr = [s];
+      if(compMode) comp[s] = nComp - 1;
+      put({kind:"init", line:5, u:s,
+        title:"起點 " + L(s) + "：打勾、距離 0、排進佇列",
+        msg:"佇列一開始只有起點 <b>" + L(s) + "</b>。它在排進去的同一刻就打勾（visited）了，距離是 0。",
+        quiz:ask ? predictQuiz(s, "bfs") : null});
+      for(;;){
+        if(fr.length === 0){
+          put({kind:"empty", line:6,
+            title:"佇列空了 —— while 結束",
+            msg:"沒有人在排隊了：從 " + L(s) + " 走得到的頂點都拜訪過了。這一趟的順序：<b>" + seq(order.filter(function(x){ return comp[x] === comp[s]; })) + "</b>。"});
+          break;
+        }
+        var before = fr.slice();
+        var u = fr.shift();
+        var pq = null;
+        if(before.length >= 2){
+          var po = [{t:L(before[0]), s:"", v:"f"}, {t:L(before[before.length-1]), s:"", v:"b"}];
+          for(var m = 1; m < before.length - 1 && po.length < 4; m++) po.push({t:L(before[m]), s:"", v:"m" + m});
+          pq = {q:"佇列現在是 [" + before.map(L).join(", ") + "]（左邊是前端）。下一個被拿出來的是誰？", ans:"f", opts:po};
+        }
+        put({kind:"pop", line:7, u:u,
+          title:"從佇列前面拿出 " + L(u),
+          msg:"佇列先進先出：<b>" + L(u) + "</b> 排在最前面" + (dist[u] >= 0 ? "（距離 " + dist[u] + "）" : "") + "，輪到它。佇列剩 " + qtxt() + "。",
+          quiz:pq});
+        order.push(u);
+        var will = adj[u].filter(function(v){ return !vis[v]; });
+        var notOut = adj[u].filter(function(v){ return order.indexOf(v) < 0; });
+        put({kind:"visit", line:8, u:u,
+          title:"拜訪 " + L(u) + "：它是第 " + order.length + " 個",
+          msg:"把 <b>" + L(u) + "</b> 記進順序：<b>" + seq(order) + "</b>。接著照字母順序看它的鄰居 " + nbTxt(u) + "。",
+          quiz:{q:"現在處理 " + L(u) + "，它的鄰居是 " + nbTxt(u) + "。哪些會被打勾、排進佇列？", ans:"a", opts:[
+            {t:will.length ? list(will) : "一個都不會", s:"", v:"a"},
+            {t:adj[u].length ? list(adj[u]) : "一個都不會", s:"", v:"b"},
+            {t:notOut.length ? list(notOut) : "一個都不會", s:"", v:"c"},
+            will.length ? {t:"一個都不會", s:"", v:"d"} : null]}});
+        for(var k = 0; k < adj[u].length; k++){
+          var v = adj[u][k];
+          if(vis[v]){
+            var inQ = fr.indexOf(v) >= 0;
+            put({kind:"skip", line:10, u:u, v:v,
+              title:L(v) + " 已經打過勾 —— 跳過",
+              msg:inQ ? "<b>" + L(v) + "</b> 還在佇列裡排隊，但它<b>放進去時就打勾了</b>，所以不會再排第二次。"
+                      : "<b>" + L(v) + "</b> 早就拜訪過了（在順序裡）。沒有這個檢查，就會沿著邊繞回去、一直繞。",
+              quiz:inQ ? {q:L(u) + " 看到鄰居 " + L(v) + "（它還在佇列裡排隊，還沒被拿出來）。" + L(v) + " 已經打勾了嗎？", ans:"y", opts:[
+                {t:"已經打勾 → 跳過", s:"放進佇列時就打勾", v:"y"},
+                {t:"還沒 → 打勾、再排一次", s:"拿出來時才打勾", v:"n"}]} : null});
+            continue;
+          }
+          vis[v] = true; dist[v] = dist[u] + 1; par[v] = u;
+          if(compMode) comp[v] = nComp - 1;
+          put({kind:"mark", line:11, u:u, v:v,
+            title:"發現 " + L(v) + "：打勾、距離 " + dist[v] + "、parent = " + L(u),
+            msg:"<b>" + L(v) + "</b> 還沒打勾，是新發現的。距離 = " + L(u) + " 的距離 " + dist[u] + " + 1 = <b>" + dist[v] + "</b>；它是被 " + L(u) + " 發現的，" + L(u) + "–" + L(v) + " 成為走訪樹的一條邊（綠色粗線）。",
+            quiz:(will.length < adj[u].length) ? {q:L(u) + " 看到鄰居 " + L(v) + "。" + L(v) + " 已經打勾了嗎？", ans:"n", opts:[
+              {t:"已經打勾 → 跳過", s:"", v:"y"},
+              {t:"還沒 → 打勾、排進佇列", s:"", v:"n"}]} : null});
+          fr.push(v);
+          put({kind:"push", line:12, u:u, v:v,
+            title:L(v) + " 排到佇列最後面",
+            msg:"佇列變成 " + qtxt() + "。" + L(v) + " 要等前面的人都處理完才輪到它——所以距離 " + dist[v] + " 的會比距離 " + (dist[v] + 1) + " 的先被拜訪。"});
+        }
+      }
+    }
+
+    /* ---- DFS（遞迴）：跟 C++ 第 16～23 行一行對一行 ---- */
+    function decideQuiz(u, ansV, parentU){
+      var opts = adj[u].map(function(w){ return {t:"走去 " + L(w), s:"", v:"w" + w}; });
+      opts.push({t:"鄰居都看完了 → " + (parentU >= 0 ? "退回 " + L(parentU) : "結束"), s:"", v:"ret"});
+      return {q:"dfs(" + L(u) + ") 的鄰居照順序是 " + nbTxt(u) + "。看看哪些已經打勾，它下一步要做什麼？",
+              ans:ansV >= 0 ? "w" + ansV : "ret", opts:opts};
+    }
+    function dfsRun(u, ask){
+      algo = "dfs";
+      var parentU = fr.length ? fr[fr.length - 1].u : -1;
+      fr.push({u:u, ni:-1});
+      vis[u] = true; order.push(u);
+      if(compMode) comp[u] = nComp - 1;
+      put({kind:"enter", line:17, u:u,
+        title:"進入 dfs(" + L(u) + ")：打勾、記進順序",
+        msg:"呼叫堆疊多了一層 dfs(" + L(u) + ")，共 " + fr.length + " 層。<b>" + L(u) + "</b> 打勾、記進順序：<b>" + seq(order) + "</b>。接著照順序看它的鄰居 " + nbTxt(u) + "。",
+        quiz:ask ? predictQuiz(u, "dfs") : null});
+      var f = fr[fr.length - 1];
+      for(var k = 0; k < adj[u].length; k++){
+        var v = adj[u][k];
+        f.ni = k;
+        if(vis[v]){
+          var onStack = fr.some(function(x){ return x.u === v; });
+          put({kind:"skip", line:19, u:u, v:v,
+            title:L(v) + " 已經打過勾 —— 跳過",
+            msg:onStack ? "<b>" + L(v) + "</b> 還在呼叫堆疊上（就是你一路走來的路上），代表 " + L(u) + "–" + L(v) + " 這條邊繞回了來時路——圖有環。打過勾，跳過。"
+                        : "<b>" + L(v) + "</b> 早就拜訪過、也已經退回了。跳過。"});
+          continue;
+        }
+        par[v] = u;
+        put({kind:"tree", line:20, u:u, v:v,
+          title:L(v) + " 沒去過 → parent = " + L(u) + "，走過去",
+          msg:"<b>" + L(v) + "</b> 還沒打勾。記下它是被 " + L(u) + " 發現的（" + L(u) + "–" + L(v) + " 變成綠色粗線），然後第 21 行<b>立刻</b>呼叫 dfs(" + L(v) + ")——" + L(u) + " 剩下的鄰居先擱著，等一下回來再看。",
+          quiz:decideQuiz(u, v, parentU)});
+        dfsRun(v, false);
+        put({kind:"back", line:21, u:u, v:v,
+          title:"dfs(" + L(v) + ") 做完，退回 " + L(u),
+          msg:"回到 dfs(" + L(u) + ") 這一層，從剛剛擱著的地方繼續：" +
+            (k + 1 < adj[u].length ? "看下一個鄰居 " + L(adj[u][k + 1]) + "。" : L(u) + " 已經沒有下一個鄰居了。")});
+      }
+      f.ni = adj[u].length;
+      var rq = decideQuiz(u, -1, parentU);
+      fr.pop();
+      put({kind:"ret", line:23, u:u,
+        title:"dfs(" + L(u) + ") 結束 —— " + (parentU >= 0 ? "退回 " + L(parentU) : "整個 DFS 做完"),
+        msg:"<b>" + L(u) + "</b> 的鄰居 " + nbTxt(u) + " 全部看完了，沒有新的地方可去。從呼叫堆疊拿掉這一層" +
+          (parentU >= 0 ? "，退回 dfs(" + L(parentU) + ")。" : "，堆疊空了。"),
+        quiz:rq});
+    }
+
+    function run(s, a, ask){ if(a === "bfs") bfsRun(s, ask); else dfsRun(s, ask); }
+
+    function finalTxt(){ return "順序 <b>" + seq(order) + "</b>。"; }
+
+    var s0 = G.idx[level.start];
+    if(s0 === undefined) s0 = 0;
+
+    /* --- 開始 --- */
+    if(level.mode === "compare") algo = "bfs";
+    put({kind:"start", line:-1,
+      title:level.n,
+      msg:level.d});
+
+    if(level.mode === "comp"){
+      var useBFS = (algo === "bfs"), A = useBFS ? "bfs" : "dfs";
+      for(var s = 0; s < n; s++){
+        if(vis[s]){
+          put({kind:"scan", line:27, u:s,
+            title:L(s) + " 已經打過勾 —— 屬於第 " + (comp[s] + 1) + " 座島，跳過",
+            msg:"for 迴圈看到第 " + s + " 個頂點 <b>" + L(s) + "</b>。它在第 " + (comp[s] + 1) + " 座島的走訪中已經被打勾，不用再走一次。",
+            quiz:{q:"迴圈輪到 " + L(s) + "。它已經打勾了嗎？", ans:"y", opts:[
+              {t:"已經打勾 → 跳過", s:"", v:"y"},
+              {t:"還沒 → 發現新島", s:"", v:"n"}]}});
+          continue;
+        }
+        put({kind:"scan", line:27, u:s,
+          title:L(s) + " 還沒打勾 —— 發現新島！",
+          msg:"for 迴圈看到第 " + s + " 個頂點 <b>" + L(s) + "</b>：前面的走訪都沒碰到它，所以它不屬於任何已知的島。",
+          quiz:{q:"迴圈輪到 " + L(s) + "。它已經打勾了嗎？", ans:"n", opts:[
+            {t:"已經打勾 → 跳過", s:"", v:"y"},
+            {t:"還沒 → 發現新島", s:"", v:"n"}]}});
+        nComp++;
+        put({kind:"newcomp", line:28, u:s,
+          title:"comp = " + nComp,
+          msg:"島的數量加 1，變成 <b>" + nComp + "</b>。"});
+        put({kind:"call", line:29, u:s,
+          title:"從 " + L(s) + " 做一次 " + (useBFS ? "BFS" : "DFS"),
+          msg:"呼叫 " + A + "(adj, " + L(s) + ")，把第 " + nComp + " 座島整個走完、全部打勾。"});
+        run(s, A, false);
+      }
+      var cq = [nComp, nComp - 1, nComp + 1, n].filter(function(x, i, arr){ return x >= 1 && arr.indexOf(x) === i; });
+      put({kind:"done", line:31,
+        title:"總共 " + nComp + " 個連通元件",
+        msg:"for 迴圈跑完，回傳 comp = <b>" + nComp + "</b>。" + finalTxt() + (level.fin || ""),
+        quiz:{q:"迴圈跑完了。這張圖總共有幾個連通元件（幾座島）？", ans:"c" + nComp,
+          opts:cq.map(function(x){ return {t:x + " 個", s:"", v:"c" + x}; })}});
+      return steps;
+    }
+
+    if(level.mode === "cycle"){
+      /* 錯誤示範：沒有 visited 的 BFS，跑 6 輪 */
+      algo = "bad"; fr = [s0];
+      put({kind:"bad", line:-1, u:s0, doc:BAD_DOC,
+        title:"錯誤示範：把 visited 整個拿掉",
+        msg:"先跑一個壞掉的 BFS：沒有 visited，拿出一個頂點就把它<b>所有</b>鄰居都排進佇列。起點 " + L(s0) + " 先排進去。"});
+      var askedRepeat = false;
+      for(var p = 0; p < 6 && fr.length; p++){
+        var u0 = fr.shift();
+        var repeat = order.indexOf(u0) >= 0;
+        var bq = null;
+        if(p === 0){
+          bq = {q:"沒有 visited。" + L(u0) + " 被拿出來，它的鄰居是 " + nbTxt(u0) + "。哪些會被排進佇列？", ans:"a", opts:[
+            {t:list(adj[u0]) + "（全部）", s:"", v:"a"},
+            {t:"一個都不會", s:"", v:"b"}]};
+        } else if(repeat && !askedRepeat){
+          askedRepeat = true;
+          bq = {q:L(u0) + " 又排到佇列最前面了，可是它之前已經被拿出來過。沒有 visited，這次會怎樣？", ans:"a", opts:[
+            {t:"再拜訪一次，鄰居再全部排一次", s:"", v:"a"},
+            {t:"發現來過，跳過", s:"", v:"b"}]};
+        }
+        order.push(u0);
+        fr = fr.concat(adj[u0]);
+        put({kind:"bad", line:-1, u:u0, doc:BAD_DOC,
+          title:"拿出 " + L(u0) + "，把鄰居 " + list(adj[u0]) + " 全部排進去",
+          msg:"已經拿出 " + order.length + " 個：" + seq(order) + "。佇列反而變成 <b>" + fr.length + "</b> 個：" + qtxt() + "。" +
+            (repeat ? "<b>" + L(u0) + " 又被拜訪了一次！</b>" : ""),
+          quiz:bq});
+      }
+      put({kind:"stop", line:-1, doc:BAD_DOC,
+        title:"停！這樣永遠跑不完",
+        msg:"拿出 6 個，佇列不但沒變短，還排了 " + fr.length + " 個。環上的頂點互相把對方排回去，佇列越來越長，while 永遠不會結束。",
+        quiz:{q:"拿出 6 個之後，佇列裡有 " + fr.length + " 個。照這樣一直跑下去，會停嗎？", ans:"n", opts:[
+          {t:"永遠不會停", s:"佇列只會越來越長", v:"n"},
+          {t:"會停，只是比較慢", s:"", v:"y"}]}});
+      reset(); algo = "bfs";
+      put({kind:"restart", line:-1,
+        title:"重來：這次用正確的 BFS（有 visited）",
+        msg:"清空，從 " + L(s0) + " 重新開始。這次每個頂點<b>發現時就打勾</b>，看到打過勾的就跳過。"});
+      bfsRun(s0, true);
+      put({kind:"done", line:-1,
+        title:"做完了！每個頂點剛好一次",
+        msg:finalTxt() + (level.fin || "")});
+      return steps;
+    }
+
+    if(level.mode === "compare"){
+      bfsRun(s0, true);
+      memo = {algo:"bfs", order:order.slice(), par:par.slice(), dist:dist.slice()};
+      put({kind:"half", line:-1,
+        title:"BFS 做完：" + seq(order) + "。換 DFS",
+        msg:"BFS 的結果先記在下面。清空 visited，從同一個起點 " + L(s0) + " 再跑一次 DFS。"});
+      reset(); algo = "dfs";
+      dfsRun(s0, true);
+      put({kind:"done", line:-1, showMemo:true,
+        title:"比一比：同一個起點，兩種順序",
+        msg:"BFS：<b>" + seq(memo.order) + "</b>；DFS：<b>" + seq(order) + "</b>。圖上綠色粗線是 DFS 的走訪樹（一條長線），橘色點線是 BFS 的走訪樹（又矮又寬）。BFS 照距離一圈一圈；DFS 一路鑽到最遠才回頭。"});
+      return steps;
+    }
+
+    /* 一般：單一起點 */
+    run(s0, algo, true);
+    put({kind:"done", line:-1,
+      title:"做完了！",
+      msg:"從 " + L(s0) + " 走得到的頂點都拜訪過了，每個剛好一次。" + finalTxt() +
+        (order.length < n ? "還有 " + (n - order.length) + " 個頂點沒走到——它們在別的島上。" : "") + (level.fin || "")});
+    return steps;
+  }
+
+  /* ---------- 3. 畫面層 ---------- */
+
+  function buildGraphSvg(){
+    var G = S.G, svg = $("graph"), parts = [], i;
+    svg.setAttribute("viewBox", S.level.g.vb);
+    for(i = 0; i < G.edges.length; i++){
+      var a = G.vs[G.edges[i][0]], b = G.vs[G.edges[i][1]];
+      parts.push('<line class="ge" id="ge' + i + '" x1="' + a[2] + '" y1="' + a[3] + '" x2="' + b[2] + '" y2="' + b[3] + '"/>');
+    }
+    for(i = 0; i < G.n; i++){
+      var v = G.vs[i], x = v[2], y = v[3], np = v[4] || "b", tp = v[5] || "t";
+      var nx = x, ny = y + 40, anc = "middle";
+      if(np === "l"){ nx = x - 30; ny = y + 5; anc = "end"; }
+      else if(np === "r"){ nx = x + 30; ny = y + 5; anc = "start"; }
+      var ty = (tp === "t") ? y - 31 : y + 42;
+      if(tp === "b" && np === "b") ty = y + 58;
+      parts.push('<g class="gv" id="gv' + i + '">' +
+        '<circle cx="' + x + '" cy="' + y + '" r="22"/>' +
+        '<text class="gid" x="' + x + '" y="' + y + '">' + v[0] + '</text>' +
+        '<text class="gname" x="' + nx + '" y="' + ny + '" style="text-anchor:' + anc + '">' + v[1] + '</text>' +
+        '<text class="gtop" id="gt' + i + '" x="' + x + '" y="' + ty + '"></text></g>');
+    }
+    svg.innerHTML = parts.join("");
+    S.els = {e:[], v:[], t:[]};
+    for(i = 0; i < G.edges.length; i++) S.els.e.push($("ge" + i));
+    for(i = 0; i < G.n; i++){ S.els.v.push($("gv" + i)); S.els.t.push($("gt" + i)); }
+  }
+
+  function frSet(st){
+    var on = {};
+    for(var i = 0; i < st.fr.length; i++) on[st.algo === "dfs" ? st.fr[i].u : st.fr[i]] = (on[st.algo === "dfs" ? st.fr[i].u : st.fr[i]] || 0) + 1;
+    return on;
+  }
+  function eIdx(a, b){ var k = S.G.ekey[Math.min(a,b) + "-" + Math.max(a,b)]; return k === undefined ? -1 : k; }
+
+  function paintGraph(){
+    var st = S.steps[S.cur], G = S.G, i;
+    var on = frSet(st), tree = {}, ghost = {}, hot = {};
+    for(i = 0; i < G.n; i++) if(st.par[i] >= 0) tree[eIdx(i, st.par[i])] = 1;
+    if(st.showMemo && st.memo){
+      for(i = 0; i < G.n; i++) if(st.memo.par[i] >= 0) ghost[eIdx(i, st.memo.par[i])] = 1;
+    }
+    var edgeKinds = {skip:1, mark:1, push:1, tree:1, back:1};
+    if(edgeKinds[st.kind] && st.u >= 0 && st.v >= 0) hot[eIdx(st.u, st.v)] = 1;
+    if(st.kind === "bad" && st.u >= 0 && st.order.length > 0){
+      for(i = 0; i < G.adj[st.u].length; i++) hot[eIdx(st.u, G.adj[st.u][i])] = 1;
+    }
+    for(i = 0; i < G.edges.length; i++){
+      var c = "ge";
+      if(ghost[i] && !tree[i]) c += " ghost";
+      if(tree[i]) c += " tree";
+      if(hot[i]) c += " hot";
+      S.els.e[i].setAttribute("class", c);
+    }
+    var curKinds = {pop:1, visit:1, skip:1, mark:1, push:1, enter:1, tree:1, back:1, ret:1, bad:1, init:1, scan:1, newcomp:1, call:1};
+    for(i = 0; i < G.n; i++){
+      var nc = "gv";
+      if(st.algo === "bad"){
+        if(on[i]) nc += " bad";
+      } else if(on[i]) nc += " fr";
+      else if(st.vis[i]) nc += " done";
+      if(curKinds[st.kind] && st.u === i) nc += " cur";
+      if(st.v === i && st.kind !== "back") nc += " look";
+      S.els.v[i].setAttribute("class", nc);
+      var t = "";
+      if(st.algo === "bad"){ if(on[i]) t = "排隊 ×" + on[i]; }
+      else if(st.compMode && st.comp[i] >= 0) t = "島 " + (st.comp[i] + 1);
+      else if(st.algo === "bfs" && st.dist[i] >= 0) t = "距離 " + st.dist[i];
+      else if(st.algo === "dfs"){ var p = st.order.indexOf(i); if(p >= 0) t = "#" + (p + 1); }
+      S.els.t[i].textContent = t;
+    }
+    var noteA = st.algo === "bad" ? "沒有 visited（錯誤示範）" : (st.algo === "bfs" ? "BFS" : "DFS");
+    $("graphNote").textContent = G.n + " 頂點 · " + G.edges.length + " 邊 · " + noteA;
+  }
+
+  function paintFrontier(){
+    var st = S.steps[S.cur], box = $("frbox"), G = S.G;
+    box.innerHTML = "";
+    if(st.algo === "dfs"){
+      $("frLabel").textContent = "CALL STACK · 呼叫堆疊（最上面＝正在執行的那一層；底下的都在等它做完）";
+      if(!st.fr.length){
+        box.innerHTML = '<div class="fr-empty">（空）' + (st.kind === "ret" || st.kind === "done" ? "所有 dfs 都結束了。" : "") + '</div>';
+        return;
+      }
+      var stk = document.createElement("div"); stk.className = "stk";
+      for(var i = st.fr.length - 1; i >= 0; i--){
+        var f = st.fr[i], row = document.createElement("div");
+        row.className = "frame" + (i === st.fr.length - 1 ? " top" : "");
+        var fn = document.createElement("span"); fn.className = "fn"; fn.textContent = "dfs(" + G.ids[f.u] + ")";
+        row.appendChild(fn);
+        var nbs = document.createElement("span"); nbs.className = "nbs";
+        var adj = G.adj[f.u];
+        if(!adj.length){ var e0 = document.createElement("span"); e0.className = "nb seen"; e0.textContent = "沒有鄰居"; nbs.appendChild(e0); }
+        for(var k = 0; k < adj.length; k++){
+          var nb = document.createElement("span");
+          nb.className = "nb" + (k < f.ni ? " seen" : (k === f.ni ? " now" : ""));
+          nb.textContent = G.ids[adj[k]] + (k <= f.ni && st.vis[adj[k]] ? "✓" : "");
+          nbs.appendChild(nb);
+        }
+        row.appendChild(nbs);
+        var ft = document.createElement("span"); ft.className = "ft";
+        ft.textContent = (i === st.fr.length - 1) ? "← 正在做" : "等第 21 行回來";
+        row.appendChild(ft);
+        stk.appendChild(row);
+      }
+      box.appendChild(stk);
+      return;
+    }
+    $("frLabel").textContent = st.algo === "bad"
+      ? "QUEUE · 佇列（沒有 visited：同一個頂點排了好幾次）"
+      : "QUEUE · 佇列（左＝前端，下一個出來；右＝後端，新來的排這裡）";
+    if(!st.fr.length){ box.innerHTML = '<div class="fr-empty">（空）</div>'; return; }
+    var rowq = document.createElement("div"); rowq.className = "qrow";
+    for(var j = 0; j < st.fr.length; j++){
+      var c = document.createElement("div");
+      c.className = "qcell" + (j === 0 ? " front" : "") +
+        (st.kind === "push" && j === st.fr.length - 1 ? " isnew" : "") + (st.algo === "bad" ? " bad" : "");
+      var b = document.createElement("span"); b.className = "qb"; b.textContent = G.ids[st.fr[j]];
+      var sm = document.createElement("small");
+      sm.textContent = j === 0 ? "前端" : (j === st.fr.length - 1 ? "後端" : "");
+      if(st.algo === "bfs" && st.dist[st.fr[j]] >= 0) sm.textContent += (sm.textContent ? " " : "") + "d" + st.dist[st.fr[j]];
+      c.appendChild(b); c.appendChild(sm);
+      rowq.appendChild(c);
+    }
+    box.appendChild(rowq);
+  }
+
+  function paintVisited(){
+    var st = S.steps[S.cur], host = $("vrow"), G = S.G;
+    host.innerHTML = "";
+    for(var i = 0; i < G.n; i++){
+      var c = document.createElement("span");
+      var flash = (st.kind === "mark" && st.v === i) || ((st.kind === "enter" || st.kind === "init") && st.u === i);
+      c.className = "vcell" + (st.vis[i] ? " on" : "") + (flash ? " flash" : "");
+      var b = document.createElement("b"); b.textContent = G.ids[i];
+      c.appendChild(b);
+      c.appendChild(document.createTextNode(st.vis[i] ? "✓" : "·"));
+      host.appendChild(c);
+    }
+    if(st.algo === "bad"){
+      var note = document.createElement("span");
+      note.className = "vcell"; note.textContent = "← 這一段沒有 visited，永遠不會打勾";
+      host.appendChild(note);
+    }
+  }
+
+  function paintOrder(){
+    var st = S.steps[S.cur], host = $("orow"), G = S.G;
+    host.innerHTML = "";
+    if(!st.order.length){
+      var e = document.createElement("span"); e.className = "fr-empty"; e.textContent = "（還沒有）";
+      host.appendChild(e);
+    }
+    var seenOnce = {};
+    for(var i = 0; i < st.order.length; i++){
+      var x = st.order[i];
+      if(i > 0){ var ar = document.createElement("span"); ar.className = "oarrow"; ar.textContent = "→"; host.appendChild(ar); }
+      var c = document.createElement("span");
+      var justAdded = (i === st.order.length - 1) && (st.kind === "visit" || st.kind === "enter" || st.kind === "bad");
+      c.className = "oc" + (seenOnce[x] ? " dup" : "") + (justAdded ? " last" : "");
+      seenOnce[x] = 1;
+      var b = document.createElement("b"); b.textContent = G.ids[x];
+      var sm = document.createElement("small");
+      sm.textContent = "#" + (i + 1) + (st.algo === "bfs" && st.dist[x] >= 0 && !st.compMode ? " d" + st.dist[x] : "") +
+        (st.compMode && st.comp[x] >= 0 ? " 島" + (st.comp[x] + 1) : "");
+      c.appendChild(b); c.appendChild(sm);
+      host.appendChild(c);
+    }
+    var m = $("memo");
+    if(st.memo){
+      m.innerHTML = "剛剛的 BFS：<b>" + st.memo.order.map(function(k){ return G.ids[k]; }).join(", ") + "</b>" +
+        (st.showMemo ? "（圖上橘色點線＝BFS 走訪樹）" : "");
+    } else m.innerHTML = "";
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur], G = S.G;
+    $("stVis").textContent = st.algo === "bad" ? st.order.length + " 次" : st.order.length + " / " + G.n;
+    $("stFrK").textContent = st.algo === "dfs" ? "堆疊層數" : "佇列長度";
+    $("stFr").textContent = st.fr.length;
+    if(st.algo === "dfs"){
+      $("stDepK").textContent = "最深層數";
+      var mx = 0;
+      for(var k = 0; k <= S.cur; k++){ if(S.steps[k].algo === "dfs" && S.steps[k].fr.length > mx && S.steps[k].memo === st.memo) mx = S.steps[k].fr.length; }
+      $("stDep").textContent = mx;
+    } else {
+      $("stDepK").textContent = "目前距離";
+      $("stDep").textContent = (st.algo === "bfs" && st.u >= 0 && st.dist[st.u] >= 0) ? st.dist[st.u] : "—";
+    }
+    $("stComp").textContent = st.compMode ? st.nComp : "—";
+    $("phaseNote").textContent = st.algo === "bad" ? "錯誤示範" : (st.algo === "bfs" ? "BFS" : "DFS");
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < CODE.length; i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < CODE.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  function paintAlgo(){
+    var st = S.steps[S.cur], line = st.line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line - 1];
+    } else if(st.doc){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "壞程式";
+      $("algoDocTxt").textContent = st.doc;
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = st.kind === "done" ? "程式跑完了。" : "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", KMAP[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log"), G = S.G;
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", KMAP[st.kind] || "start");
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = (st.u >= 0 ? G.ids[st.u] : "—") + (st.v >= 0 ? "→" + G.ids[st.v] : "");
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = st.algo === "dfs" ? "堆疊 " + st.fr.length + " 層" : "佇列 " + st.fr.length;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintGraph(); paintFrontier(); paintVisited(); paintOrder(); paintStats();
+    paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 4. 導覽 ---------- */
+
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length - 1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length - 1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length - 1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length - 1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 5. 闖關 ---------- */
+
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){
+      if(S.steps[k].quiz) return k;
+    }
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right / S.asked * 100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1 + LEVELS.length) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadLevelObj(S.level, S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = st.quiz.q;
+    opts.innerHTML = "";
+    var list = st.quiz.opts, rot = ni % list.length;
+    for(var k = 0; k < list.length; k++){
+      var o = list[(k + rot) % list.length];
+      addOpt(opts, o.t, o.s || "", o.v);
+    }
+  }
+
+  function addOpt(host, label, sub, val){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    if(sub){
+      var sm = document.createElement("small");
+      sm.textContent = sub;
+      b.appendChild(sm);
+    }
+    b.addEventListener("click", function(){ answerQuiz(val); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(val){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.ans, correctLabel = "";
+    for(var k = 0; k < st.quiz.opts.length; k++){
+      if(st.quiz.opts[k].v === correct) correctLabel = st.quiz.opts[k].t;
+    }
+
+    S.asked++;
+    var win = (val === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right / S.asked * 100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。按上方「下一關」繼續。</b>";
+    }
+  }
+
+  /* ---------- 6. 載入 ---------- */
+
+  function loadLevelObj(lv, idx){
+    stopPlay();
+    var sameGraph = S.level && S.level.g === lv.g;
+    S.level = lv;
+    S.levelIdx = (typeof idx === "number") ? idx : -1;
+    S.G = mkGraph(lv.g);
+    S.steps = buildSteps(lv);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    buildGraphSvg();
+    paintChips();
+    if(!sameGraph || S.levelIdx >= 0) paintCustom();
+    render();
+  }
+  function loadLevel(i){ loadLevelObj(LEVELS[i], i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = (i + 1) + " " + lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  /* 自訂：用目前關卡的地圖，選演算法和起點 */
+  function paintCustom(){
+    var G = S.G, sel = $("selStart");
+    sel.innerHTML = "";
+    for(var i = 0; i < G.n; i++){
+      var o = document.createElement("option");
+      o.value = G.ids[i]; o.textContent = G.ids[i] + " " + G.names[i];
+      sel.appendChild(o);
+    }
+    var st = G.idx[S.level.start];
+    sel.value = G.ids[st === undefined ? 0 : st];
+    $("selAlgo").value = S.level.algo === "dfs" ? "dfs" : "bfs";
+    var multi = G.ncomp > 1;
+    sel.disabled = multi;
+    $("customNote").textContent = multi
+      ? "這張圖有 " + G.ncomp + " 座島：會用「數島」從 A 開始逐一走訪，起點不用選。"
+      : "用目前關卡的地圖，換演算法或起點重跑。";
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著地圖、佇列（或呼叫堆疊）和 visited 的目前狀態，回答下一步會發生什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 7. 事件綁定 ---------- */
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadLevelObj(S.level, S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var g = S.level.g, G = S.G, algo = $("selAlgo").value === "dfs" ? "dfs" : "bfs";
+    var multi = G.ncomp > 1, start = $("selStart").value;
+    var an = algo === "bfs" ? "BFS" : "DFS";
+    loadLevelObj({
+      tag:"custom", n:"自訂：" + an + (multi ? " 數島" : " 從 " + start + " 出發"),
+      g:g, algo:algo, start:multi ? G.ids[0] : start, mode:multi ? "comp" : "one",
+      d:multi ? "用 " + an + " 數這張圖有幾座島：從 A 開始逐一檢查，沒打勾的就是新島。"
+              : "從 " + start + " 出發做 " + an + "（鄰居照字母順序）。",
+      fin:""
+    }, -1);
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 8. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

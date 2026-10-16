@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>圖的基本概念 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：
+   SVG 校園圖、鄰接矩陣表格、鄰接串列。三個畫面看的是「同一張圖」，
+   同一條邊在三邊一起亮橘色。 */
+
+/* 00 段小圖：site.css 沒有的幾種邊 */
+.fig .ed.good{stroke:var(--jade);stroke-width:3.2}
+.fig .ed.hot{stroke:var(--accent);stroke-width:3.2}
+.fig .ah{fill:var(--ink-faint)}
+.fig .lbl.wt{fill:var(--ink-soft);font-weight:700;paint-order:stroke;stroke:var(--sunken);stroke-width:4px}
+
+/* 遊戲：校園圖 */
+.gwrap{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;padding:4px}
+svg.gsvg{display:block;width:100%;max-width:640px;margin:0 auto;height:auto}
+.gsvg .e{stroke:var(--line);stroke-width:3;transition:stroke var(--dur)}
+.gsvg .e.hot{stroke:var(--accent);stroke-width:5}
+.gsvg .e.pend{stroke:var(--accent);stroke-width:4;stroke-dasharray:8 6}
+.gsvg .e.good{stroke:var(--jade);stroke-width:5}
+.gsvg .e.bad{stroke:var(--alarm);stroke-width:3.5;stroke-dasharray:8 6}
+.gsvg .ah{fill:var(--ink-faint)}
+.gsvg .ah.hot{fill:var(--accent)}
+.gsvg .ah.good{fill:var(--jade)}
+.gsvg .wl{font-family:var(--font-mono);font-size:13px;font-weight:700;fill:var(--ink-soft);
+  text-anchor:middle;paint-order:stroke;stroke:var(--sunken);stroke-width:5px}
+.gsvg .wl.hot{fill:var(--accent);font-size:15px}
+.gsvg .v circle{fill:var(--surface);stroke:var(--ink-faint);stroke-width:2;transition:fill var(--dur),stroke var(--dur)}
+.gsvg .v .vid{font-family:var(--font-mono);font-size:17px;font-weight:700;fill:var(--ink);text-anchor:middle}
+.gsvg .v .vnm{font-family:var(--font-sans);font-size:11px;font-weight:600;fill:var(--ink-faint);text-anchor:middle}
+.gsvg .v .vdg{font-family:var(--font-mono);font-size:11px;font-weight:700;fill:var(--ink-faint);text-anchor:middle}
+.gsvg .v.hot circle{fill:var(--accent-soft);stroke:var(--accent);stroke-width:3.5}
+.gsvg .v.good circle{fill:var(--jade-soft);stroke:var(--jade);stroke-width:3.5}
+.gsvg .v.bad circle{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:3.5}
+.gsvg .v.sel circle{fill:var(--accent);stroke:var(--accent)}
+.gsvg .v.sel .vid{fill:var(--surface)}
+.gsvg .v.dg .vdg{fill:var(--accent)}
+.gsvg.free .v{cursor:pointer}
+.gsvg.free .v:hover circle{stroke:var(--accent)}
+
+.vlabel{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
+/* 兩種表示法並排 */
+.rep{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:12px;align-items:start}
+.repbox{background:var(--sunken);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+
+/* 鄰接矩陣 */
+.mxwrap{overflow-x:auto}
+table.mx{width:auto;border-collapse:separate;border-spacing:3px;font-family:var(--font-mono);font-size:14px;margin:0 auto}
+table.mx th,table.mx td{padding:0;text-align:center;vertical-align:middle;border:0;width:34px;height:30px}
+table.mx thead th{background:none;font-size:13px;letter-spacing:0;color:var(--ink-soft);font-weight:700;text-transform:none}
+table.mx th.rh{color:var(--ink-soft);font-weight:700}
+table.mx th small{display:block;font-size:9px;color:var(--ink-faint);font-weight:500;line-height:1}
+table.mx td{background:var(--surface);border-radius:5px;color:var(--ink-faint);
+  transition:background var(--dur),color var(--dur),box-shadow var(--dur)}
+table.mx td.on{background:var(--jade-soft);color:var(--ink);font-weight:700}
+table.mx td.diag{background:transparent;border:1px dashed var(--line);color:var(--ink-faint)}
+table.mx td.lane{box-shadow:inset 0 0 0 1.5px var(--accent)}
+table.mx td.hi{background:var(--accent);color:var(--surface);font-weight:700;box-shadow:0 0 0 2px var(--accent-soft)}
+table.mx td.dsum,table.mx th.dsum{background:transparent;color:var(--ink-soft);font-weight:700;border-left:2px solid var(--line)}
+table.mx td.dsum.lane{color:var(--accent);box-shadow:none}
+table.mx tr.lanerow th.rh{color:var(--accent)}
+table.mx th.lanecol{color:var(--accent)}
+table.mx tfoot td{background:transparent;color:var(--ink-soft);font-weight:700;border-top:2px solid var(--line);border-radius:0}
+table.mx tfoot td.lane{color:var(--accent);box-shadow:none}
+table.mx.free td[data-r]{cursor:pointer}
+table.mx.free td[data-r]:hover{box-shadow:inset 0 0 0 1.5px var(--accent)}
+
+/* 鄰接串列 */
+.alist{display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono)}
+.lrow{display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:6px;min-height:34px;flex-wrap:wrap}
+.lrow.lane{background:var(--accent-soft)}
+.lrow .lh{flex:0 0 auto;width:32px;height:28px;display:grid;place-items:center;border-radius:6px;
+  background:var(--surface-2);border:1.5px solid var(--ink-faint);font-weight:700;color:var(--ink)}
+.lrow .ar{color:var(--ink-faint);font-size:12px}
+.lrow .li{min-width:32px;height:28px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;gap:2px;
+  border-radius:6px;background:var(--jade-soft);border:1.5px solid var(--jade);font-weight:700;color:var(--ink);font-size:14px}
+.lrow .li small{font-size:10px;color:var(--ink-soft);font-weight:600}
+.lrow .li.new{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.lrow .li.new small{color:var(--surface)}
+.lrow .le{color:var(--ink-faint);font-size:12px}
+.lrow .lc{margin-left:auto;font-size:11px;color:var(--ink-faint);white-space:nowrap}
+.lrow.lane .lc{color:var(--accent);font-weight:700}
+
+@media (max-width:440px){
+  table.mx{border-spacing:2px;font-size:12px}
+  table.mx th,table.mx td{width:27px;height:26px}
+  .lrow .li{min-width:28px;padding:0 4px}
+}
+.formula{font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);padding:2px 2px 0}
+.formula b{color:var(--ink)}
+.freebar{display:none;flex-wrap:wrap;gap:8px;align-items:center}
+.freebar.is-on{display:flex}
+.freebar label{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--ink-soft)}
+.freehint{font-size:12.5px;color:var(--ink-faint)}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">21 · 圖的基本概念</span>
+    <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 21 · Graph Basics</p>
+    <h1>圖的基本概念</h1>
+    <p class="lede">校園裡有校門、圖書館、餐廳、系館、宿舍、體育館，中間有 9 條路相連。這種「一堆地點＋誰跟誰相連」的資料，就叫做「圖」。這一關先把圖的名詞弄懂，再學電腦怎麼把一張圖記下來：一張大表格（鄰接矩陣），或每個地點一條鄰居清單（鄰接串列）。遊戲裡同一張圖會同時用三種樣子顯示，加一條邊，三邊一起變。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>圖 Graph</b></div>
+      <div class="fact"><span>難度</span><b>入門</b></div>
+      <div class="fact"><span>空間</span><b>矩陣 O(V²)・串列 O(V+E)</b></div>
+      <div class="fact"><span>先備知識</span><b>陣列</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：「圖」到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。這是圖單元的第一關，後面的走訪、拓撲排序、最小生成樹、最短路徑都用這裡的詞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>定義：圖（Graph）</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 圖 Graph</span>
+          <div class="defline">一張圖 G 由兩樣東西組成：一群<em>頂點</em>（點），和一群<em>邊</em>（每條邊連接兩個頂點）。寫成 <em>G = (V, E)</em>：V 是所有頂點的集合，E 是所有邊的集合。</div>
+          <p>「集合」就是「一堆東西放在一起，不重複」。海大校園地圖寫成圖就是：V = {A, B, C, D, E, F}（6 個地點），E = {A–B, A–C, B–C, B–D, C–D, C–E, D–E, D–F, E–F}（9 條路）。</p>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>白話</b></td><td>圖就是一份「<b>誰跟誰有連在一起</b>」的紀錄。點是東西，線是關係。</td></tr>
+              <tr><td><b>數學寫法</b></td><td>G = (V, E)。一條連接 u 和 v 的邊寫成 (u, v) 或 u–v。本單元也用 <b>V 代表頂點個數、E 代表邊的條數</b>：校園圖 V = 6、E = 9。</td></tr>
+              <tr><td><b>它不在乎什麼</b></td><td>點畫在哪裡、線畫得多長、彎的還直的，<b>全都不重要</b>。只要「誰跟誰相連」一樣，就是同一張圖。這跟地圖的比例尺無關。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:600px">
+            <svg viewBox="0 0 540 325" role="img" aria-label="海大校園地圖：6 個地點、9 條路"><line class="ed" x1="60" y1="160" x2="190" y2="60"/><line class="ed" x1="60" y1="160" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="480" y2="160"/><line class="ed" x1="350" y1="260" x2="480" y2="160"/><text class="lbl wt" x="125" y="114">4 分</text><text class="lbl wt" x="125" y="214">2 分</text><text class="lbl wt" x="176" y="164">1 分</text><text class="lbl wt" x="270" y="56">5 分</text><text class="lbl wt" x="270" y="164">8 分</text><text class="lbl wt" x="270" y="256">10 分</text><text class="lbl wt" x="336" y="164">2 分</text><text class="lbl wt" x="415" y="114">6 分</text><text class="lbl wt" x="415" y="214">3 分</text><g class="nd"><circle cx="60" cy="160" r="22"/><text x="60" y="160">A</text></g><text class="lbl" x="60" y="198">校門</text><g class="nd"><circle cx="190" cy="60" r="22"/><text x="190" y="60">B</text></g><text class="lbl" x="190" y="30">圖書館</text><g class="nd"><circle cx="190" cy="260" r="22"/><text x="190" y="260">C</text></g><text class="lbl" x="190" y="298">餐廳</text><g class="nd"><circle cx="350" cy="60" r="22"/><text x="350" y="60">D</text></g><text class="lbl" x="350" y="30">系館</text><g class="nd"><circle cx="350" cy="260" r="22"/><text x="350" y="260">E</text></g><text class="lbl" x="350" y="298">宿舍</text><g class="nd"><circle cx="480" cy="160" r="22"/><text x="480" y="160">F</text></g><text class="lbl" x="480" y="198">體育館</text></svg>
+            <figcaption>海大校園地圖（本單元第 21、22、24 關都用這一張）。圓圈是<b>頂點</b>，線是<b>邊</b>，線上的數字是走路要幾分鐘。A 校門、B 圖書館、C 餐廳、D 系館、E 宿舍、F 體育館。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">把「關係」交給電腦處理。地圖上的路、社群網站上的好友、課程的先修關係、網頁之間的超連結，全都是「一堆東西＋它們之間的連線」。只要寫成圖，同一套方法就能回答「走得到嗎？」「最近的路是哪條？」「先修課要先上哪門？」這些問題。</span>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">注意</span>
+          <span class="txt">這裡的「圖」<b>不是</b>長條圖、圓餅圖、折線圖那種統計圖表，也不是照片。英文分得很清楚：統計圖叫 chart 或 plot，這裡的圖叫 <b>graph</b>。它是一種<b>資料結構</b>，記的是「誰連到誰」。</span>
+        </div>
+        <div class="callout">
+          <span class="tag">先備</span>
+          <span class="txt">只要知道<b>陣列</b>：一排有編號的格子，編號從 0 開始（第 13 關把樹存進陣列時用過）。<a href="10-linked-list.html">第 10 關</a>的「串列」和<a href="11-bst.html">第 11～13 關</a>的「樹」看過更好——你會發現樹其實是一種特別的圖。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">頂點 <small>vertex（也叫節點 node）</small></div>
+            <div class="td">圖上的<b>每一個點</b>，代表一個東西。這一關用字母 A～F 命名。「頂點」和「節點」是同一個東西的兩種叫法。</div>
+            <div class="ta">捷運路線圖上的每一個車站。</div>
+          </div>
+          <div class="term">
+            <div class="tn">邊 <small>edge</small></div>
+            <div class="td">連接<b>兩個頂點</b>的一條線，代表這兩個東西之間有關係（有路、是朋友……）。本單元的圖沒有「自己連自己」的邊，兩點之間最多一條邊。</div>
+            <div class="ta">兩個車站之間的那一段軌道。</div>
+          </div>
+          <div class="term">
+            <div class="tn">V 和 E <small>vertex set / edge set</small></div>
+            <div class="td">V 是所有頂點、E 是所有邊。算複雜度時，<b>V 也代表頂點個數、E 代表邊的條數</b>。校園圖：V = 6、E = 9。</div>
+            <div class="ta">車站總數、軌道總段數。</div>
+          </div>
+          <div class="term">
+            <div class="tn">相鄰／鄰居 <small>adjacent / neighbor</small></div>
+            <div class="td">兩個頂點之間<b>有一條邊直接相連</b>，就說它們相鄰，彼此是鄰居。校園圖裡 A 的鄰居是 B、C；A 和 D 不相鄰（要繞路才到）。</div>
+            <div class="ta">捷運上「下一站就到」的兩個車站。</div>
+          </div>
+          <div class="term">
+            <div class="tn">無向圖／有向圖 <small>undirected / directed</small></div>
+            <div class="td">邊沒有方向、兩頭都能走，叫<b>無向圖</b>，寫 A–B。邊有箭頭、只能照箭頭走，叫<b>有向圖</b>，寫 A→B；A→B 有，不代表 B→A 也有。</div>
+            <div class="ta">無向＝雙向道；有向＝單行道。臉書好友是無向，IG 追蹤是有向。</div>
+          </div>
+          <div class="term">
+            <div class="tn">權重／加權圖 <small>weight / weighted graph</small></div>
+            <div class="td">寫在邊上的<b>數字</b>，代表走這條邊的成本（這一關是走路幾分鐘）。邊有權重的圖叫加權圖；沒有權重時，每條邊都一樣。</div>
+            <div class="ta">每段路要走幾分鐘、要付多少過路費。</div>
+          </div>
+          <div class="term">
+            <div class="tn">度數 <small>degree</small></div>
+            <div class="td">一個頂點<b>連著幾條邊</b>（＝有幾個鄰居），寫 deg(u)。有向圖分兩種：<b>出度</b>（out-degree，從它出發的箭頭數）和<b>入度</b>（in-degree，指向它的箭頭數）。</div>
+            <div class="ta">一個路口有幾條路接出去。</div>
+          </div>
+          <div class="term">
+            <div class="tn">路徑 <small>path</small></div>
+            <div class="td">一串頂點，<b>每相鄰的兩個之間都要有邊</b>，例如 A→B→D→F。路徑的長度＝走了幾條邊（加權圖常改成權重加總）。</div>
+            <div class="ta">搭捷運從一站一站坐到目的地的路線。</div>
+          </div>
+          <div class="term">
+            <div class="tn">簡單路徑 <small>simple path</small></div>
+            <div class="td">一個頂點<b>都不重複</b>的路徑。A→C→B→C→E 是路徑，但 C 出現兩次，所以不是簡單路徑。</div>
+            <div class="ta">不繞回去走過的車站。</div>
+          </div>
+          <div class="term">
+            <div class="tn">環 <small>cycle</small></div>
+            <div class="td">從一個頂點出發，<b>不重複頂點、也不重複邊</b>，最後走回出發點，而且至少經過 3 個頂點。B→C→E→D→B 是環；A→B→A 只是同一條邊來回，不算環。</div>
+            <div class="ta">公車的環狀線：繞一圈回到起點站。</div>
+          </div>
+          <div class="term">
+            <div class="tn">連通／連通元件 <small>connected / connected component</small></div>
+            <div class="td">無向圖裡<b>任兩個頂點之間都有路徑</b>，叫連通。不連通的圖會斷成好幾塊，每一塊（塊內互相走得到、跟塊外完全走不到）叫一個連通元件。</div>
+            <div class="ta">一座島上的路都連在一起；兩座沒有橋的島，就是兩個連通元件。</div>
+          </div>
+          <div class="term">
+            <div class="tn">樹 <small>tree</small></div>
+            <div class="td"><b>連通而且沒有環</b>的無向圖。V 個頂點的樹一定剛好 V−1 條邊。第 11～13 關的樹，就是再多挑一個頂點當「根」的這種圖。</div>
+            <div class="ta">家族族譜：每個人都連得到，但不會繞圈。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鄰接矩陣 <small>adjacency matrix</small></div>
+            <div class="td">一張 <b>V × V 的表格</b>（程式裡叫二維陣列）M。u 和 v 相鄰，第 u 列第 v 欄 M[u][v] 就填 1（加權圖填權重），不相鄰填 0。</div>
+            <div class="ta">班上同學的「誰認識誰」對照表，橫的直的都是全班名單。</div>
+          </div>
+          <div class="term">
+            <div class="tn">鄰接串列 <small>adjacency list</small></div>
+            <div class="td">每個頂點一條<b>清單</b>，只寫它的鄰居。adj[A] = B, C 表示 A 的鄰居是 B、C。清單長度就是度數。</div>
+            <div class="ta">每個人的手機通訊錄：只存自己認識的人。</div>
+          </div>
+          <div class="term">
+            <div class="tn">稀疏圖／稠密圖 <small>sparse / dense</small></div>
+            <div class="td">邊比「所有可能的邊」少很多叫<b>稀疏</b>；幾乎每兩點都有邊叫<b>稠密</b>。V 個頂點的無向圖最多 V×(V−1)÷2 條邊（6 個頂點最多 15 條）。真實世界的圖大多很稀疏。</div>
+            <div class="ta">全國道路網很稀疏（每個路口只接幾條路）；小班同學互相都認識就很稠密。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(V²)／O(V+E) <small>時間／空間複雜度</small></div>
+            <div class="td">描述「圖變大時，要花的時間或格子數怎麼跟著變多」。<b>O(V²)</b>：跟頂點數的平方成正比（V 變 10 倍，變 100 倍）。<b>O(V+E)</b>：跟「頂點數＋邊數」成正比。</div>
+            <div class="ta">V² 像全班兩兩配對的表格；V+E 像只記每個人和他真正的朋友。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>同一張校園圖的三種版本：無向、有向、加權</h3>
+        <p>遊戲第 1～3 關就是這三張。地點一模一樣，差在「邊」帶了什麼資訊：</p>
+        <div class="figs three">
+          <figure class="fig">
+            <svg viewBox="0 0 220 136" role="img" aria-label="無向圖"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl" x="110" y="130">無向：9 條雙向道</text></svg>
+            <figcaption><b>無向圖。</b>每條路都是雙向道。A–B 這條邊，A 能走到 B，B 也能走到 A。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 220 136" role="img" aria-label="有向圖"><line class="ed" x1="35.1" y1="53.5" x2="57.8" y2="36"/><polygon class="ah" points="64.9,30.5 60.5,39.6 55,32.5"/><line class="ed" x1="35.1" y1="70.5" x2="57.8" y2="88"/><polygon class="ah" points="64.9,93.5 55,91.5 60.5,84.4"/><line class="ed" x1="90" y1="22" x2="121" y2="22"/><polygon class="ah" points="130,22 121,26.5 121,17.5"/><line class="ed" x1="76" y1="88" x2="76" y2="45"/><polygon class="ah" points="76,36 80.5,45 71.5,45"/><line class="ed" x1="90" y1="102" x2="121" y2="102"/><polygon class="ah" points="130,102 121,106.5 121,97.5"/><line class="ed" x1="134.9" y1="32.7" x2="90.9" y2="84.5"/><polygon class="ah" points="85.1,91.3 87.5,81.6 94.3,87.4"/><line class="ed" x1="155.1" y1="30.5" x2="177.8" y2="48"/><polygon class="ah" points="184.9,53.5 175,51.5 180.5,44.4"/><line class="ed" x1="144" y1="88" x2="144" y2="45"/><polygon class="ah" points="144,36 148.5,45 139.5,45"/><line class="ed" x1="184.9" y1="70.5" x2="162.2" y2="88"/><polygon class="ah" points="155.1,93.5 159.5,84.4 165,91.5"/><g class="nd"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl" x="110" y="130">有向：9 條單行道</text></svg>
+            <figcaption><b>有向圖。</b>校園改成單行道。C→B 可以走，B 到 C 卻沒有箭頭，不能直接走。注意 A 只有箭頭出去、沒有箭頭進來。</figcaption>
+          </figure>
+          <figure class="fig">
+            <svg viewBox="0 0 220 136" role="img" aria-label="加權圖"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><text class="lbl wt" x="50" y="43">4</text><line class="ed" x1="24" y1="62" x2="76" y2="102"/><text class="lbl wt" x="50" y="83">2</text><line class="ed" x1="76" y1="22" x2="76" y2="102"/><text class="lbl wt" x="67" y="66">1</text><line class="ed" x1="76" y1="22" x2="144" y2="22"/><text class="lbl wt" x="110" y="20">5</text><line class="ed" x1="76" y1="102" x2="144" y2="22"/><text class="lbl wt" x="110" y="63">8</text><line class="ed" x1="76" y1="102" x2="144" y2="102"/><text class="lbl wt" x="110" y="100">10</text><line class="ed" x1="144" y1="22" x2="144" y2="102"/><text class="lbl wt" x="135" y="66">2</text><line class="ed" x1="144" y1="22" x2="196" y2="62"/><text class="lbl wt" x="170" y="43">6</text><line class="ed" x1="144" y1="102" x2="196" y2="62"/><text class="lbl wt" x="170" y="83">3</text><g class="nd"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl" x="110" y="130">加權：邊上寫分鐘</text></svg>
+            <figcaption><b>加權圖。</b>每條邊多一個數字：走路幾分鐘。C–E 要 10 分鐘，B–C 只要 1 分鐘。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>度數，以及一個一定成立的事實：度數總和 ＝ 2 × 邊數</h3>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:600px">
+            <svg viewBox="0 0 540 325" role="img" aria-label="每個頂點的度數"><line class="ed" x1="60" y1="160" x2="190" y2="60"/><line class="ed" x1="60" y1="160" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="190" y2="260"/><line class="ed" x1="190" y1="60" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="60"/><line class="ed" x1="190" y1="260" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="350" y2="260"/><line class="ed" x1="350" y1="60" x2="480" y2="160"/><line class="ed" x1="350" y1="260" x2="480" y2="160"/><g class="nd"><circle cx="60" cy="160" r="22"/><text x="60" y="160">A</text></g><text class="lbl" x="60" y="198">校門</text><text class="lbl good" x="60" y="130">deg 2</text><g class="nd"><circle cx="190" cy="60" r="22"/><text x="190" y="60">B</text></g><text class="lbl" x="190" y="30">圖書館</text><text class="lbl good" x="190" y="14">deg 3</text><g class="nd"><circle cx="190" cy="260" r="22"/><text x="190" y="260">C</text></g><text class="lbl" x="190" y="298">餐廳</text><text class="lbl good" x="190" y="314">deg 4</text><g class="nd"><circle cx="350" cy="60" r="22"/><text x="350" y="60">D</text></g><text class="lbl" x="350" y="30">系館</text><text class="lbl good" x="350" y="14">deg 4</text><g class="nd"><circle cx="350" cy="260" r="22"/><text x="350" y="260">E</text></g><text class="lbl" x="350" y="298">宿舍</text><text class="lbl good" x="350" y="314">deg 3</text><g class="nd"><circle cx="480" cy="160" r="22"/><text x="480" y="160">F</text></g><text class="lbl" x="480" y="198">體育館</text><text class="lbl good" x="480" y="130">deg 2</text></svg>
+            <figcaption>每個頂點旁邊的 deg 是它的度數（連著幾條邊）。C 和 D 最「熱鬧」，各接 4 條路。</figcaption>
+          </figure>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>頂點</th><th class="mono">A</th><th class="mono">B</th><th class="mono">C</th><th class="mono">D</th><th class="mono">E</th><th class="mono">F</th><th>合計</th></tr></thead>
+            <tbody>
+              <tr><td><b>鄰居</b></td><td class="mono">B C</td><td class="mono">A C D</td><td class="mono">A B D E</td><td class="mono">B C E F</td><td class="mono">C D F</td><td class="mono">D E</td><td>—</td></tr>
+              <tr><td><b>度數</b></td><td class="mono">2</td><td class="mono">3</td><td class="mono">4</td><td class="mono">4</td><td class="mono">3</td><td class="mono">2</td><td class="mono"><b>18 ＝ 2 × 9</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">握手定理</span>
+          <span class="txt">無向圖裡，<b>所有頂點的度數加起來 ＝ 2 × 邊數</b>。原因很簡單：每條邊有兩個端點，算度數時它在兩端<b>各被數一次</b>。就像一群人握手，每握一次手會用掉兩隻手。校園圖：2 + 3 + 4 + 4 + 3 + 2 = 18 ＝ 2 × 9。有向圖則是：<b>出度總和 ＝ 入度總和 ＝ 邊數</b>（每個箭頭剛好一個起點、一個終點）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>路徑、簡單路徑、環：自己先判斷</h3>
+        <p>先看第一排：每一張的綠色路線是不是<b>簡單路徑</b>（每一步都有邊、頂點不重複）？</p>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 136" role="img" aria-label="簡單路徑"><line class="ed good" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed good" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed good" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd good"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd good"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd good"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl good" x="110" y="130">A→B→D→F，3 條邊</text></svg>
+            <figcaption><b class="verdict">✔ 是簡單路徑。</b>A–B、B–D、D–F 三條邊都存在，4 個頂點都不一樣。路徑長度 3（走 3 條邊）。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="不是路徑"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><line class="ed bad" x1="24" y1="62" x2="144" y2="22"/><g class="nd bad"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd bad"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">A 和 D 之間沒有邊</text></svg>
+            <figcaption><b class="verdict">✘ 連路徑都不是。</b>A→D→F 的第一步 A–D 沒有邊（紅色虛線是想像的路）。圖上看起來「方向對」沒有用，<b>一定要有邊</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="有重複頂點"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed good" x1="24" y1="62" x2="76" y2="102"/><line class="ed good" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed good" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd good"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd bad"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd good"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">A→C→B→C→E：C 出現兩次</text></svg>
+            <figcaption><b class="verdict">✘ 不是簡單路徑。</b>A→C→B→C→E 每一步都有邊，所以它<b>是路徑</b>；但 C 走了兩次，不是簡單路徑。（有些課本把這種叫「走道 walk」，只有不重複的才叫路徑。）</figcaption>
+          </figure>
+        </div>
+        <p>再看第二排：綠色（或紅色）的路線是不是<b>環</b>？</p>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 136" role="img" aria-label="長度 4 的環"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed good" x1="76" y1="22" x2="76" y2="102"/><line class="ed good" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed good" x1="76" y1="102" x2="144" y2="102"/><line class="ed good" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd good"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd good"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd good"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl good" x="110" y="130">B→C→E→D→B</text></svg>
+            <figcaption><b class="verdict">✔ 是環。</b>B→C→E→D→B：4 條邊都存在，中間不重複，最後回到 B。長度 4 的環。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 136" role="img" aria-label="三角形的環"><line class="ed good" x1="24" y1="62" x2="76" y2="22"/><line class="ed good" x1="24" y1="62" x2="76" y2="102"/><line class="ed good" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd good"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd good"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl good" x="110" y="130">A→B→C→A</text></svg>
+            <figcaption><b class="verdict">✔ 是環。</b>A→B→C→A，3 個頂點的三角形，是最小的環。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="不是環"><line class="ed bad" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd bad"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd bad"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">A→B→A：同一條邊來回</text></svg>
+            <figcaption><b class="verdict">✘ 不是環。</b>A→B→A 雖然回到 A，但只是同一條邊<b>走過去再走回來</b>。環不能重複用邊，至少要 3 個不同頂點。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>連通、連通元件，以及「樹是一種特別的圖」</h3>
+        <p>第一排：這張圖<b>連通</b>嗎（任兩點之間都走得到）？</p>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 136" role="img" aria-label="連通圖"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd good"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd good"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd good"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd good"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd good"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl good" x="110" y="130">任兩點都走得到</text></svg>
+            <figcaption><b class="verdict">✔ 連通。</b>校園圖從任何地點出發，都走得到其他每個地點。只有 1 個連通元件。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="兩個連通元件"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd good"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd good"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd hot"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd hot"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd hot"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">分成 2 個連通元件</text></svg>
+            <figcaption><b class="verdict">✘ 不連通。</b>拿掉 B–D、C–D、C–E 三條路，圖斷成兩塊：{A, B, C} 和 {D, E, F}。這張圖有 <b>2 個連通元件</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="有孤立頂點"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><g class="nd"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd bad"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">F 跟誰都沒連</text></svg>
+            <figcaption><b class="verdict">✘ 不連通。</b>F 的兩條路都拿掉了，F 自己就是一個連通元件（只有一個頂點也算）。這張圖有 2 個連通元件：{A, B, C, D, E} 和 {F}。</figcaption>
+          </figure>
+        </div>
+        <p>第二排：這是不是一棵<b>樹</b>（連通、而且沒有環）？</p>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 136" role="img" aria-label="樹"><line class="ed" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><g class="nd good"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd good"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd good"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd good"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd good"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd good"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl good" x="110" y="130">6 個頂點、5 條邊、沒有環</text></svg>
+            <figcaption><b class="verdict">✔ 是樹。</b>連通、沒有環，6 個頂點剛好 5 條邊。隨便挑一個頂點當根、把它提起來，就是第 11～13 關那種有爸爸、有孩子的樹。（第 24 關會再見到它。）</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="有環所以不是樹"><line class="ed bad" x1="24" y1="62" x2="76" y2="22"/><line class="ed bad" x1="24" y1="62" x2="76" y2="102"/><line class="ed bad" x1="76" y1="22" x2="76" y2="102"/><line class="ed" x1="76" y1="22" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="22"/><line class="ed" x1="76" y1="102" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="22" x2="196" y2="62"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">A→B→C→A 是環</text></svg>
+            <figcaption><b class="verdict">✘ 不是樹。</b>校園圖是連通的，但有環（紅色就是一個）。9 條邊比 V−1 = 5 多，一定有環。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 136" role="img" aria-label="不連通所以不是樹"><line class="ed" x1="24" y1="62" x2="76" y2="22"/><line class="ed" x1="24" y1="62" x2="76" y2="102"/><line class="ed" x1="144" y1="22" x2="144" y2="102"/><line class="ed" x1="144" y1="102" x2="196" y2="62"/><g class="nd hot"><circle cx="24" cy="62" r="14"/><text x="24" y="62">A</text></g><g class="nd hot"><circle cx="76" cy="22" r="14"/><text x="76" y="22">B</text></g><g class="nd hot"><circle cx="76" cy="102" r="14"/><text x="76" y="102">C</text></g><g class="nd"><circle cx="144" cy="22" r="14"/><text x="144" y="22">D</text></g><g class="nd"><circle cx="144" cy="102" r="14"/><text x="144" y="102">E</text></g><g class="nd"><circle cx="196" cy="62" r="14"/><text x="196" y="62">F</text></g><text class="lbl bad" x="110" y="130">沒有環，但分成兩塊</text></svg>
+            <figcaption><b class="verdict">✘ 不是樹。</b>沒有環，但不連通，斷成兩塊。這種「每一塊都是樹」的圖叫<b>森林</b>。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">樹 ⊂ 圖</span>
+          <span class="txt">樹是圖的一種：<b>樹 ＝ 連通 ＋ 沒有環</b>。所以圖比樹自由得多——可以有環、可以斷成好幾塊、可以有方向、一個頂點可以有任意多個鄰居。也因為這樣，存圖不能像第 13 關存 heap 那樣用 2i+1、2i+2 公式算位置，要另外想辦法。這就是下一段的主題。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>電腦怎麼記住一張圖：兩種做法</h3>
+        <p>電腦看不到圖片。我們要把「誰跟誰相連」寫成格子和數字。先把頂點編號：<b>A＝0、B＝1、C＝2、D＝3、E＝4、F＝5</b>，這樣才能當陣列的格子號碼。常用的方法有兩種：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:640px">
+            <svg viewBox="0 0 520 226" role="img" aria-label="校園圖的鄰接矩陣與鄰接串列"><text class="lbl" x="136" y="14">鄰接矩陣 M（6×6 = 36 格）</text><text class="lbl" x="61" y="32">A</text><text class="lbl" x="91" y="32">B</text><text class="lbl" x="121" y="32">C</text><text class="lbl" x="151" y="32">D</text><text class="lbl" x="181" y="32">E</text><text class="lbl" x="211" y="32">F</text><text class="lbl" x="34" y="59">A</text><rect class="cell dim" x="46" y="40" width="30" height="30"/><text class="ctext" x="61" y="55">0</text><rect class="cell good" x="76" y="40" width="30" height="30"/><text class="ctext" x="91" y="55">1</text><rect class="cell good" x="106" y="40" width="30" height="30"/><text class="ctext" x="121" y="55">1</text><rect class="cell" x="136" y="40" width="30" height="30"/><text class="ctext" x="151" y="55">0</text><rect class="cell" x="166" y="40" width="30" height="30"/><text class="ctext" x="181" y="55">0</text><rect class="cell" x="196" y="40" width="30" height="30"/><text class="ctext" x="211" y="55">0</text><text class="lbl" x="34" y="89">B</text><rect class="cell good" x="46" y="70" width="30" height="30"/><text class="ctext" x="61" y="85">1</text><rect class="cell dim" x="76" y="70" width="30" height="30"/><text class="ctext" x="91" y="85">0</text><rect class="cell good" x="106" y="70" width="30" height="30"/><text class="ctext" x="121" y="85">1</text><rect class="cell good" x="136" y="70" width="30" height="30"/><text class="ctext" x="151" y="85">1</text><rect class="cell" x="166" y="70" width="30" height="30"/><text class="ctext" x="181" y="85">0</text><rect class="cell" x="196" y="70" width="30" height="30"/><text class="ctext" x="211" y="85">0</text><text class="lbl" x="34" y="119">C</text><rect class="cell good" x="46" y="100" width="30" height="30"/><text class="ctext" x="61" y="115">1</text><rect class="cell good" x="76" y="100" width="30" height="30"/><text class="ctext" x="91" y="115">1</text><rect class="cell dim" x="106" y="100" width="30" height="30"/><text class="ctext" x="121" y="115">0</text><rect class="cell good" x="136" y="100" width="30" height="30"/><text class="ctext" x="151" y="115">1</text><rect class="cell good" x="166" y="100" width="30" height="30"/><text class="ctext" x="181" y="115">1</text><rect class="cell" x="196" y="100" width="30" height="30"/><text class="ctext" x="211" y="115">0</text><text class="lbl" x="34" y="149">D</text><rect class="cell" x="46" y="130" width="30" height="30"/><text class="ctext" x="61" y="145">0</text><rect class="cell good" x="76" y="130" width="30" height="30"/><text class="ctext" x="91" y="145">1</text><rect class="cell good" x="106" y="130" width="30" height="30"/><text class="ctext" x="121" y="145">1</text><rect class="cell dim" x="136" y="130" width="30" height="30"/><text class="ctext" x="151" y="145">0</text><rect class="cell good" x="166" y="130" width="30" height="30"/><text class="ctext" x="181" y="145">1</text><rect class="cell good" x="196" y="130" width="30" height="30"/><text class="ctext" x="211" y="145">1</text><text class="lbl" x="34" y="179">E</text><rect class="cell" x="46" y="160" width="30" height="30"/><text class="ctext" x="61" y="175">0</text><rect class="cell" x="76" y="160" width="30" height="30"/><text class="ctext" x="91" y="175">0</text><rect class="cell good" x="106" y="160" width="30" height="30"/><text class="ctext" x="121" y="175">1</text><rect class="cell good" x="136" y="160" width="30" height="30"/><text class="ctext" x="151" y="175">1</text><rect class="cell dim" x="166" y="160" width="30" height="30"/><text class="ctext" x="181" y="175">0</text><rect class="cell good" x="196" y="160" width="30" height="30"/><text class="ctext" x="211" y="175">1</text><text class="lbl" x="34" y="209">F</text><rect class="cell" x="46" y="190" width="30" height="30"/><text class="ctext" x="61" y="205">0</text><rect class="cell" x="76" y="190" width="30" height="30"/><text class="ctext" x="91" y="205">0</text><rect class="cell" x="106" y="190" width="30" height="30"/><text class="ctext" x="121" y="205">0</text><rect class="cell good" x="136" y="190" width="30" height="30"/><text class="ctext" x="151" y="205">1</text><rect class="cell good" x="166" y="190" width="30" height="30"/><text class="ctext" x="181" y="205">1</text><rect class="cell dim" x="196" y="190" width="30" height="30"/><text class="ctext" x="211" y="205">0</text><text class="lbl" x="420" y="14">鄰接串列 adj（6 條清單，共 18 格）</text><rect class="cell hot" x="300" y="42" width="34" height="26" rx="5"/><text class="ctext" x="317" y="55">A</text><text class="lbl" x="346" y="59">→</text><rect class="cell good" x="358" y="42" width="30" height="26" rx="5"/><text class="ctext" x="373" y="55">B</text><rect class="cell good" x="394" y="42" width="30" height="26" rx="5"/><text class="ctext" x="409" y="55">C</text><rect class="cell hot" x="300" y="72" width="34" height="26" rx="5"/><text class="ctext" x="317" y="85">B</text><text class="lbl" x="346" y="89">→</text><rect class="cell good" x="358" y="72" width="30" height="26" rx="5"/><text class="ctext" x="373" y="85">A</text><rect class="cell good" x="394" y="72" width="30" height="26" rx="5"/><text class="ctext" x="409" y="85">C</text><rect class="cell good" x="430" y="72" width="30" height="26" rx="5"/><text class="ctext" x="445" y="85">D</text><rect class="cell hot" x="300" y="102" width="34" height="26" rx="5"/><text class="ctext" x="317" y="115">C</text><text class="lbl" x="346" y="119">→</text><rect class="cell good" x="358" y="102" width="30" height="26" rx="5"/><text class="ctext" x="373" y="115">A</text><rect class="cell good" x="394" y="102" width="30" height="26" rx="5"/><text class="ctext" x="409" y="115">B</text><rect class="cell good" x="430" y="102" width="30" height="26" rx="5"/><text class="ctext" x="445" y="115">D</text><rect class="cell good" x="466" y="102" width="30" height="26" rx="5"/><text class="ctext" x="481" y="115">E</text><rect class="cell hot" x="300" y="132" width="34" height="26" rx="5"/><text class="ctext" x="317" y="145">D</text><text class="lbl" x="346" y="149">→</text><rect class="cell good" x="358" y="132" width="30" height="26" rx="5"/><text class="ctext" x="373" y="145">B</text><rect class="cell good" x="394" y="132" width="30" height="26" rx="5"/><text class="ctext" x="409" y="145">C</text><rect class="cell good" x="430" y="132" width="30" height="26" rx="5"/><text class="ctext" x="445" y="145">E</text><rect class="cell good" x="466" y="132" width="30" height="26" rx="5"/><text class="ctext" x="481" y="145">F</text><rect class="cell hot" x="300" y="162" width="34" height="26" rx="5"/><text class="ctext" x="317" y="175">E</text><text class="lbl" x="346" y="179">→</text><rect class="cell good" x="358" y="162" width="30" height="26" rx="5"/><text class="ctext" x="373" y="175">C</text><rect class="cell good" x="394" y="162" width="30" height="26" rx="5"/><text class="ctext" x="409" y="175">D</text><rect class="cell good" x="430" y="162" width="30" height="26" rx="5"/><text class="ctext" x="445" y="175">F</text><rect class="cell hot" x="300" y="192" width="34" height="26" rx="5"/><text class="ctext" x="317" y="205">F</text><text class="lbl" x="346" y="209">→</text><rect class="cell good" x="358" y="192" width="30" height="26" rx="5"/><text class="ctext" x="373" y="205">D</text><rect class="cell good" x="394" y="192" width="30" height="26" rx="5"/><text class="ctext" x="409" y="205">E</text></svg>
+            <figcaption>左：<b>鄰接矩陣</b>，第 u 列第 v 欄是 1 就代表 u、v 相鄰（綠色）。右：<b>鄰接串列</b>，每個頂點一條清單，只寫鄰居。兩邊記的是<b>同一張</b>校園圖。</figcaption>
+          </figure>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>問題</th><th>鄰接矩陣（表格）</th><th>鄰接串列（清單）</th></tr></thead>
+            <tbody>
+              <tr><td><b>要多少格子</b></td><td>永遠 V × V ＝ 36 格，不管有幾條邊</td><td>V 條清單，裡面共 2E ＝ 18 格（每條無向邊在兩端各記一次）</td></tr>
+              <tr><td><b>D 和 B 相鄰嗎？</b></td><td>直接看 M[D][B] 那一格，<b>一步</b>就知道</td><td>要把 adj[D] 從頭看一遍，最多看 deg(D) 格</td></tr>
+              <tr><td><b>列出 C 的所有鄰居</b></td><td>把第 C 列 6 格全部看完（V 格）</td><td>adj[C] 本身就是答案，只看 deg(C) ＝ 4 格</td></tr>
+              <tr><td><b>無向圖的特徵</b></td><td>M[u][v] ＝ M[v][u]，表格<b>對稱</b>（沿對角線對摺會重合）</td><td>v 在 adj[u] 裡，u 就一定在 adj[v] 裡</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">一句話</span>
+          <span class="txt">矩陣是「<b>每一對都留一格</b>」，查得快但佔空間；串列是「<b>只記真的有的</b>」，省空間但要一格一格找。無向圖的一條邊，兩種做法都要<b>記兩次</b>（u 那邊一次、v 那邊一次）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>對嗎？</th><th>為什麼</th></tr></thead>
+            <tbody>
+              <tr><td>「圖就是統計圖表」</td><td class="verdict no">不對</td><td>這裡的圖（graph）是「頂點＋邊」的資料結構，跟長條圖（chart）是兩回事。</td></tr>
+              <tr><td>「點畫得近就代表相鄰」</td><td class="verdict no">不對</td><td>相不相鄰只看<b>有沒有邊</b>。校園圖裡 A 和 D 看起來不遠，但沒有邊，不相鄰。</td></tr>
+              <tr><td>「無向圖一條邊只要記一次」</td><td class="verdict no">不對</td><td>矩陣要改 M[u][v] 和 M[v][u] 兩格，串列要在 adj[u] 和 adj[v] 各加一筆。所以矩陣裡的 1 有 2E 個。</td></tr>
+              <tr><td>「A→B 有邊，B→A 一定也有」</td><td class="verdict no">有向圖不一定</td><td>有向圖的矩陣通常<b>不對稱</b>。單行道版本裡 C→B 有，B→C 沒有。</td></tr>
+              <tr><td>「樹和圖是兩種不相干的東西」</td><td class="verdict no">不對</td><td>樹就是「連通、沒有環」的圖。圖的方法（走訪、最短路徑）都能用在樹上。</td></tr>
+              <tr><td>「鄰接串列一定比較好」</td><td class="verdict no">看情況</td><td>邊很少（稀疏）時串列省很多空間；邊很多（稠密）、又常問「兩點相不相鄰」時，矩陣更好用。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>一張無向圖有 7 條邊，所有頂點的度數加起來是多少？</summary>
+            <div class="ans"><b>14。</b>握手定理：度數總和 ＝ 2 × 邊數 ＝ 2 × 7。跟有幾個頂點、邊怎麼連都沒關係。</div>
+          </details>
+          <details>
+            <summary>校園圖的鄰接矩陣，第 C 列有幾個 1？它跟什麼一樣？</summary>
+            <div class="ans"><b>4 個</b>（在 A、B、D、E 那幾欄），剛好等於 <b>deg(C) ＝ 4</b>，也等於 adj[C] 的長度。矩陣某一列的 1 的個數就是那個頂點的度數。</div>
+          </details>
+          <details>
+            <summary>有沒有可能畫出一張無向圖，裡面剛好有 3 個頂點的度數是奇數？</summary>
+            <div class="ans"><b>不可能。</b>度數總和一定是 2 × 邊數，是偶數。奇數加起來要是偶數，奇數的個數就必須是偶數個。校園圖裡度數是奇數的是 B（3）、E（3），剛好 2 個。</div>
+          </details>
+          <details>
+            <summary>有向單行道版本裡，A 的入度是多少？這代表什麼？</summary>
+            <div class="ans"><b>0。</b>沒有任何箭頭指向 A：從校門出發可以走到任何地方，但從其他地方<b>沒辦法直接回到</b>校門（也繞不回來）。有向圖裡「走得到」是有方向的。</div>
+          </details>
+          <details>
+            <summary>7 個頂點的樹有幾條邊？如果多加一條邊會怎樣？</summary>
+            <div class="ans"><b>6 條</b>（V − 1）。樹已經連通，再多加一條邊，一定會在原本走得到的兩點之間多出第二條路，形成<b>環</b>，就不是樹了。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手一條一條把校園圖建進矩陣和串列。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>遊戲畫面有三塊，記的是<b>同一張圖</b>：上面是校園地圖，左下是鄰接矩陣，右下是鄰接串列。目前這一步動到的邊、格子、清單項目，三邊會<b>一起亮橘色</b>。矩陣最右邊一欄是每個頂點的度數，地圖上每個頂點旁邊也寫著度數。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>：1～3 關一條一條把邊加進去，4 關檢查路徑和環，5 關比較稀疏和稠密。</li>
+            <li>按 <b>下一步</b>，看 <code>addEdge</code> 怎麼同時改矩陣和串列，下面的 C++ 程式會亮到正在跑的那一行。</li>
+            <li>隨時 <b>上一步</b> 倒回去。</li>
+          </ol>
+          <h4>自由模式</h4>
+          <ol class="steps">
+            <li>點關卡「自由模式」。在地圖上<b>先點一個頂點、再點另一個</b>：沒有邊就加一條，已經有邊就刪掉。</li>
+            <li>也可以直接<b>點矩陣的格子</b>。打勾「有向圖」就變成單行道。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你回答：矩陣哪幾格會變？deg(C) 是多少？B 的清單有誰？M[D][B] 是 1 還是 0？矩陣裡有幾個 1？</li>
+            <li>答對得分、連對加分；答錯立刻解釋正確答案。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>圖的基本名詞</b> —— 頂點、邊、鄰居、度數、路徑、環、連通，後面四關都會用到。</li>
+            <li><b>鄰接矩陣</b> —— V×V 表格，查「相不相鄰」O(1)，但空間永遠 O(V²)。</li>
+            <li><b>鄰接串列</b> —— 每個頂點一條鄰居清單，空間 O(V+E)，列出鄰居只要 O(度數)。</li>
+            <li><b>無向邊要記兩次</b> —— 矩陣對稱，1 的個數 ＝ 2E；度數總和 ＝ 2E。</li>
+            <li><b>有向圖</b> —— 矩陣不再對稱，出度看列、入度看欄。</li>
+            <li><b>怎麼選表示法</b> —— 稀疏用串列，稠密或常查相鄰用矩陣。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">第 1 關看無權重怎麼建 → 第 2 關看權重存在哪 → 第 3 關看有向圖的不對稱 → 第 4 關用矩陣檢查路徑和環 → 第 5 關比較空間 → 最後到自由模式自己畫一張圖。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看同一條邊在地圖、矩陣、串列三邊一起出現。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">同一張圖的三種樣子</h3>
+            <span class="panel-note" id="graphNote"></span>
+          </div>
+
+          <div class="freebar" id="freeBar">
+            <label><input type="checkbox" id="freeDir"> 有向圖（單行道）</label>
+            <button class="btn" id="freeCampus" type="button">載入校園圖</button>
+            <button class="btn" id="freeClear" type="button">清空</button>
+            <span class="freehint">先點一個頂點，再點另一個：沒邊就加、有邊就刪。也可以直接點矩陣格子。</span>
+          </div>
+
+          <div class="vlabel">MAP · 校園地圖（頂點旁的 deg／出・入 是度數）</div>
+          <div class="gwrap">
+            <svg class="gsvg" id="gsvg" viewBox="0 0 540 330" role="img" aria-label="校園地圖"></svg>
+          </div>
+
+          <div class="rep">
+            <div class="repbox">
+              <div class="vlabel" id="mxLabel">MATRIX · 鄰接矩陣 M[列][欄]</div>
+              <div class="mxwrap"><table class="mx" id="mx"></table></div>
+            </div>
+            <div class="repbox">
+              <div class="vlabel" id="alLabel">LIST · 鄰接串列 adj[u]</div>
+              <div class="alist" id="alist"></div>
+            </div>
+          </div>
+          <p class="formula" id="formula"></p>
+
+          <div class="controls" id="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">統計</h3>
+              <span class="panel-note" id="kindNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat"><div class="k">頂點 V</div><div class="v" id="stV">6</div></div>
+              <div class="stat" data-k="hot"><div class="k">邊 E</div><div class="v" id="stE">0</div></div>
+              <div class="stat"><div class="k">矩陣格子</div><div class="v" id="stCells">36</div></div>
+              <div class="stat" data-k="ok"><div class="k">非 0 格</div><div class="v" id="stNZ">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">串列格子</div><div class="v" id="stL">0</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">加邊 O(1)・查相鄰 O(1)・列鄰居 O(度數)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，同時維護兩種表示法就這麼多。最後一段是「有權重時，清單連權重一起存」的常見寫法（第 17 關的地圖就是這樣存）：</p>
+        <pre class="code">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;   <i>// find</i>
+#include &lt;utility&gt;     <i>// pair</i>
+using namespace std;
+
+const int V = 6;                       <i>// A~F 編號 0~5</i>
+int M[V][V] = {};                      <i>// 鄰接矩陣：V×V 格，全部 0</i>
+vector&lt;vector&lt;int&gt;&gt; adj(V);            <i>// 鄰接串列：V 條空清單</i>
+
+<i>// 在清單裡找到第一個 x，把它刪掉（要一格一格找：O(度數)）</i>
+void eraseOne(vector&lt;int&gt;&amp; list, int x) {
+    auto it = find(list.begin(), list.end(), x);
+    if (it != list.end()) list.erase(it);
+}
+
+void addEdge(int u, int v, int w, bool directed) {
+    M[u][v] = w;                       <i>// 無權重圖 w 就傳 1</i>
+    adj[u].push_back(v);
+    if (!directed) {                   <i>// 無向：反方向也記一次</i>
+        M[v][u] = w;
+        adj[v].push_back(u);
+    }
+}
+
+void removeEdge(int u, int v, bool directed) {
+    M[u][v] = 0;  eraseOne(adj[u], v);
+    if (!directed) { M[v][u] = 0;  eraseOne(adj[v], u); }
+}
+
+bool isAdj(int u, int v) { return M[u][v] != 0; }   <i>// O(1)</i>
+int deg(int u) { return (int)adj[u].size(); }       <i>// 有向圖時是出度</i>
+int inDeg(int v) {                                   <i>// 入度：數第 v 欄，O(V)</i>
+    int c = 0;
+    for (int u = 0; u &lt; V; u++) if (M[u][v] != 0) c++;
+    return c;
+}
+void printNbrs(int u) {                              <i>// O(度數)</i>
+    for (int v : adj[u]) cout &lt;&lt; char('A' + v) &lt;&lt; ' ';
+    cout &lt;&lt; '\n';
+}
+
+int main() {
+    enum { A, B, C, D, E, F };         <i>// A=0, B=1, ..., F=5</i>
+    int edges[9][3] = {{A,B,4},{A,C,2},{B,C,1},{B,D,5},{C,D,8},
+                       {C,E,10},{D,E,2},{D,F,6},{E,F,3}};
+    for (auto&amp; e : edges) addEdge(e[0], e[1], 1, false);   <i>// 第 1 關：無權重</i>
+
+    cout &lt;&lt; isAdj(D, B) &lt;&lt; '\n';       <i>// 1</i>
+    cout &lt;&lt; isAdj(A, F) &lt;&lt; '\n';       <i>// 0</i>
+    cout &lt;&lt; deg(C) &lt;&lt; '\n';            <i>// 4</i>
+    printNbrs(B);                      <i>// A C D</i>
+
+    <i>// 有權重的另一種存法：清單裡每一格是 {鄰居, 權重}</i>
+    vector&lt;vector&lt;pair&lt;int,int&gt;&gt;&gt; wadj(V);
+    for (auto&amp; e : edges) {
+        wadj[e[0]].push_back({e[1], e[2]});
+        wadj[e[1]].push_back({e[0], e[2]});
+    }
+    for (auto [v, w] : wadj[D])        <i>// B 5  C 8  E 2  F 6</i>
+        cout &lt;&lt; char('A' + v) &lt;&lt; ' ' &lt;&lt; w &lt;&lt; "  ";
+}</pre>
+        <p>遊戲頁面多出來的幾百行，全部都是為了「讓三種樣子同步看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">為什麼需要圖 → 電腦怎麼記 → 兩種記法各自擅長什麼。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義：為什麼需要「圖」</h3>
+        <p>很多問題的核心不是「一排數字」，而是<b>東西之間的關係</b>。陣列、堆疊、佇列只能表示「誰在誰前面」；樹只能表示「誰是誰的上司」。關係一旦可以亂連、可以繞圈，就需要圖：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>情境</th><th>頂點</th><th>邊</th><th>種類</th><th>想問的問題</th></tr></thead>
+            <tbody>
+              <tr><td><b>地圖導航</b></td><td>路口、地點</td><td>道路</td><td>加權（分鐘）；單行道是有向</td><td>最快怎麼走？（第 17 關）</td></tr>
+              <tr><td><b>社群網路</b></td><td>使用者</td><td>好友／追蹤</td><td>好友是無向；追蹤是有向</td><td>朋友的朋友有誰？（第 22 關）</td></tr>
+              <tr><td><b>課程先修</b></td><td>課程</td><td>「先修 → 後修」</td><td>有向、不能有環</td><td>課要照什麼順序修？（第 23 關）</td></tr>
+              <tr><td><b>網頁連結</b></td><td>網頁</td><td>超連結</td><td>有向</td><td>哪些網頁最重要？（搜尋引擎排名）</td></tr>
+              <tr><td><b>佈線／鋪路</b></td><td>建築物</td><td>可以拉線的位置</td><td>加權（成本）</td><td>用最少的錢全部連起來？（第 24 關）</td></tr>
+              <tr><td><b>迷宮</b></td><td>每個格子</td><td>相鄰而且沒牆</td><td>無向</td><td>走得出去嗎？（第 07 關其實就是圖）</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>這一關要解決的是最前面的那一步：<b>把一張圖存進電腦</b>，而且要讓「u、v 相不相鄰？」「u 的鄰居有誰？」這兩個最常見的問題答得快。</p>
+      </div>
+
+      <div class="block">
+        <h3>先破除錯誤直覺</h3>
+        <ul class="bullets no">
+          <li><b>「存圖就是存一張圖片」</b> —— 電腦要的是「誰連到誰」，不是畫面。座標、顏色、線的長短，對演算法都不重要。同一張圖換個畫法，存起來完全一樣。</li>
+          <li><b>「存一份邊的清單就夠了」</b> —— 把 9 條邊列成一長串是可以（叫 edge list，第 24 關 Kruskal 會用），但要回答「C 的鄰居有誰」就得把每條邊都看一遍，O(E)。圖演算法最常問的就是鄰居，所以要換成「以頂點為主」的存法。</li>
+          <li><b>「看起來近就是鄰居」</b> —— 只有邊說了算。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：兩個最常問的問題，各有一種最快的存法</h3>
+        <ol class="steps">
+          <li><b>「u、v 相鄰嗎？」</b> —— 如果每一對 (u, v) 都事先留一格，直接看那一格就好，O(1)。這就是<b>鄰接矩陣</b>：用二維陣列，格子號碼直接算出來，跟陣列「第 i 格直接跳過去」是同一個道理。</li>
+          <li><b>「u 的鄰居有誰？」</b> —— 如果每個頂點都隨身帶一份「我的鄰居」名單，直接把名單唸出來，O(度數)。這就是<b>鄰接串列</b>。名字裡的「串列」是因為早期用第 10 關的鏈結串列做；現在 C++ 通常用 <code>vector</code>，觀念一樣。</li>
+          <li><b>無向圖的對稱</b> —— u–v 這條邊，從 u 看是鄰居、從 v 看也是鄰居，所以兩種存法都要在<b>兩端各記一次</b>：矩陣改兩格、串列加兩筆。</li>
+        </ol>
+      </div>
+
+      <div class="block">
+        <h3>演算法：addEdge 同時改兩份紀錄</h3>
+        <ol class="steps">
+          <li><b>編號</b> —— 把頂點換成 0～V−1 的整數（A＝0、B＝1……），才能當格子號碼。</li>
+          <li><b>開空的</b> —— 矩陣 V×V 全部填 0；串列開 V 條空清單。</li>
+          <li><b>加一條邊 u–v（權重 w）</b> —— <code>M[u][v] = w</code>，<code>adj[u].push_back(v)</code>。如果是無向圖，再做一次反方向：<code>M[v][u] = w</code>、<code>adj[v].push_back(u)</code>。沒有權重就把 w 當 1。</li>
+          <li><b>查相鄰</b> —— 看 <code>M[u][v] != 0</code>。</li>
+          <li><b>度數</b> —— <code>adj[u].size()</code>（有向圖是出度）；入度要數矩陣的第 v 欄。</li>
+          <li><b>列鄰居</b> —— 把 <code>adj[u]</code> 從頭走到尾。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">注意</span>
+          <span class="txt">用 0 代表「沒有邊」，前提是權重<b>不會是 0</b>。如果權重可能是 0 或負數（例如「免費的路」），就要改用一個特別的數（例如 −1 或很大的 INF）代表沒有邊，或另外開一張 0/1 表格。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：把 9 條邊依序加進去</h3>
+        <p>考試在紙上追蹤時就是畫這張表。邊照字母順序加，清單也就自然照字母順序：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>加入的邊</th><th>矩陣改哪兩格</th><th>串列變化</th><th class="mono">E</th><th class="mono">Σ度數</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">A–B</td><td class="mono">M[A][B]、M[B][A]</td><td class="mono">adj[A]: B ・ adj[B]: A</td><td class="mono">1</td><td class="mono">2</td></tr>
+              <tr><td class="mono">A–C</td><td class="mono">M[A][C]、M[C][A]</td><td class="mono">adj[A]: B, C ・ adj[C]: A</td><td class="mono">2</td><td class="mono">4</td></tr>
+              <tr><td class="mono">B–C</td><td class="mono">M[B][C]、M[C][B]</td><td class="mono">adj[B]: A, C ・ adj[C]: A, B</td><td class="mono">3</td><td class="mono">6</td></tr>
+              <tr><td class="mono">B–D</td><td class="mono">M[B][D]、M[D][B]</td><td class="mono">adj[B]: A, C, D ・ adj[D]: B</td><td class="mono">4</td><td class="mono">8</td></tr>
+              <tr><td class="mono">C–D</td><td class="mono">M[C][D]、M[D][C]</td><td class="mono">adj[C]: A, B, D ・ adj[D]: B, C</td><td class="mono">5</td><td class="mono">10</td></tr>
+              <tr><td class="mono">C–E</td><td class="mono">M[C][E]、M[E][C]</td><td class="mono">adj[C]: A, B, D, E ・ adj[E]: C</td><td class="mono">6</td><td class="mono">12</td></tr>
+              <tr><td class="mono">D–E</td><td class="mono">M[D][E]、M[E][D]</td><td class="mono">adj[D]: B, C, E ・ adj[E]: C, D</td><td class="mono">7</td><td class="mono">14</td></tr>
+              <tr><td class="mono">D–F</td><td class="mono">M[D][F]、M[F][D]</td><td class="mono">adj[D]: B, C, E, F ・ adj[F]: D</td><td class="mono">8</td><td class="mono">16</td></tr>
+              <tr><td class="mono">E–F</td><td class="mono">M[E][F]、M[F][E]</td><td class="mono">adj[E]: C, D, F ・ adj[F]: D, E</td><td class="mono">9</td><td class="mono">18</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>最後的矩陣（加權版，0 代表沒有路）。對角線永遠是 0（沒有自己連自己），而且沿著對角線<b>左右對稱</b>：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono">M</th><th class="mono">A</th><th class="mono">B</th><th class="mono">C</th><th class="mono">D</th><th class="mono">E</th><th class="mono">F</th><th>度數</th></tr></thead>
+            <tbody>
+              <tr><td class="mono"><b>A</b></td><td class="mono">0</td><td class="mono">4</td><td class="mono">2</td><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="mono">2</td></tr>
+              <tr><td class="mono"><b>B</b></td><td class="mono">4</td><td class="mono">0</td><td class="mono">1</td><td class="mono">5</td><td class="mono">0</td><td class="mono">0</td><td class="mono">3</td></tr>
+              <tr><td class="mono"><b>C</b></td><td class="mono">2</td><td class="mono">1</td><td class="mono">0</td><td class="mono">8</td><td class="mono">10</td><td class="mono">0</td><td class="mono">4</td></tr>
+              <tr><td class="mono"><b>D</b></td><td class="mono">0</td><td class="mono">5</td><td class="mono">8</td><td class="mono">0</td><td class="mono">2</td><td class="mono">6</td><td class="mono">4</td></tr>
+              <tr><td class="mono"><b>E</b></td><td class="mono">0</td><td class="mono">0</td><td class="mono">10</td><td class="mono">2</td><td class="mono">0</td><td class="mono">3</td><td class="mono">3</td></tr>
+              <tr><td class="mono"><b>F</b></td><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="mono">6</td><td class="mono">3</td><td class="mono">0</td><td class="mono">2</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>36 格裡只有 18 格不是 0，正好 2 × 9。有向單行道版本（第 3 關）只有 9 格是 1，而且不對稱：M[C][B] ＝ 1，M[B][C] ＝ 0。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度：兩種做法比一比</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>操作</th><th class="mono">鄰接矩陣</th><th class="mono">鄰接串列</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td><b>空間</b></td><td class="mono" style="color:var(--alarm);font-weight:700">O(V²)</td><td class="mono" style="color:var(--jade);font-weight:700">O(V+E)</td><td>矩陣不管有沒有邊都留格子；串列只記真的邊（無向 2E 格＋V 條清單）。</td></tr>
+              <tr><td><b>u、v 相鄰嗎？</b></td><td class="mono" style="color:var(--jade);font-weight:700">O(1)</td><td class="mono" style="color:var(--alarm);font-weight:700">O(deg(u))</td><td>矩陣直接看一格；串列要在 adj[u] 裡找。</td></tr>
+              <tr><td><b>列出 u 的所有鄰居</b></td><td class="mono" style="color:var(--alarm);font-weight:700">O(V)</td><td class="mono" style="color:var(--jade);font-weight:700">O(deg(u))</td><td>矩陣要掃整列（很多 0 也得看）；串列只看鄰居。</td></tr>
+              <tr><td><b>加一條邊</b></td><td class="mono" style="color:var(--jade);font-weight:700">O(1)</td><td class="mono" style="color:var(--jade);font-weight:700">O(1)</td><td>改格子；push_back 加到清單尾巴。</td></tr>
+              <tr><td><b>刪一條邊</b></td><td class="mono" style="color:var(--jade);font-weight:700">O(1)</td><td class="mono" style="color:var(--alarm);font-weight:700">O(deg(u))</td><td>串列要先找到它在清單哪裡。</td></tr>
+              <tr><td><b>看過整張圖每條邊</b></td><td class="mono" style="color:var(--alarm);font-weight:700">O(V²)</td><td class="mono" style="color:var(--jade);font-weight:700">O(V+E)</td><td>第 22 關的 DFS／BFS 就是這件事。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>差距在圖變大時非常明顯。假設一個城市的道路網有 V ＝ 10,000 個路口、E ＝ 30,000 條路（每個路口平均接 6 條，很稀疏）：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>存法</th><th class="mono">要幾格</th><th class="mono">每格 4 bytes 約</th></tr></thead>
+            <tbody>
+              <tr><td>鄰接矩陣 V²</td><td class="mono">100,000,000</td><td class="mono" style="color:var(--alarm);font-weight:700">400 MB</td></tr>
+              <tr><td>鄰接串列 V＋2E</td><td class="mono">10,000 ＋ 60,000 ＝ 70,000</td><td class="mono" style="color:var(--jade);font-weight:700">280 KB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>矩陣裡 99.94% 的格子都是 0，白白佔空間。</p>
+      </div>
+
+      <div class="block">
+        <h3>怎麼選表示法</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>情況</th><th>選誰</th><th>理由</th></tr></thead>
+            <tbody>
+              <tr><td>邊很少（稀疏），V 很大</td><td class="verdict ok">鄰接串列</td><td>空間 O(V+E)，矩陣會塞不下。道路網、社群網路、網頁都是這種。</td></tr>
+              <tr><td>常常要「走遍鄰居」（DFS、BFS、Dijkstra、Prim）</td><td class="verdict ok">鄰接串列</td><td>只看真的鄰居，整張圖 O(V+E)。</td></tr>
+              <tr><td>邊很多（稠密），幾乎每兩點都有邊</td><td class="verdict ok">鄰接矩陣</td><td>反正格子都會用到，不浪費；而且查相鄰最快。</td></tr>
+              <tr><td>V 很小（幾百以內），又常問「u、v 有沒有邊」</td><td class="verdict ok">鄰接矩陣</td><td>V² 不大，寫起來最簡單。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">實務</span>
+          <span class="txt">大部分題目和真實系統預設用<b>鄰接串列</b>（<code>vector&lt;vector&lt;int&gt;&gt;</code>）。本單元第 22～24 關和第 17 關都用串列。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「矩陣裡 1 的個數就是邊數」</b> —— 無向圖要除以 2：每條邊佔 M[u][v] 和 M[v][u] 兩格。校園圖 18 個 1，9 條邊。有向圖才是一個 1 一條邊。</li>
+          <li><b>「度數看矩陣的對角線」</b> —— 對角線是「自己連自己」，本單元永遠是 0。度數是<b>整列的非 0 格數</b>，也是 adj[u] 的長度。</li>
+          <li><b>「有向圖的度數也只有一種」</b> —— 要分出度（看第 u 列、adj[u] 長度）和入度（看第 u 欄）。用串列算入度比較麻煩，要把每條清單都看一遍。</li>
+          <li><b>「鄰接串列裡的順序有意義」</b> —— 對圖本身沒有，A 的鄰居是 {B, C} 還是 {C, B} 都一樣。但它會影響第 22 關走訪的<b>先後順序</b>，所以本單元一律照字母順序加邊。</li>
+          <li><b>「加權圖不能用串列」</b> —— 可以，清單裡每一格改存 {鄰居, 權重} 兩個數就好（上面完整版最後一段）。</li>
+        </ul>
+        <div class="callout" data-k="ok">
+          <span class="tag">下一關</span>
+          <span class="txt">圖存好了，接下來要「走」它：從一個頂點出發，怎麼把走得到的頂點全部拜訪一遍？深度優先（DFS）和廣度優先（BFS）有什麼差別？怎麼算出圖有幾個連通元件？→ <a href="22-graph-traversal.html">第 22 關「圖的走訪：DFS 與 BFS」</a></span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟其他關一樣：按「下一步」之前，整關的過程就已經全部算好了。<code>buildSteps</code> 照 C++ 的 <code>addEdge</code> 一行一行改一份圖 <code>g</code>（裡面有矩陣 M 和串列 adj），每一步存一份<b>快照</b>；畫面只負責把第 N 步的快照畫成地圖、矩陣、串列三個樣子。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 <small>邊的清單、有向／加權、要問的問題</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(level) <small>照 addEdge 一行一行改 g，整關跑完</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格：g 的快照 ＋ 要亮的邊／格子／清單項目 ＋ 說明 ＋ 闖關題</small></div>
+          <div class="arrow"></div>
+          <div class="fan">
+            <div class="node">paintGraph<small>地圖</small></div>
+            <div class="node">paintMatrix<small>矩陣＋度數</small></div>
+            <div class="node">paintList<small>串列</small></div>
+          </div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>三個畫面不會不同步</b> —— 它們讀的是同一份快照 <code>g</code>，地圖上的邊是從矩陣 M 畫出來的，不是另外存的。</li>
+          <li><b>自由模式也是同一套</b> —— 每點一次就用 <code>applyToggle</code> 算出新的 g，包成「只有一步」的 steps，交給同樣的 paint 函式。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>圖本身</b></td><td class="mono">newGraph / cloneG<br>addEdge / removeEdge<br>applyToggle</td><td>跟 C++ 一模一樣的操作：改 M、改 adj。applyToggle 是自由模式用的「有邊就刪、沒邊就加」。</td></tr>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps(level)<br>buildEdges / buildPath / buildDensity</td><td>三種關卡各自產生步驟：一條一條加邊、檢查路徑和環、比較稀疏稠密。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>目前關卡、第幾步、模式、分數；自由模式的圖和選到的頂點。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintGraph / paintMatrix<br>paintList / paintStats<br>paintAlgo / paintSay / paintLog</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊。</td></tr>
+              <tr><td><b>導覽／闖關</b></td><td class="mono">goto_ / next / prev<br>renderQuiz / answerQuiz</td><td>只改 <code>S.cur</code> 再 <code>render()</code>；題目在 buildSteps 時就生好（step.quiz）。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:    <i>// start / call / mset / push / branch / quick / query / check / fail / verdict / size / done</i>
+  <b>g</b>:       <i>// 這一步之後的圖：{directed, weighted, M: 6×6, adj: [[...], ...]}</i>
+  <b>hiE</b>:     <i>// 要亮的邊 [u, v]（地圖）</i>
+  <b>hiCells</b>: <i>// 要亮的矩陣格子 [[列, 欄], ...]</i>
+  <b>hiList</b>:  <i>// 要亮的清單項目 [[u, 第幾格], ...]</i>
+  <b>lane</b>:    <i>// 要框起來的整列／整欄／整條清單（查度數、列鄰居時）</i>
+  <b>pathE, badE</b>: <i>// 第 4 關：已確認的路徑邊（綠）、不存在的邊（紅虛線）</i>
+  <b>line</b>:    <i>// C++ 程式要高亮第幾行</i>
+  <b>title, msg, quiz</b>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>換一張圖</td><td><code>CAMPUS</code> 或 <code>ONEWAY</code> 的邊清單（頂點固定 6 個，座標在 <code>POS</code>）</td><td>1～9 行</td></tr>
+              <tr><td>第 4 關多檢查一條路線</td><td>LEVELS 第 4 關的 <code>seqs</code> 加一個字串，例如 <code>"DEFD"</code></td><td>1 行</td></tr>
+              <tr><td>加「查詢」步驟</td><td>關卡的 <code>queries</code> 加一筆，例如 <code>["deg", 4]</code></td><td>1 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 寫一個圖的類別 Graph，同時用「鄰接矩陣」和「鄰接串列」存同一張圖。
+
+需要的成員：
+- Graph(int V, bool directed)
+- void addEdge(int u, int v, int w = 1)
+- void removeEdge(int u, int v)
+- bool isAdj(int u, int v)        // 用矩陣，O(1)
+- int  outDeg(int u), inDeg(int u)
+- void printMatrix(), printList()
+
+要求：
+1. 頂點用 0 ~ V-1 編號，印出時換成字母 A、B、C...
+2. 無向圖時，addEdge 要同時更新 M[u][v]、M[v][u]、adj[u]、adj[v]
+3. 用這 9 條邊測試：A-B, A-C, B-C, B-D, C-D, C-E, D-E, D-F, E-F
+4. 印出每個頂點的度數，驗證「度數總和 = 2 × 邊數」
+5. 再用有向圖 A→B, A→C, B→D, C→B, C→E, D→C, D→F, E→D, F→E 測試，印出出度和入度</pre>
+        <h4>延伸題 1：判斷是不是路徑、是不是環</h4>
+        <pre class="code">寫一個函式，輸入一串頂點（例如 B C E D B），判斷它是不是路徑、
+是不是簡單路徑、是不是環。只能用 isAdj 查相鄰。</pre>
+        <h4>延伸題 2：兩種表示法互轉</h4>
+        <pre class="code">寫 matrixToList 和 listToMatrix 兩個函式，並說明各自的時間複雜度。</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 21 圖的基本概念</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  var NM = ["A", "B", "C", "D", "E", "F"];
+  var PLACE = ["校門", "圖書館", "餐廳", "系館", "宿舍", "體育館"];
+  var POS = [[60,160], [190,60], [190,260], [350,60], [350,260], [480,160]];
+  var V = 6;
+
+  /* 校園地圖：[u, v, 走路分鐘]，照字母順序（清單才會照字母順序） */
+  var CAMPUS = [[0,1,4], [0,2,2], [1,2,1], [1,3,5], [2,3,8], [2,4,10], [3,4,2], [3,5,6], [4,5,3]];
+  /* 單行道版本：[從, 到] */
+  var ONEWAY = [[0,1], [0,2], [1,3], [2,1], [2,4], [3,2], [3,5], [4,3], [5,4]];
+  var CHAIN  = [[0,1], [1,2], [2,3], [3,4], [4,5]];
+  var FULL = [];
+  (function(){ for(var u = 0; u < V; u++) for(var v = u + 1; v < V; v++) FULL.push([u, v]); })();
+
+  var LEVELS = [
+    {tag:"1", n:"無權重：一條一條建", type:"build", directed:false, weighted:false, edges:CAMPUS, detail:2,
+     queries:[["adj",3,1], ["adj",0,5], ["deg",2], ["nbrs",1], ["count"]],
+     d:"把校園的 9 條路一條一條加進去，<b>先不管走路幾分鐘</b>：相鄰就記 1。看每加一條邊，矩陣改哪兩格、哪兩條清單多一筆。"},
+    {tag:"2", n:"有權重：走路幾分鐘", type:"build", directed:false, weighted:true, edges:CAMPUS, detail:1,
+     queries:[["adj",2,4], ["adj",0,3], ["nbrs",3], ["count"]],
+     d:"同一張校園圖，這次矩陣裡填的是<b>走路分鐘</b>，0 代表沒有直達的路。"},
+    {tag:"3", n:"有向：單行道", type:"build", directed:true, weighted:false, edges:ONEWAY, detail:2,
+     queries:[["adj",2,1], ["adj",1,2], ["deg",2], ["indeg",1], ["indeg",0], ["count"]],
+     d:"校園改成 9 條<b>單行道</b>。每條邊只記一個方向：矩陣只改一格、只有一條清單多一筆。看矩陣怎麼變得不對稱。"},
+    {tag:"4", n:"路徑與環", type:"path", seqs:["ABDF", "ADF", "ACBCE", "BCEDB", "ABCA", "ABA"],
+     d:"校園圖已經建好。給你幾條路線，用矩陣一步一步查「每一步有沒有邊」，判斷它是簡單路徑、有重複的路徑、環，還是根本不是路徑。"},
+    {tag:"5", n:"稀疏 vs 稠密", type:"density",
+     d:"同樣 6 個頂點，邊從 5 條、9 條到 15 條（全部連滿）。矩陣永遠 36 格，串列跟著邊數變大。"},
+    {tag:"∞", n:"自由模式", type:"free",
+     d:"自己畫一張圖：點兩個頂點加邊或刪邊。"}
+  ];
+
+  var CODE = [
+    "const int V = 6;",
+    "int M[V][V] = {};",
+    "vector<vector<int>> adj(V);",
+    "void addEdge(int u, int v, int w, bool directed) {",
+    "    M[u][v] = w;",
+    "    adj[u].push_back(v);",
+    "    if (!directed) {",
+    "        M[v][u] = w;",
+    "        adj[v].push_back(u);",
+    "    }",
+    "}",
+    "void removeEdge(int u, int v, bool directed) {",
+    "    M[u][v] = 0;  eraseOne(adj[u], v);",
+    "    if (!directed) { M[v][u] = 0;  eraseOne(adj[v], u); }",
+    "}",
+    "bool isAdj(int u, int v) {",
+    "    return M[u][v] != 0;",
+    "}",
+    "int deg(int u) {",
+    "    return adj[u].size();",
+    "}",
+    "int inDeg(int v) {",
+    "    int c = 0;",
+    "    for (int u = 0; u < V; u++) if (M[u][v] != 0) c++;",
+    "    return c;",
+    "}",
+    "void printNbrs(int u) {",
+    "    for (int v : adj[u]) cout << char('A' + v) << ' ';",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "const int V = 6：準備一個名字叫 V 的整數（int），值是 6，代表有 6 個頂點。const 的意思是「固定不變」。頂點用編號 0～5 代表 A～F，因為陣列的格子只能用數字當號碼。",
+    "M 是一個「二維陣列」：6 列 × 6 欄的表格，第 u 列第 v 欄寫成 M[u][v]。= {} 的意思是全部格子先填 0（一開始沒有任何邊）。這張表就是鄰接矩陣。",
+    "vector 是「可以自己變長的陣列」。vector<int> 是一條裝整數的清單；vector<vector<int>> 是「一排清單」——每個頂點一條。adj(V) 表示先準備 V＝6 條空清單。adj[u] 就是 u 的鄰居清單。",
+    "addEdge（加一條邊）這台機器的開頭。交給它四樣東西：起點 u、終點 v、權重 w（沒權重就傳 1）、directed（是不是有向圖，bool 只有 true 對 / false 錯兩種值）。",
+    "在矩陣第 u 列、第 v 欄填上 w。從此只要看 M[u][v] 不是 0，就知道 u 到 v 有邊。",
+    "push_back＝「加到清單最後面」。在 u 的清單尾巴加上 v：v 成了 u 的鄰居。有權重的圖，清單常改成連權重一起存（見下方完整版最後一段）；這裡為了簡單，權重只記在 M。",
+    "if＝「如果」；! 唸作「不是」。整句：如果不是有向圖（也就是無向圖），就要把大括號裡的兩行也做一次。有向圖會跳過。",
+    "無向圖的 u–v 從 v 看也是一條邊，所以矩陣的「對面那格」第 v 列第 u 欄也填 w。這就是無向圖的矩陣會左右對稱的原因。",
+    "在 v 的清單尾巴加上 u。一條無向邊在兩條清單裡各出現一次，所以串列總共 2E 格。",
+    "if 的範圍到這裡結束。",
+    "addEdge 結束。不管圖多大，加一條邊只做固定幾件事：O(1)。",
+    "removeEdge（刪一條邊）這台機器的開頭，給它 u、v 和是不是有向圖。",
+    "矩陣那格改回 0，一步完成；但清單要用 eraseOne 從頭找到 v 再刪掉，最多要看 deg(u) 格——串列刪邊比矩陣慢。",
+    "無向圖反方向也刪：M[v][u] 改回 0，v 的清單裡刪掉 u。",
+    "removeEdge 結束。",
+    "isAdj（u、v 相鄰嗎？）的開頭。bool 表示它回答「是／否」。",
+    "return＝把答案交回去。直接看矩陣 M[u][v] 那一格：不是 0 就相鄰。只看一格，O(1)——這是矩陣最大的優點。",
+    "isAdj 結束。",
+    "deg（度數）的開頭：回答 u 有幾條邊。有向圖時算的是出度。",
+    "size() 是清單目前有幾格。u 的清單有幾格，u 就有幾個鄰居，也就是度數。",
+    "deg 結束。",
+    "inDeg（入度）的開頭：有向圖裡，有幾個箭頭指向 v？",
+    "c 是計數器，先歸 0。",
+    "for 迴圈：讓 u 從 0、1、2……一直到 5，一個一個試。每個 u 都看矩陣第 u 列第 v 欄，不是 0 就代表有 u→v 這個箭頭，c 加 1（c++）。等於把第 v 欄從上看到下。",
+    "回傳數到的箭頭數。看了整整一欄 V 格，O(V)。",
+    "inDeg 結束。",
+    "printNbrs（列出 u 的鄰居）的開頭。",
+    "for (int v : adj[u]) 的意思是「把 adj[u] 裡的每一格輪流拿出來叫 v」。char('A' + v) 把編號換回字母（0→A、1→B…），cout << 印到螢幕。只看 u 真正的鄰居，O(度數)。",
+    "printNbrs 結束。"
+  ];
+
+  var BADGE = {start:"START", call:"CALL", mset:"MATRIX", push:"PUSH", branch:"IF", quick:"ADD",
+               query:"QUERY", count:"COUNT", check:"EDGE OK", fail:"NO EDGE", verdict:"VERDICT",
+               size:"SIZE", done:"DONE", fadd:"ADD", frm:"REMOVE", fsel:"PICK", fnone:"FREE"};
+  var KMAP  = {start:"start", call:"hot", mset:"push", push:"push", branch:"start", quick:"push",
+               query:"hot", count:"ok", check:"ok", fail:"no", verdict:"done",
+               size:"start", done:"done", fadd:"push", frm:"no", fsel:"hot", fnone:"start"};
+
+  var $ = function(id){ return document.getElementById(id); };
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  var S = {
+    level:null, levelIdx:-1, steps:[], cur:0, mode:"demo", playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1,
+    free:false, fg:null, sel:-1, flog:[]
+  };
+
+  /* ---------- 2. 圖本身：跟 C++ 一模一樣的操作 ---------- */
+
+  function newGraph(directed, weighted){
+    var M = [], adj = [];
+    for(var i = 0; i < V; i++){ M.push([0,0,0,0,0,0]); adj.push([]); }
+    return {directed:!!directed, weighted:!!weighted, M:M, adj:adj};
+  }
+  function cloneG(g){
+    return {directed:g.directed, weighted:g.weighted,
+      M:g.M.map(function(r){ return r.slice(); }),
+      adj:g.adj.map(function(a){ return a.slice(); })};
+  }
+  function addEdge(g, u, v, w){
+    g.M[u][v] = w; g.adj[u].push(v);
+    if(!g.directed){ g.M[v][u] = w; g.adj[v].push(u); }
+  }
+  function eraseOne(list, x){ var k = list.indexOf(x); if(k >= 0) list.splice(k, 1); }
+  function removeEdge(g, u, v){
+    g.M[u][v] = 0; eraseOne(g.adj[u], v);
+    if(!g.directed){ g.M[v][u] = 0; eraseOne(g.adj[v], u); }
+  }
+  /* 自由模式：有邊就刪、沒邊就加（不改原本的 g） */
+  function applyToggle(g, u, v){
+    var h = cloneG(g);
+    if(u === v) return {g:h, action:"none"};
+    if(h.M[u][v] !== 0){ removeEdge(h, u, v); return {g:h, action:"remove"}; }
+    addEdge(h, u, v, 1);
+    return {g:h, action:"add"};
+  }
+  function nonZero(g){ var c = 0; for(var i = 0; i < V; i++) for(var j = 0; j < V; j++) if(g.M[i][j]) c++; return c; }
+  function listCells(g){ var c = 0; for(var i = 0; i < V; i++) c += g.adj[i].length; return c; }
+  function inDeg(g, v){ var c = 0; for(var u = 0; u < V; u++) if(g.M[u][v]) c++; return c; }
+  /* 邊數：無向圖看「至少一個方向有記」的 u<v 配對（加到一半時也算一條） */
+  function edgeCount(g){
+    if(g.directed) return nonZero(g);
+    var c = 0;
+    for(var u = 0; u < V; u++) for(var v = u + 1; v < V; v++) if(g.M[u][v] || g.M[v][u]) c++;
+    return c;
+  }
+  function fmt(list){ return list.length ? list.map(function(x){ return NM[x]; }).join(", ") : "（空）"; }
+  function Mn(u, v){ return "M[" + NM[u] + "][" + NM[v] + "]"; }
+
+  /* ---------- 3. 資料層：一次把整關算完 ---------- */
+
+  function buildSteps(level){
+    var steps = [];
+    var g = newGraph(!!level.directed, !!level.weighted);
+
+    function put(o){
+      o.g = cloneG(o.g || g);
+      if(!o.hiE) o.hiE = null;
+      o.hiCells = o.hiCells || []; o.hiList = o.hiList || []; o.hiV = o.hiV || [];
+      o.lane = o.lane || null; o.pathE = o.pathE || []; o.badE = o.badE || null;
+      if(o.line === undefined) o.line = -1;
+      if(o.quiz && o.quiz.opts.length < 2) delete o.quiz;
+      steps.push(o);
+    }
+    function setG(h){ g = h; }
+
+    if(level.type === "build") buildEdges(level, put, function(){ return g; });
+    else if(level.type === "path") buildPath(level, put, setG, function(){ return g; });
+    else if(level.type === "density") buildDensity(level, put, setG);
+    return steps;
+  }
+
+  /* 闖關題：正確答案一定放進去，錯的選項去重複 */
+  function mkQuiz(q, right, wrongs){
+    var opts = [{t:right.t, s:right.s || "", v:"a"}], seen = {}, code = 98;
+    seen[right.t] = 1;
+    for(var k = 0; k < wrongs.length; k++){
+      var w = wrongs[k];
+      if(w && !seen[w.t]){ seen[w.t] = 1; opts.push({t:w.t, s:w.s || "", v:String.fromCharCode(code++)}); }
+    }
+    return {q:q, ans:"a", opts:opts};
+  }
+  function numQuiz(q, ans, extra){
+    var w = [];
+    if(ans - 1 >= 0) w.push({t:String(ans - 1)});
+    w.push({t:String(ans + 1)});
+    (extra || []).forEach(function(x){ if(x !== ans && x >= 0) w.push({t:String(x), s:""}); });
+    return mkQuiz(q, {t:String(ans)}, w);
+  }
+  function listQuiz(q, list, u, newest){
+    var without = list.filter(function(x){ return x !== newest; });
+    var front = [newest].concat(without);
+    var withSelf = list.concat([u]);
+    return mkQuiz(q, {t:fmt(list)}, [
+      {t:fmt(without), s:"還沒加"},
+      {t:fmt(front), s:"新的放最前面"},
+      {t:fmt(withSelf), s:"連自己也算"}]);
+  }
+
+  /* 第 1～3 關：一條一條加邊 */
+  function buildEdges(level, put, G){
+    var dir = !!level.directed, wtd = !!level.weighted, arrow = dir ? "→" : "–";
+    put({kind:"start", line:1,
+      title:"先替頂點編號：A＝0、B＝1、……、F＝5",
+      msg:level.d + " 程式裡陣列的格子只能用數字當號碼，所以先把 A～F 換成 0～5。矩陣 M 全部是 0、6 條清單都是空的——還沒有任何邊。",
+      log:"V = 6"});
+
+    var types = dir ? ["cells", "deg", "list", "indeg"] : (wtd ? ["weight", "deg", "list", "cells"] : ["cells", "deg", "list"]);
+
+    level.edges.forEach(function(e, k){
+      var g = G(), u = e[0], v = e[1], w = wtd ? e[2] : 1;
+      var en = NM[u] + arrow + NM[v];
+      var call = "addEdge(" + NM[u] + ", " + NM[v] + (wtd ? ", " + w : "") + ")";
+      var wTxt = wtd ? "w = " + w + "（走路 " + w + " 分鐘）" : "w = 1（沒有權重，只記「有邊」）";
+
+      if(k < level.detail){
+        put({kind:"call", line:4, hiE:[u, v], hiV:[u, v], log:en,
+          title:call + "：加入 " + (dir ? "單行道 " : "邊 ") + en,
+          msg:"程式裡 " + NM[u] + " 是 u = <b>" + u + "</b>、" + NM[v] + " 是 v = <b>" + v + "</b>，" + wTxt + "。" +
+            (dir ? "有向圖：只能從 " + NM[u] + " 走到 " + NM[v] + "。" : "無向圖：兩頭都能走。") +
+            "地圖上的橘色虛線是準備要加的邊。接下來看矩陣和串列怎麼一行一行跟著改。",
+          quiz:(k === 0) ? mkQuiz("addEdge 要的是編號。" + NM[u] + "、" + NM[v] + " 在程式裡是幾號？",
+            {t:"u = " + u + ", v = " + v, s:"從 0 開始數"},
+            [{t:"u = " + (u+1) + ", v = " + (v+1), s:"從 1 開始數"},
+             {t:"u = " + NM[u] + ", v = " + NM[v], s:"直接用字母"}]) : null});
+
+        g.M[u][v] = w;
+        put({kind:"mset", line:5, hiE:[u, v], hiCells:[[u, v]], hiV:[u, v], log:Mn(u, v) + "=" + w,
+          title:Mn(u, v) + " = " + w + "：矩陣第 " + NM[u] + " 列、第 " + NM[v] + " 欄",
+          msg:"M[" + u + "][" + v + "]（也就是 " + Mn(u, v) + "）從 0 改成 <b>" + w + "</b>。以後只要看這一格，就知道 " + NM[u] + " 到 " + NM[v] + " 有沒有邊" + (wtd ? "、要走幾分鐘" : "") + "。",
+          quiz: wtd
+            ? mkQuiz("第 5 行：" + Mn(u, v) + " 要填多少？", {t:String(w), s:"走路分鐘"},
+                [{t:"1", s:"只記有沒有"}, {t:"0", s:"0 代表沒路"}])
+            : mkQuiz("第 5 行先改矩陣的哪一格？", {t:Mn(u, v), s:"第 " + NM[u] + " 列、第 " + NM[v] + " 欄"},
+                [{t:Mn(v, u), s:"第 " + NM[v] + " 列、第 " + NM[u] + " 欄"}, {t:Mn(u, u), s:"對角線"}])});
+
+        var before = g.adj[u].slice();
+        g.adj[u].push(v);
+        put({kind:"push", line:6, hiE:[u, v], hiList:[[u, g.adj[u].length - 1]], hiV:[u, v], log:"adj[" + NM[u] + "]+" + NM[v],
+          title:"adj[" + NM[u] + "].push_back(" + NM[v] + ")：" + NM[v] + " 加到 " + NM[u] + " 的清單尾巴",
+          msg:NM[u] + " 的清單從 " + fmt(before) + " 變成 <b>" + fmt(g.adj[u]) + "</b>。清單長度 " + g.adj[u].length + " 就是 " + NM[u] + " 目前" + (dir ? "的出度" : "的度數") + "。",
+          quiz:listQuiz("第 6 行做完，adj[" + NM[u] + "] 是？", g.adj[u], u, v)});
+
+        put({kind:"branch", line:7, hiE:[u, v], hiV:[u, v], log:dir ? "有向→跳過" : "無向→繼續",
+          title:dir ? "if (!directed) 不成立：跳過反方向" : "if (!directed) 成立：反方向也要記",
+          msg:dir ? "這是<b>有向圖</b>，" + NM[v] + " 不能走回 " + NM[u] + "，所以 " + Mn(v, u) + " 維持 0、adj[" + NM[v] + "] 不動。一條有向邊只佔<b>一格</b>矩陣、<b>一筆</b>清單。"
+                  : "這是<b>無向圖</b>：" + NM[u] + "–" + NM[v] + " 從 " + NM[v] + " 看也是一條邊。所以還要把反方向記一次，不然從 " + NM[v] + " 查會以為沒有路。",
+          quiz:mkQuiz("這是" + (dir ? "有向" : "無向") + "圖。第 7 行 if (!directed) 成立嗎？",
+            dir ? {t:"不成立：跳過反方向", s:"單行道"} : {t:"成立：反方向也要記", s:"雙向道"},
+            [dir ? {t:"成立：反方向也要記", s:""} : {t:"不成立：跳過反方向", s:""}])});
+
+        if(!dir){
+          g.M[v][u] = w;
+          put({kind:"mset", line:8, hiE:[u, v], hiCells:[[v, u]], hiV:[u, v], log:Mn(v, u) + "=" + w,
+            title:Mn(v, u) + " = " + w + "：對面那一格",
+            msg:"第 " + NM[v] + " 列、第 " + NM[u] + " 欄也填 <b>" + w + "</b>。" + Mn(u, v) + " 和 " + Mn(v, u) + " 沿著對角線互相對稱——無向圖的矩陣永遠左右對稱。",
+            quiz:mkQuiz("第 8 行改哪一格？", {t:Mn(v, u), s:"對面那格"},
+              [{t:Mn(u, v), s:"剛剛改過的"}, {t:Mn(v, v), s:"對角線"}])});
+          var before2 = g.adj[v].slice();
+          g.adj[v].push(u);
+          put({kind:"push", line:9, hiE:[u, v], hiList:[[v, g.adj[v].length - 1]], hiV:[u, v], log:"adj[" + NM[v] + "]+" + NM[u],
+            title:"adj[" + NM[v] + "].push_back(" + NM[u] + ")：" + NM[u] + " 也加進 " + NM[v] + " 的清單",
+            msg:NM[v] + " 的清單從 " + fmt(before2) + " 變成 <b>" + fmt(g.adj[v]) + "</b>。這條邊加完了：矩陣 2 格、清單 2 筆。",
+            quiz:listQuiz("第 9 行做完，adj[" + NM[v] + "] 是？", g.adj[v], v, u)});
+        }
+        return;
+      }
+
+      /* 後面的邊：一步做完整個 addEdge */
+      addEdge(g, u, v, w);
+      var cells = dir ? [[u, v]] : [[u, v], [v, u]];
+      var hl = [[u, g.adj[u].length - 1]];
+      if(!dir) hl.push([v, g.adj[v].length - 1]);
+      var t = types[(k - level.detail) % types.length], quiz = null;
+      var cellsTxt = dir ? "只有 " + Mn(u, v) + " 一格" : Mn(u, v) + " 和 " + Mn(v, u) + " 兩格";
+      if(t === "cells"){
+        quiz = mkQuiz(call + "：矩陣裡哪幾格會改？", {t:cellsTxt, s:dir ? "單行道只記一個方向" : "兩端各記一次"},
+          [{t:dir ? Mn(u, v) + " 和 " + Mn(v, u) + " 兩格" : "只有 " + Mn(u, v) + " 一格", s:""},
+           {t:Mn(u, u) + " 和 " + Mn(v, v) + " 兩格", s:"對角線"}]);
+      } else if(t === "deg"){
+        quiz = dir ? numQuiz(call + " 做完，" + NM[u] + " 的出度（adj[" + NM[u] + "] 有幾格）是？", g.adj[u].length)
+                   : numQuiz(call + " 做完，deg(" + NM[v] + ") 是多少？", g.adj[v].length);
+      } else if(t === "list"){
+        quiz = listQuiz(call + " 做完，adj[" + NM[u] + "] 是？", g.adj[u], u, v);
+      } else if(t === "weight"){
+        quiz = mkQuiz(call + " 做完，" + Mn(v, u) + " 是多少？", {t:String(w), s:"跟 " + Mn(u, v) + " 一樣"},
+          [{t:"1", s:"只記有沒有"}, {t:"0", s:"只記了一個方向"}]);
+      } else if(t === "indeg"){
+        quiz = numQuiz(call + " 做完，" + NM[v] + " 的入度（有幾個箭頭指向 " + NM[v] + "）是？", inDeg(g, v), [g.adj[v].length]);
+      }
+      put({kind:"quick", line:4, hiE:[u, v], hiCells:cells, hiList:hl, hiV:[u, v], log:en,
+        title:call + " 一次做完",
+        msg:"矩陣改了 <b>" + cellsTxt + "</b>" + (wtd ? "（填 " + w + "）" : "") + "；" +
+          "adj[" + NM[u] + "] 變成 " + fmt(g.adj[u]) + (dir ? "" : "、adj[" + NM[v] + "] 變成 " + fmt(g.adj[v])) + "。" +
+          "目前 E = " + edgeCount(g) + "。",
+        quiz:quiz});
+    });
+
+    /* 建好之後：問幾個問題 */
+    var g = G();
+    level.queries.forEach(function(qq){ putQuery(qq, g, put); });
+
+    var nz = nonZero(g), E = edgeCount(g);
+    put({kind:"done", line:-1, log:"E = " + E,
+      title:"建好了！V = 6、E = " + E,
+      msg:dir
+        ? "矩陣裡有 <b>" + nz + "</b> 個 1 ＝ 邊數 " + E + "（每個箭頭只記一格），而且<b>不對稱</b>。出度總和 ＝ 入度總和 ＝ " + E + "。串列共 " + listCells(g) + " 格。"
+        : "矩陣 36 格裡有 <b>" + nz + "</b> 格不是 0 ＝ 2 × " + E + "；串列共 <b>" + listCells(g) + "</b> 格 ＝ 2 × " + E + "；度數總和也是 " + listCells(g) + "。每條無向邊都在兩端各記一次——這就是握手定理。"});
+  }
+
+  function putQuery(qq, g, put){
+    var op = qq[0], dir = g.directed, wtd = g.weighted;
+    if(op === "adj"){
+      var a = qq[1], b = qq[2], val = g.M[a][b];
+      var quiz;
+      if(wtd){
+        quiz = val
+          ? mkQuiz(Mn(a, b) + " 是多少？代表什麼？", {t:val + "：有路，走 " + val + " 分鐘"},
+              [{t:"1：有路", s:"權重不是 1"}, {t:"0：沒有直達的路"}])
+          : mkQuiz(Mn(a, b) + " 是 0，代表什麼？", {t:NM[a] + "、" + NM[b] + " 之間沒有直達的路"},
+              [{t:"從 " + NM[a] + " 走到 " + NM[b] + " 只要 0 分鐘"}, {t:"還沒算出來"}]);
+      } else {
+        quiz = mkQuiz("isAdj(" + NM[a] + ", " + NM[b] + ")：" + Mn(a, b) + " 是多少？",
+          val ? {t:"1：相鄰"} : {t:"0：不相鄰"}, [val ? {t:"0：不相鄰"} : {t:"1：相鄰"}]);
+      }
+      var rev = dir && g.M[b][a] !== val;
+      put({kind:"query", line:17, hiCells:[[a, b]], hiV:[a, b], hiE:val ? [a, b] : null, log:"isAdj " + NM[a] + NM[b],
+        title:"isAdj(" + NM[a] + ", " + NM[b] + ")：看 " + Mn(a, b) + " 一格就知道",
+        msg:Mn(a, b) + " ＝ <b>" + val + "</b>，所以 " + NM[a] + (val ? (dir ? " 可以直接走到 " : " 和 ") + NM[b] + (dir ? "" : " 相鄰") : (dir ? " 不能直接走到 " : " 和 ") + NM[b] + (dir ? "" : " 不相鄰")) +
+          (wtd && val ? "，走路 " + val + " 分鐘" : "") + "。" +
+          (rev ? "注意反方向 " + Mn(b, a) + " ＝ " + g.M[b][a] + "：有向圖的兩個方向要分開看。" : "") +
+          "不管圖多大，矩陣查相鄰只看一格：<b>O(1)</b>。如果用串列，要把 adj[" + NM[a] + "] 一格一格找。",
+        quiz:quiz});
+    } else if(op === "deg"){
+      var u = qq[1], d = g.adj[u].length, idx = [];
+      for(var k = 0; k < d; k++) idx.push([u, k]);
+      put({kind:"query", line:20, hiList:idx, hiV:[u], lane:{row:u}, log:(dir ? "out " : "deg ") + NM[u],
+        title:(dir ? "出度 " : "deg(") + NM[u] + (dir ? "" : ")") + " ＝ adj[" + NM[u] + "] 有幾格 ＝ " + d,
+        msg:"adj[" + NM[u] + "] ＝ " + fmt(g.adj[u]) + "，共 <b>" + d + "</b> 格。矩陣第 " + NM[u] + " 列不是 0 的格子也剛好 " + d + " 個（最右邊那欄）。" +
+          (dir ? "有向圖裡這叫<b>出度</b>：從 " + NM[u] + " 出發的箭頭數。" : ""),
+        quiz:numQuiz(dir ? NM[u] + " 的出度是多少？" : "deg(" + NM[u] + ") 是多少？", d, dir ? [d + inDeg(g, u)] : [])});
+    } else if(op === "indeg"){
+      var v = qq[1], c = inDeg(g, v), cells = [];
+      for(var r = 0; r < V; r++) if(g.M[r][v]) cells.push([r, v]);
+      var from = []; for(r = 0; r < V; r++) if(g.M[r][v]) from.push(r);
+      put({kind:"query", line:24, hiCells:cells, hiV:[v], lane:{col:v}, log:"in " + NM[v],
+        title:"inDeg(" + NM[v] + ")：從上到下數第 " + NM[v] + " 欄",
+        msg:"第 " + NM[v] + " 欄不是 0 的格子在 " + (from.length ? fmt(from) + " 那幾列" : "——一個都沒有") + "，入度 ＝ <b>" + c + "</b>。" +
+          (c === 0 ? "沒有任何單行道通往 " + NM[v] + "：從別的地方<b>回不到</b> " + PLACE[v] + "。" : "") +
+          "串列只記「出去」的方向，要算入度就得看矩陣的一整欄（V 格），或把每條清單都翻一遍。",
+        quiz:numQuiz("有幾個箭頭指向 " + NM[v] + "（" + NM[v] + " 的入度）？", c, [g.adj[v].length])});
+    } else if(op === "nbrs"){
+      var x = qq[1], list = g.adj[x], hl = [];
+      for(var j = 0; j < list.length; j++) hl.push([x, j]);
+      var quiz2;
+      if(wtd){
+        var best = list[0];
+        list.forEach(function(y){ if(g.M[x][y] < g.M[x][best]) best = y; });
+        var others = list.filter(function(y){ return y !== best; }).map(function(y){ return {t:NM[y], s:g.M[x][y] + " 分鐘"}; });
+        quiz2 = mkQuiz(NM[x] + " 的鄰居裡，走到哪一個最近？", {t:NM[best], s:g.M[x][best] + " 分鐘"}, others);
+      } else {
+        var notN = [];
+        for(var y = 0; y < V; y++) if(y !== x && list.indexOf(y) < 0) notN.push(y);
+        quiz2 = mkQuiz("printNbrs(" + NM[x] + ") 會印出什麼？", {t:fmt(list)},
+          [{t:fmt(list.slice(0, -1)), s:"少一個"},
+           notN.length ? {t:fmt(list.concat([notN[0]]).sort()), s:"多一個"} : null,
+           {t:fmt(list.concat([x]).sort()), s:"連自己"}]);
+      }
+      put({kind:"query", line:28, hiList:hl, hiV:[x].concat(list), lane:{row:x}, log:"nbrs " + NM[x],
+        title:"printNbrs(" + NM[x] + ")：把 adj[" + NM[x] + "] 從頭唸到尾",
+        msg:NM[x] + " 的鄰居：<b>" + list.map(function(y){ return NM[y] + (wtd ? "（" + g.M[x][y] + " 分）" : ""); }).join("、") + "</b>。" +
+          "串列只看 " + list.length + " 格（度數）；如果用矩陣，要把第 " + NM[x] + " 列 6 格全部看完，連 0 也要看。",
+        quiz:quiz2});
+    } else if(op === "count"){
+      var nz = nonZero(g), E = edgeCount(g);
+      put({kind:"count", line:2, log:"非0 = " + nz,
+        title:"數一數：矩陣裡有幾格不是 0？",
+        msg:"36 格裡有 <b>" + nz + "</b> 格不是 0。" + (dir
+          ? "有向圖每條邊只記一格，所以剛好 ＝ E ＝ " + E + "。"
+          : "每條無向邊記兩格，所以是 2 × E ＝ 2 × " + E + "。矩陣裡 1 的個數 ÷ 2 才是邊數。"),
+        quiz:mkQuiz("矩陣 36 格裡，有幾格不是 0？", {t:String(nz)},
+          [{t:String(dir ? 2 * E : E), s:dir ? "每條邊兩格？" : "跟邊數一樣？"}, {t:"36", s:"全部"}, {t:String(nz + 1)}])});
+    }
+  }
+
+  /* 第 4 關：用矩陣檢查路徑與環 */
+  function buildPath(level, put, setG, G){
+    var g = newGraph(false, false);
+    CAMPUS.forEach(function(e){ addEdge(g, e[0], e[1], 1); });
+    setG(g);
+    put({kind:"start", line:-1, log:"校園圖",
+      title:"校園圖已經建好（無權重）",
+      msg:level.d + " 判斷規則：每一步都有邊 → <b>路徑</b>；頂點都不重複 → <b>簡單路徑</b>；回到起點、中間不重複、至少 3 個頂點 → <b>環</b>。"});
+    var CLS = {simple:"簡單路徑（頂點都不重複）", repeat:"是路徑，但有重複頂點", cycle:"環", closed:"回到起點，但不是環", none:"不是路徑"};
+    level.seqs.forEach(function(sq){
+      var s = sq.split("").map(function(ch){ return NM.indexOf(ch); });
+      var route = s.map(function(x){ return NM[x]; }).join("→"), good = [], fail = -1;
+      for(var i = 0; i + 1 < s.length; i++){
+        var a = s[i], b = s[i + 1], ok = g.M[a][b] !== 0;
+        var seen = s.slice(0, i + 2);
+        put({kind:ok ? "check" : "fail", line:17, hiCells:[[a, b]], hiV:seen, pathE:good.slice(),
+          hiE:ok ? [a, b] : null, badE:ok ? null : [a, b], log:route + " " + NM[a] + NM[b],
+          title:"路線 " + route + "：第 " + (i + 1) + " 步 " + NM[a] + "→" + NM[b] + "，" + Mn(a, b) + " ＝ " + g.M[a][b],
+          msg:ok ? NM[a] + " 和 " + NM[b] + " 之間<b>有邊</b>，這一步可以走。" : NM[a] + " 和 " + NM[b] + " 之間<b>沒有邊</b>（紅色虛線）。這一步走不了，整條路線就不是路徑，後面不用再查。",
+          quiz:mkQuiz("路線 " + route + " 的第 " + (i + 1) + " 步：" + Mn(a, b) + " 是多少？",
+            ok ? {t:"1：有邊，可以走"} : {t:"0：沒有邊"}, [ok ? {t:"0：沒有邊"} : {t:"1：有邊，可以走"}])});
+        if(!ok){ fail = i; break; }
+        good.push([a, b]);
+      }
+      var kind;
+      if(fail >= 0) kind = "none";
+      else if(s[0] === s[s.length - 1]){
+        var body = s.slice(0, -1), uniq = body.filter(function(x, i2){ return body.indexOf(x) === i2; });
+        kind = (uniq.length === body.length && body.length >= 3) ? "cycle" : "closed";
+      } else {
+        var u2 = s.filter(function(x, i2){ return s.indexOf(x) === i2; });
+        kind = (u2.length === s.length) ? "simple" : "repeat";
+      }
+      var why = {
+        simple:"每一步都有邊，" + s.length + " 個頂點都不一樣。長度 ＝ " + (s.length - 1) + " 條邊。",
+        repeat:"每一步都有邊，所以是路徑；但有頂點出現不只一次，不是簡單路徑。",
+        cycle:"每一步都有邊、回到起點 " + NM[s[0]] + "，中間 " + (s.length - 1) + " 個頂點都不重複——是一個長度 " + (s.length - 1) + " 的<b>環</b>。",
+        closed:"雖然回到 " + NM[s[0]] + "，但只是同一條邊走過去再走回來（頂點不到 3 個）。環不能重複用邊，所以<b>不是環</b>。",
+        none:"有一步沒有邊，所以連路徑都不是。"}[kind];
+      var opts = ["simple", "repeat", "cycle", "closed", "none"].filter(function(x){ return x !== kind; })
+        .map(function(x){ return {t:CLS[x]}; });
+      put({kind:"verdict", line:-1, hiV:s, pathE:good.slice(), badE:fail >= 0 ? [s[fail], s[fail + 1]] : null, log:route + " ⇒ " + {simple:"簡單", repeat:"重複", cycle:"環", closed:"非環", none:"非路徑"}[kind],
+        title:route + " ⇒ " + CLS[kind],
+        msg:why,
+        quiz:mkQuiz("所以 " + route + " 是？", {t:CLS[kind]}, opts.slice(0, 3))});
+    });
+    put({kind:"done", line:-1, log:"完成",
+      title:"判斷完畢",
+      msg:"每一步只要查矩陣<b>一格</b>就知道能不能走，所以檢查一條 k 步的路線只要 O(k)。第 22 關會讓電腦自己<b>找</b>路徑，而不只是檢查。"});
+  }
+
+  /* 第 5 關：稀疏 vs 稠密 */
+  function buildDensity(level, put, setG){
+    var sets = [
+      {name:"一直線（稀疏）", edges:CHAIN},
+      {name:"校園圖", edges:CAMPUS},
+      {name:"全部連滿（最稠密）", edges:FULL}];
+    var pctTxt = function(nz){ return Math.round(nz / 36 * 100) + "%"; };
+    sets.forEach(function(st, k){
+      var g = newGraph(false, false);
+      st.edges.forEach(function(e){ addEdge(g, e[0], e[1], 1); });
+      setG(g);
+      var E = edgeCount(g), nz = nonZero(g), lc = listCells(g);
+      if(k === 0){
+        put({kind:"size", line:2, log:st.name,
+          title:st.name + "：E = " + E + "，矩陣還是 36 格",
+          msg:level.d + " 先看最少的：A–B–C–D–E–F 排成一直線，只有 " + E + " 條邊。矩陣不管邊多少，永遠 V × V ＝ <b>36</b> 格，其中只有 " + nz + " 格是 1（" + pctTxt(nz) + "），其他全是 0。",
+          quiz:mkQuiz("6 個頂點的鄰接矩陣總共有幾格？", {t:"36", s:"V × V"}, [{t:String(nz), s:"只算 1"}, {t:"12", s:"V × 2"}])});
+        put({kind:"size", line:3, log:"串列 " + lc,
+          title:"同一張圖的串列：只有 " + lc + " 格",
+          msg:"串列只記真的鄰居：每條邊兩格，共 2 × " + E + " ＝ <b>" + lc + "</b> 格（再加 6 條清單本身）。比矩陣的 36 格省很多。",
+          quiz:numQuiz("一直線這張圖，串列裡總共有幾格鄰居？", lc, [E, 36])});
+        put({kind:"size", line:28, hiList:[[0, 0]], hiV:[0, 1], lane:{row:0}, log:"nbrs A",
+          title:"列出 A 的鄰居：串列看 1 格，矩陣要看 6 格",
+          msg:"adj[A] ＝ " + fmt(g.adj[0]) + "，串列一格就唸完。矩陣得把第 A 列 6 格全部看過，才知道只有 B 是 1。圖越稀疏，矩陣浪費的時間越多。",
+          quiz:mkQuiz("用矩陣找 A 的所有鄰居，要看幾格？", {t:"6", s:"整列 V 格"}, [{t:"1", s:"只看鄰居"}, {t:"36", s:"整張表"}])});
+      } else {
+        put({kind:"size", line:-1, log:st.name,
+          title:st.name + "：E = " + E + "，非 0 格 " + nz + "／36，串列 " + lc + " 格",
+          msg:(k === 1
+            ? "校園圖 9 條邊：矩陣有 " + nz + " 格是 1（" + pctTxt(nz) + "），串列 " + lc + " 格。還是串列省。"
+            : "15 條邊是 6 個頂點能有的<b>最多</b>邊數（6 × 5 ÷ 2）。矩陣除了對角線全部是 1（" + nz + " 格），串列也是 " + lc + " 格——兩邊差不多大，這時矩陣一點都不浪費，查相鄰還更快。"),
+          quiz:k === 1
+            ? numQuiz("校園圖的串列總共有幾格鄰居？", lc, [E, 36])
+            : mkQuiz("全部連滿時，矩陣有幾格不是 0？", {t:String(nz), s:"36 − 對角線 6"}, [{t:"36", s:"全部"}, {t:"15", s:"邊數"}])});
+      }
+    });
+    put({kind:"done", line:-1, log:"結論",
+      title:"結論：稀疏用串列，稠密用矩陣",
+      msg:"矩陣的大小只看 V（永遠 V²），串列的大小看 V + E。真實的圖大多很稀疏：一萬個路口、三萬條路，矩陣要 1 億格，串列只要 7 萬格。"});
+  }
+
+  /* ---------- 4. 畫面層 ---------- */
+
+  function svgEl(tag, attrs, text){
+    var e = document.createElementNS(SVGNS, tag);
+    for(var k in attrs) e.setAttribute(k, attrs[k]);
+    if(text !== undefined) e.textContent = text;
+    return e;
+  }
+  function sameE(e, u, v, dir){
+    if(!e) return false;
+    return (e[0] === u && e[1] === v) || (!dir && e[0] === v && e[1] === u);
+  }
+  function inPath(st, u, v){
+    for(var k = 0; k < st.pathE.length; k++) if(sameE(st.pathE[k], u, v, st.g.directed)) return true;
+    return false;
+  }
+  function has(list, x){ return list.indexOf(x) >= 0; }
+
+  function drawEdge(svg, u, v, cls, opts){
+    var p = POS[u], q = POS[v], dx = q[0] - p[0], dy = q[1] - p[1], d = Math.sqrt(dx*dx + dy*dy);
+    var ux = dx / d, uy = dy / d, off = opts.off || 0, nx = -uy * off, ny = ux * off;
+    if(opts.arrow){
+      var r = 23, sx = p[0] + ux * r + nx, sy = p[1] + uy * r + ny;
+      var tx = q[0] - ux * r + nx, ty = q[1] - uy * r + ny, bx = tx - ux * 13, by = ty - uy * 13;
+      svg.appendChild(svgEl("line", {"class":"e " + cls, x1:sx, y1:sy, x2:bx, y2:by}));
+      var px = -uy * 6.5, py = ux * 6.5;
+      svg.appendChild(svgEl("polygon", {"class":"ah " + cls,
+        points:tx + "," + ty + " " + (bx + px) + "," + (by + py) + " " + (bx - px) + "," + (by - py)}));
+    } else {
+      svg.appendChild(svgEl("line", {"class":"e " + cls, x1:p[0], y1:p[1], x2:q[0], y2:q[1]}));
+    }
+    if(opts.w){
+      var mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+      if(p[0] === q[0]) mx -= 16; else if(p[1] === q[1]) my -= 9;
+      svg.appendChild(svgEl("text", {"class":"wl" + (cls.indexOf("hot") >= 0 ? " hot" : ""), x:mx, y:my + 5}, String(opts.w)));
+    }
+  }
+
+  function paintGraph(){
+    var st = S.steps[S.cur], g = st.g, dir = g.directed, svg = $("gsvg"), u, v;
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.classList.toggle("free", S.free);
+    var drawn = false;
+    for(u = 0; u < V; u++) for(v = 0; v < V; v++){
+      var on = dir ? g.M[u][v] !== 0 : (u < v && (g.M[u][v] !== 0 || g.M[v][u] !== 0));
+      if(!on) continue;
+      var cls = inPath(st, u, v) ? "good" : (sameE(st.hiE, u, v, dir) ? "hot" : "");
+      if(sameE(st.hiE, u, v, dir)) drawn = true;
+      drawEdge(svg, u, v, cls, {arrow:dir, off:(dir && g.M[v][u]) ? 7 : 0,
+        w:g.weighted ? (g.M[u][v] || g.M[v][u]) : 0});
+    }
+    /* 還沒寫進矩陣的邊（剛呼叫 addEdge）：橘色虛線 */
+    if(st.hiE && !drawn) drawEdge(svg, st.hiE[0], st.hiE[1], "pend", {arrow:dir, off:0, w:0});
+    if(st.badE) drawEdge(svg, st.badE[0], st.badE[1], "bad", {arrow:false, off:0, w:0});
+
+    var laneRow = st.lane && st.lane.row !== undefined ? st.lane.row : -1;
+    var laneCol = st.lane && st.lane.col !== undefined ? st.lane.col : -1;
+    for(u = 0; u < V; u++){
+      var c = "v";
+      if(S.free && S.sel === u) c += " sel";
+      else if(st.kind === "fail" && st.badE && has(st.badE, u)) c += " bad";
+      else if(st.kind === "verdict" && st.badE && has(st.badE, u)) c += " bad";
+      else if((st.kind === "verdict" || st.kind === "check" || st.kind === "fail") && has(st.hiV, u)) c += " good";
+      else if(has(st.hiV, u)) c += " hot";
+      if(u === laneRow || u === laneCol) c += " dg";
+      var gr = svgEl("g", {"class":c, "data-v":u, tabindex:S.free ? 0 : -1, role:S.free ? "button" : "img",
+        "aria-label":NM[u] + " " + PLACE[u]});
+      gr.appendChild(svgEl("circle", {cx:POS[u][0], cy:POS[u][1], r:22}));
+      gr.appendChild(svgEl("text", {"class":"vid", x:POS[u][0], y:POS[u][1] + 6}, NM[u]));
+      /* 上排（B、D）名字和度數放上面，下排（C、E）放下面，左右（A、F）名字下、度數上：不跟邊和箭頭打架 */
+      var row = POS[u][1] < 100 ? "top" : (POS[u][1] > 220 ? "bot" : "mid");
+      var nameY = row === "top" ? POS[u][1] - 30 : POS[u][1] + 38;
+      var degY = row === "top" ? POS[u][1] - 46 : (row === "bot" ? POS[u][1] + 55 : POS[u][1] - 30);
+      gr.appendChild(svgEl("text", {"class":"vnm", x:POS[u][0], y:nameY}, PLACE[u]));
+      var dg = dir ? "出" + g.adj[u].length + " 入" + inDeg(g, u) : "deg " + g.adj[u].length;
+      gr.appendChild(svgEl("text", {"class":"vdg", x:POS[u][0], y:degY}, dg));
+      svg.appendChild(gr);
+    }
+    $("graphNote").textContent = (dir ? "有向" : "無向") + (g.weighted ? "・加權" : "") + "・E = " + edgeCount(g);
+  }
+
+  function cellHas(list, r, c){
+    for(var k = 0; k < list.length; k++) if(list[k][0] === r && list[k][1] === c) return true;
+    return false;
+  }
+
+  function paintMatrix(){
+    var st = S.steps[S.cur], g = st.g, tb = $("mx"), r, c, html = [];
+    var laneRow = st.lane && st.lane.row !== undefined ? st.lane.row : -1;
+    var laneCol = st.lane && st.lane.col !== undefined ? st.lane.col : -1;
+    tb.classList.toggle("free", S.free);
+    html.push("<thead><tr><th>" + (g.directed ? "從＼到" : "M") + "</th>");
+    for(c = 0; c < V; c++) html.push('<th' + (c === laneCol ? ' class="lanecol"' : '') + '>' + NM[c] + '<small>' + c + '</small></th>');
+    html.push('<th class="dsum">' + (g.directed ? "出度" : "deg") + '</th></tr></thead><tbody>');
+    for(r = 0; r < V; r++){
+      html.push('<tr' + (r === laneRow ? ' class="lanerow"' : '') + '><th class="rh">' + NM[r] + '<small>' + r + '</small></th>');
+      for(c = 0; c < V; c++){
+        var cls = [];
+        if(r === c) cls.push("diag");
+        else if(g.M[r][c]) cls.push("on");
+        if(r === laneRow || c === laneCol) cls.push("lane");
+        if(cellHas(st.hiCells, r, c)) cls.push("hi");
+        html.push('<td class="' + cls.join(" ") + '"' + (r !== c ? ' data-r="' + r + '" data-c="' + c + '"' : '') +
+          ' title="' + Mn(r, c) + '">' + g.M[r][c] + '</td>');
+      }
+      html.push('<td class="dsum' + (r === laneRow ? " lane" : "") + '">' + g.adj[r].length + '</td></tr>');
+    }
+    html.push("</tbody>");
+    if(g.directed){
+      html.push('<tfoot><tr><th class="rh">入度</th>');
+      for(c = 0; c < V; c++) html.push('<td class="' + (c === laneCol ? "lane" : "") + '">' + inDeg(g, c) + '</td>');
+      html.push('<td></td></tr></tfoot>');
+    }
+    tb.innerHTML = html.join("");
+    $("mxLabel").textContent = "MATRIX · 鄰接矩陣 M[列][欄]" + (g.weighted ? "（填分鐘，0 ＝ 沒路）" : "（1 ＝ 有邊）");
+  }
+
+  function paintList(){
+    var st = S.steps[S.cur], g = st.g, host = $("alist"), u, k;
+    var laneRow = st.lane && st.lane.row !== undefined ? st.lane.row : -1;
+    host.innerHTML = "";
+    for(u = 0; u < V; u++){
+      var row = document.createElement("div");
+      row.className = "lrow" + (u === laneRow ? " lane" : "");
+      var h = document.createElement("span"); h.className = "lh"; h.textContent = NM[u];
+      var ar = document.createElement("span"); ar.className = "ar"; ar.textContent = "→";
+      row.appendChild(h); row.appendChild(ar);
+      if(g.adj[u].length === 0){
+        var e = document.createElement("span"); e.className = "le"; e.textContent = "（空）";
+        row.appendChild(e);
+      }
+      for(k = 0; k < g.adj[u].length; k++){
+        var it = document.createElement("span"), x = g.adj[u][k];
+        it.className = "li" + (cellHas(st.hiList, u, k) ? " new" : "");
+        it.textContent = NM[x];
+        if(g.weighted){ var sm = document.createElement("small"); sm.textContent = g.M[u][x]; it.appendChild(sm); }
+        row.appendChild(it);
+      }
+      var lc = document.createElement("span"); lc.className = "lc";
+      lc.textContent = (g.directed ? "出度 " : "deg ") + g.adj[u].length;
+      row.appendChild(lc);
+      host.appendChild(row);
+    }
+    $("alLabel").textContent = "LIST · 鄰接串列 adj[u]" + (g.weighted ? "（小字是權重）" : "");
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur], g = st.g, E = edgeCount(g), nz = nonZero(g), lc = listCells(g);
+    $("stE").textContent = E;
+    $("stNZ").textContent = nz;
+    $("stL").textContent = lc;
+    $("kindNote").textContent = (g.directed ? "有向" : "無向") + (g.weighted ? "・加權" : "");
+    var f = $("formula");
+    if(g.directed){
+      var sumIn = 0; for(var v = 0; v < V; v++) sumIn += inDeg(g, v);
+      f.innerHTML = "出度總和 <b>" + lc + "</b> ＝ 入度總和 <b>" + sumIn + "</b> ＝ E ＝ <b>" + E + "</b>　·　矩陣 V² ＝ 36 格，串列 " + lc + " 格";
+    } else if(lc === 2 * E){
+      f.innerHTML = "度數總和 <b>" + lc + "</b> ＝ 2 × E ＝ 2 × <b>" + E + "</b>　·　矩陣 V² ＝ 36 格，串列 2E ＝ " + lc + " 格";
+    } else {
+      f.innerHTML = "度數總和 " + lc + "，2 × E ＝ " + (2 * E) + "：<b>加到一半</b>，反方向還沒記上去";
+    }
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < CODE.length; i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < CODE.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", KMAP[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function logRow(ol, kind, text, tail){
+    var li = document.createElement("li");
+    li.setAttribute("data-k", KMAP[kind] || "start");
+    var tag = document.createElement("span");
+    tag.className = "tag"; tag.textContent = BADGE[kind] || "STEP";
+    var b = document.createElement("b"); b.textContent = text;
+    var tl = document.createElement("span"); tl.className = "tail"; tl.textContent = tail;
+    li.appendChild(tag); li.appendChild(b); li.appendChild(tl);
+    ol.appendChild(li);
+  }
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.free){
+      if(!S.flog.length){ ol.innerHTML = '<li class="log-empty">點兩個頂點加一條邊。</li>'; $("logNote").textContent = ""; return; }
+      S.flog.forEach(function(x){ logRow(ol, x.kind, x.text, x.tail); });
+      ol.scrollTop = ol.scrollHeight;
+      $("logNote").textContent = S.flog.length + " 次";
+      return;
+    }
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j];
+      logRow(ol, st.kind, st.log || "", "E " + edgeCount(st.g));
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintGraph(); paintMatrix(); paintList(); paintStats();
+    paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 5. 導覽 ---------- */
+
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length - 1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length - 1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length - 1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.free) return;
+    if(S.cur >= S.steps.length - 1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 6. 闖關 ---------- */
+
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){
+      if(S.steps[k].quiz) return k;
+    }
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts");
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right / S.asked * 100) + "%" : "—";
+    opts.innerHTML = "";
+
+    if(S.free){
+      S.pendingIndex = -1;
+      q.textContent = "自由模式沒有題目。換一關來闖關：";
+      var f = document.createElement("button");
+      f.className = "btn btn-primary"; f.type = "button"; f.textContent = "去第 1 關 →";
+      f.addEventListener("click", function(){ loadLevel(0); });
+      opts.appendChild(f);
+      return;
+    }
+
+    var ni = nextQuizIndex();
+    if(ni === -1){
+      S.pendingIndex = -1;
+      q.textContent = "這一關結束了。";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadLevel(S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = st.quiz.q;
+    var list = st.quiz.opts, rot = ni % list.length;
+    for(var k = 0; k < list.length; k++){
+      var o = list[(k + rot) % list.length];
+      addOpt(opts, o.t, o.s || "", o.v);
+    }
+  }
+
+  function addOpt(host, label, sub, val){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    if(sub){
+      var sm = document.createElement("small");
+      sm.textContent = sub;
+      b.appendChild(sm);
+    }
+    b.addEventListener("click", function(){ answerQuiz(val); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(val){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.ans, correctLabel = "";
+    for(var k = 0; k < st.quiz.opts.length; k++){
+      if(st.quiz.opts[k].v === correct) correctLabel = st.quiz.opts[k].t;
+    }
+
+    S.asked++;
+    var win = (val === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right / S.asked * 100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。按上方「下一關」繼續。</b>";
+    }
+  }
+
+  /* ---------- 7. 自由模式 ---------- */
+
+  function freeStep(kind, title, msg, extra){
+    var o = {kind:kind, title:title, msg:msg, g:cloneG(S.fg), line:-1,
+      hiE:null, hiCells:[], hiList:[], hiV:[], lane:null, pathE:[], badE:null};
+    for(var k in extra) o[k] = extra[k];
+    S.steps = [o]; S.cur = 0;
+  }
+  function freeIntro(){
+    freeStep("fnone", "自由模式：自己畫一張圖",
+      "先點一個頂點（變成實心橘色），再點另一個頂點：沒有邊就<b>加一條</b>，已經有邊就<b>刪掉</b>。也可以直接點矩陣的格子。看地圖、矩陣、串列三邊一起變。", {});
+  }
+  function freeClick(u, v){
+    var dir = S.fg.directed, res = applyToggle(S.fg, u, v), en = NM[u] + (dir ? "→" : "–") + NM[v];
+    if(res.action === "none") return;
+    S.fg = res.g;
+    var g = S.fg, E = edgeCount(g);
+    var cells = dir ? [[u, v]] : [[u, v], [v, u]];
+    if(res.action === "add"){
+      var hl = [[u, g.adj[u].length - 1]];
+      if(!dir) hl.push([v, g.adj[v].length - 1]);
+      freeStep("fadd", "addEdge(" + NM[u] + ", " + NM[v] + ")：加入 " + en,
+        "矩陣 " + (dir ? Mn(u, v) + " 一格" : Mn(u, v) + "、" + Mn(v, u) + " 兩格") + "變成 1；" +
+        "adj[" + NM[u] + "] ＝ " + fmt(g.adj[u]) + (dir ? "" : "，adj[" + NM[v] + "] ＝ " + fmt(g.adj[v])) + "。現在 E ＝ <b>" + E + "</b>。",
+        {line:4, hiE:[u, v], hiCells:cells, hiList:hl, hiV:[u, v]});
+    } else {
+      freeStep("frm", "removeEdge(" + NM[u] + ", " + NM[v] + ")：刪掉 " + en,
+        "矩陣 " + (dir ? Mn(u, v) : Mn(u, v) + "、" + Mn(v, u)) + " 改回 0（一步完成）；清單要先找到它才能刪：" +
+        "adj[" + NM[u] + "] ＝ " + fmt(g.adj[u]) + (dir ? "" : "，adj[" + NM[v] + "] ＝ " + fmt(g.adj[v])) + "。現在 E ＝ <b>" + E + "</b>。",
+        {line:12, hiCells:cells, hiV:[u, v]});
+    }
+    S.flog.push({kind:res.action === "add" ? "fadd" : "frm", text:en, tail:"E " + E});
+    S.sel = -1;
+    render();
+  }
+  function freePick(u){
+    if(!S.free) return;
+    if(S.sel === -1){
+      S.sel = u;
+      freeStep("fsel", "選了 " + NM[u] + "（" + PLACE[u] + "）",
+        "再點另一個頂點，" + (S.fg.directed ? "加一條從 " + NM[u] + " 出發的單行道" : "在兩點之間加邊") + "（已經有邊就刪掉）。再點一次 " + NM[u] + " 取消。", {hiV:[u]});
+      render();
+    } else if(S.sel === u){
+      S.sel = -1; freeIntro(); render();
+    } else {
+      freeClick(S.sel, u);
+    }
+  }
+  function freeReset(withCampus){
+    S.fg = newGraph($("freeDir").checked, false);
+    if(withCampus){
+      (S.fg.directed ? ONEWAY : CAMPUS).forEach(function(e){ addEdge(S.fg, e[0], e[1], 1); });
+    }
+    S.sel = -1; S.flog = [];
+    freeIntro();
+    if(withCampus) S.steps[0].msg = "已載入" + (S.fg.directed ? "單行道版" : "") + "校園圖（E ＝ " + edgeCount(S.fg) + "）。點兩個頂點試著加邊或刪邊。";
+    render();
+  }
+
+  /* ---------- 8. 載入 ---------- */
+
+  function loadLevel(i){
+    stopPlay();
+    var lv = LEVELS[i];
+    S.level = lv; S.levelIdx = i;
+    S.free = (lv.type === "free");
+    $("freeBar").classList.toggle("is-on", S.free);
+    $("controls").style.display = S.free ? "none" : "";
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    if(S.free){ freeReset(false); return; }
+    S.steps = buildSteps(lv);
+    S.cur = 0;
+    render();
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      if(S.free){ render(); return; }
+      goto_(0);
+      say("start", "闖關開始", "看著地圖、矩陣、串列的目前狀態，回答下一步會變成什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 9. 事件綁定 ---------- */
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadLevel(S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("gsvg").addEventListener("click", function(e){
+    if(!S.free) return;
+    var t = e.target.closest ? e.target.closest("[data-v]") : null;
+    if(t) freePick(Number(t.getAttribute("data-v")));
+  });
+  $("gsvg").addEventListener("keydown", function(e){
+    if(!S.free || (e.key !== "Enter" && e.key !== " ")) return;
+    var t = e.target.closest ? e.target.closest("[data-v]") : null;
+    if(t){ e.preventDefault(); e.stopPropagation(); freePick(Number(t.getAttribute("data-v"))); }
+  });
+  $("mx").addEventListener("click", function(e){
+    if(!S.free) return;
+    var t = e.target.closest ? e.target.closest("td[data-r]") : null;
+    if(t){ S.sel = -1; freeClick(Number(t.getAttribute("data-r")), Number(t.getAttribute("data-c"))); }
+  });
+  $("freeDir").addEventListener("change", function(){ freeReset(false); });
+  $("freeCampus").addEventListener("click", function(){ freeReset(true); });
+  $("freeClear").addEventListener("click", function(){ freeReset(false); });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.free) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 10. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

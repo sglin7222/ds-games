@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拓撲排序 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：
+   有向邊的箭頭、圖上的入度小徽章、入度陣列、佇列、輸出順序。顏色一律用 CSS 變數。 */
+
+/* 箭頭（SVG marker 裡的三角形），顏色跟著主題 */
+.ah{fill:var(--ink-faint)}
+.ah.bad{fill:var(--alarm)}
+.ah.good{fill:var(--jade)}
+.ah.hot{fill:var(--accent)}
+.ah.gone{fill:var(--ink-faint)}
+.svgdefs{position:absolute;width:0;height:0;overflow:hidden}
+
+/* 00 段的示意圖：有向邊要看得清楚，比無向邊深一點；弧線不要填色 */
+.fig .ed{stroke:var(--ink-faint);stroke-width:1.6}
+.fig .ed.bad{stroke:var(--alarm);stroke-width:2}
+.fig path.ed{fill:none}
+
+/* ---- 遊戲的圖 ---- */
+.gbox{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;padding:6px 4px 2px;overflow-x:auto}
+svg.graph{display:block;width:100%;max-width:680px;margin:0 auto;height:auto}
+.edge{stroke:var(--ink-faint);stroke-width:2;transition:stroke var(--dur),opacity var(--dur)}
+.edge.gone{stroke:var(--ink-faint);stroke-dasharray:5 4;opacity:.4}
+.edge.hot{stroke:var(--accent);stroke-width:4}
+.edge.cyc{stroke:var(--alarm);stroke-width:3.6}
+
+.vx circle.body{fill:var(--surface-2);stroke:var(--line);stroke-width:2;
+  transition:fill var(--dur),stroke var(--dur)}
+.vx .lt{font-family:var(--font-mono);font-size:16px;font-weight:700;fill:var(--ink);
+  text-anchor:middle;dominant-baseline:central}
+.vx .nm{font-family:var(--font-sans);font-size:11px;font-weight:600;fill:var(--ink-faint);
+  text-anchor:middle}
+.vx.qd circle.body{fill:var(--accent-soft);stroke:var(--accent)}
+.vx.cur circle.body{fill:var(--accent);stroke:var(--accent)}
+.vx.cur .lt{fill:var(--surface)}
+.vx.done circle.body{fill:var(--jade-soft);stroke:var(--jade)}
+.vx.done .lt{fill:var(--jade)}
+.vx.touch circle.body{stroke:var(--accent);stroke-width:3.5;stroke-dasharray:5 3}
+.vx.stuck circle.body{fill:var(--alarm-soft);stroke:var(--alarm);stroke-dasharray:5 3}
+.vx.cyc circle.body{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:3.5}
+/* 入度小徽章（圓圈右上角） */
+.vx .bdg circle{fill:var(--surface);stroke:var(--ink-faint);stroke-width:1.4}
+.vx .bdg text{font-family:var(--font-mono);font-size:11px;font-weight:700;fill:var(--ink);
+  text-anchor:middle;dominant-baseline:central}
+.vx .bdg.zero circle{fill:var(--jade-soft);stroke:var(--jade)}
+.vx .bdg.zero text{fill:var(--jade)}
+.vx .bdg.chg circle{fill:var(--accent);stroke:var(--accent)}
+.vx .bdg.chg text{fill:var(--surface)}
+.vx.done .bdg{opacity:.35}
+
+.vlabel{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
+/* 圖例 */
+.legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);padding:2px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:13px;height:13px;border-radius:50%;border:2px solid var(--line);background:var(--surface-2)}
+.legend i.l-qd{background:var(--accent-soft);border-color:var(--accent)}
+.legend i.l-cur{background:var(--accent);border-color:var(--accent)}
+.legend i.l-done{background:var(--jade-soft);border-color:var(--jade)}
+.legend i.l-bad{background:var(--alarm-soft);border-color:var(--alarm)}
+.names{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--ink-soft);padding:0 2px}
+.names b{font-family:var(--font-mono);color:var(--ink)}
+
+/* 入度陣列、佇列、輸出順序：三排小格子 */
+.rail{overflow-x:auto;padding:2px}
+.cells{display:flex;gap:5px;align-items:flex-end;min-height:48px}
+.cl{flex:0 0 auto;min-width:38px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cl .hd{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint)}
+.cl .bx{min-width:38px;height:36px;padding:0 6px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--ink);
+  background:var(--surface-2);border:1.6px solid var(--line);border-radius:7px;
+  transition:background var(--dur),border-color var(--dur),transform var(--dur)}
+.cl.zero .bx{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.cl.chg .bx{background:var(--accent);border-color:var(--accent);color:var(--surface);transform:translateY(-3px)}
+.cl.off .bx{opacity:.4;border-style:dashed}
+.cl.qd .bx{background:var(--accent-soft);border-color:var(--accent)}
+.cl.front .bx{border-width:2.6px;box-shadow:0 0 0 2.5px var(--accent-soft)}
+.cl.ok .bx{background:var(--jade-soft);border-color:var(--jade)}
+.cl.new .bx{transform:translateY(-3px);box-shadow:0 0 0 2.5px var(--jade-soft)}
+.cl.bad .bx{background:var(--alarm-soft);border-color:var(--alarm);border-style:dashed;color:var(--alarm)}
+.cl.slot .bx{background:transparent;border-style:dashed;color:var(--ink-faint)}
+.qend{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);align-self:center;padding:0 2px}
+.qempty{font-size:12.5px;color:var(--ink-faint);align-self:center}
+
+.custom{display:flex;gap:6px;flex:0 1 330px}
+.custom input{flex:1}
+</style>
+</head>
+<body>
+
+<!-- 共用的箭頭樣式：00 段所有示意圖都用這裡的 marker -->
+<svg class="svgdefs" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="fah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="fahBad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="ah bad" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="fahGood" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="ah good" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="fahHot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="ah hot" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">23 · 拓撲排序</span>
+    <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 23 · Topological Sort</p>
+    <h1>拓撲排序</h1>
+    <p class="lede">選課的時候，「資料結構」要先修過「程式設計」和「離散數學」。把每門課畫成一個點、每條先修規定畫成一個箭頭，問題就變成：怎麼把所有點排成一排，讓<b>每個箭頭都往後指</b>？方法很樸素——一直挑「已經沒有先修」的課出來修，修完就把它的箭頭擦掉。看入度一個一個降到 0，課一門一門排進結果。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>有向無環圖 DAG＋佇列</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>O(V+E)</b></div>
+      <div class="fact"><span>額外空間</span><b>O(V)</b></div>
+      <div class="fact"><span>先備知識</span><b>21、22</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：拓撲排序（Topological Sort）到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>定義：拓撲排序（Topological Sort）</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 拓撲排序 Topological Sort</span>
+          <div class="defline">給一張<em>有向圖</em>，把<em>所有頂點</em>排成一排，使得每一條有向邊 u → v，<em>u 都排在 v 前面</em>。這樣的一排就叫一個拓撲順序。</div>
+          <p>只有<b>有向無環圖（DAG）</b>才排得出來：只要圖裡有<b>環</b>，就一定排不出來。另外，答案<b>通常不只一種</b>。</p>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>白話</b></td><td>有一堆事情，有些事要先做完才能做另一件。拓撲排序就是排出一張「照著做絕對不會卡住」的待辦清單。</td></tr>
+              <tr><td><b>看圖</b></td><td>把頂點照拓撲順序<b>從左排到右</b>，畫回原本的箭頭——<b>所有箭頭都往右指</b>，沒有一條往左回頭。</td></tr>
+              <tr><td><b>用入度說</b></td><td>入度＝還有幾門先修沒修完。每次挑一個<b>入度 0</b>（已經沒有先修）的點排出來，再把它的箭頭擦掉、讓別人的入度減 1，一直重複。這就是遊戲裡的 Kahn 演算法。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">在一堆「誰要在誰前面」的規定之下，排出一個<b>全部規定都遵守</b>的順序。比喻：大一新生排四年的修課計畫。「程式設計 → 資料結構」的意思是程式設計要先修。只要每門課都排在它所有先修課的後面，這份修課計畫就行得通。</span>
+        </div>
+        <div class="callout">
+          <span class="tag">先備</span>
+          <span class="txt">這一關用到<a href="21-graph-basics.html">第 21 關「圖的基本概念」</a>的頂點、邊、鄰接串列，以及<a href="22-graph-traversal.html">第 22 關「圖的走訪」</a>的佇列和 BFS。還沒玩過的話，先去看那兩關的 00 段。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">頂點、邊 <small>vertex / edge</small></div>
+            <div class="td">圖由<b>頂點</b>（畫成圓圈，這一關的每個圓圈是一門課或一件事）和<b>邊</b>（連兩個頂點的線）組成。（第 21 關）</div>
+            <div class="ta">課程地圖上的每一門課是一個點，課跟課之間的關係是一條線。</div>
+          </div>
+          <div class="term">
+            <div class="tn">有向邊 <small>directed edge</small></div>
+            <div class="td">有方向的邊，畫成箭頭 u → v。這一關它的意思一律是「<b>u 一定要排在 v 前面</b>」。反過來 v → u 是另一條不同的邊。</div>
+            <div class="ta">「程式設計 → 資料結構」：先修程式設計，才能修資料結構。</div>
+          </div>
+          <div class="term">
+            <div class="tn">有向圖 <small>directed graph</small></div>
+            <div class="td">每一條邊都是有向邊的圖。第 21、22 關的校園地圖是<b>無向圖</b>（路可以雙向走），這一關換成有向圖。</div>
+            <div class="ta">單行道地圖：每條路只能照箭頭方向走。</div>
+          </div>
+          <div class="term">
+            <div class="tn">入度 / 出度 <small>in-degree / out-degree</small></div>
+            <div class="td"><b>入度</b>＝有幾條箭頭<b>指進來</b>；<b>出度</b>＝有幾條箭頭<b>指出去</b>。入度 0 表示沒有任何人要排在它前面。</div>
+            <div class="ta">入度＝這門課有幾門先修；出度＝它是幾門課的先修。</div>
+          </div>
+          <div class="term">
+            <div class="tn">路徑 <small>path</small></div>
+            <div class="td">順著箭頭方向，一個頂點接一個頂點走下去的路線，例如 計概 → 程設 → 資結 → 演算法。</div>
+            <div class="ta">一條「先修鏈」：要修演算法，得先一路修完前面那串。</div>
+          </div>
+          <div class="term">
+            <div class="tn">環 <small>cycle</small></div>
+            <div class="td">順著箭頭走，最後<b>走回出發點</b>的路徑。例如 X → Y → Z → X。</div>
+            <div class="ta">「修 X 要先修 Y、修 Y 要先修 Z、修 Z 要先修 X」——三門課誰都修不了。</div>
+          </div>
+          <div class="term">
+            <div class="tn">有向無環圖 <small>DAG, directed acyclic graph</small></div>
+            <div class="td"><b>有向</b>、而且<b>沒有任何環</b>的圖。只有 DAG 才排得出拓撲順序。</div>
+            <div class="ta">一份寫得正確的先修規定表，不會有人繞圈圈互相卡住。</div>
+          </div>
+          <div class="term">
+            <div class="tn">拓撲順序 <small>topological order</small></div>
+            <div class="td">把<b>全部</b>頂點排成一排，每條邊 u → v 都是 u 在前、v 在後。找出這種排法的過程就叫<b>拓撲排序</b>。</div>
+            <div class="ta">一份照著修就不會擋修的四年修課表。</div>
+          </div>
+          <div class="term">
+            <div class="tn">佇列 <small>queue</small></div>
+            <div class="td">排隊的資料結構：從<b>後面</b>加入、從<b>前面</b>取出，先進先出（FIFO）。這一關佇列裡放「入度已經是 0、可以排出去的點」。（第 18、22 關）</div>
+            <div class="ta">已經符合資格、在櫃台前排隊等著選課的課。</div>
+          </div>
+          <div class="term">
+            <div class="tn">Kahn 演算法 <small>Kahn's algorithm</small></div>
+            <div class="td">做拓撲排序最常見的方法：入度 0 的點進佇列 → 取出一個排進結果 → 擦掉它的出邊、鄰居入度減 1 → 減到 0 的進佇列，重複到佇列空。</div>
+            <div class="ta">每學期把「先修都修完了」的課拿來修，修完就有新的課解鎖。</div>
+          </div>
+          <div class="term">
+            <div class="tn">V、E、O(V+E) <small>時間複雜度</small></div>
+            <div class="td"><b>V</b>＝頂點數，<b>E</b>＝邊數。O(V+E) 的意思是：每個點、每條邊都只處理<b>固定幾次</b>，總工作量跟「點數＋邊數」成正比。</div>
+            <div class="ta">每門課看一次、每條先修規定看一次，就排完了。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>看圖：選課的先修關係和入度</h3>
+        <p>這是遊戲第 2 關的資工系選課圖。圓圈裡是代號，下面是課名；右上角是入度（這門課有幾門先修）。綠色的兩門入度是 0，大一一開始就能修：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:640px">
+            <svg viewBox="0 0 640 290" role="img" aria-label="資工系選課的先修關係圖"><line class="ed" x1="78.0" y1="70.0" x2="171.0" y2="70.0" marker-end="url(#fah)"/><line class="ed" x1="204.3" y1="81.0" x2="304.9" y2="158.4" marker-end="url(#fah)"/><line class="ed" x1="77.4" y1="235.3" x2="301.7" y2="174.9" marker-end="url(#fah)"/><line class="ed" x1="207.5" y1="66.0" x2="301.5" y2="44.3" marker-end="url(#fah)"/><line class="ed" x1="335.8" y1="178.5" x2="433.3" y2="231.0" marker-end="url(#fah)"/><line class="ed" x1="336.3" y1="162.5" x2="432.7" y2="118.0" marker-end="url(#fah)"/><line class="ed" x1="78.0" y1="240.0" x2="431.0" y2="240.0" marker-end="url(#fah)"/><line class="ed" x1="468.0" y1="240.0" x2="551.0" y2="240.0" marker-end="url(#fah)"/><g class="nd"><circle cx="190" cy="70" r="17"/><text x="190" y="70">A</text></g><g class="nd good"><circle cx="60" cy="70" r="17"/><text x="60" y="70">B</text></g><g class="nd"><circle cx="320" cy="170" r="17"/><text x="320" y="170">C</text></g><g class="nd good"><circle cx="60" cy="240" r="17"/><text x="60" y="240">D</text></g><g class="nd"><circle cx="450" cy="240" r="17"/><text x="450" y="240">E</text></g><g class="nd"><circle cx="450" cy="110" r="17"/><text x="450" y="110">F</text></g><g class="nd"><circle cx="320" cy="40" r="17"/><text x="320" y="40">G</text></g><g class="nd"><circle cx="570" cy="240" r="17"/><text x="570" y="240">H</text></g><text class="lbl" x="190" y="103">程式設計</text><text class="lbl" x="224" y="52">入度 1</text><text class="lbl" x="60" y="103">計算機概論</text><text class="lbl good" x="94" y="52">入度 0</text><text class="lbl" x="320" y="203">資料結構</text><text class="lbl" x="354" y="152">入度 2</text><text class="lbl" x="60" y="273">離散數學</text><text class="lbl good" x="94" y="222">入度 0</text><text class="lbl" x="450" y="273">演算法</text><text class="lbl" x="484" y="222">入度 2</text><text class="lbl" x="450" y="143">資料庫</text><text class="lbl" x="484" y="92">入度 1</text><text class="lbl" x="320" y="73">物件導向</text><text class="lbl" x="354" y="22">入度 1</text><text class="lbl" x="570" y="273">人工智慧</text><text class="lbl" x="604" y="222">入度 1</text></svg>
+            <figcaption>8 門課、8 條先修規定（V = 8、E = 8）。例如 C 資料結構有兩個箭頭指進來（A 程式設計、D 離散數學），入度 2：兩門都修過才能修它。入度加起來 0+1+2+0+2+1+1+1 = 8，剛好等於邊數——因為每條邊都替某個點的入度貢獻 1。</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>對照圖例：這是拓撲順序嗎？</h3>
+        <p>用遊戲第 1 關「早上出門」：A 起床、B 刷牙、C 穿衣服、D 吃早餐、E 出門。規定是 A→B、A→C、B→D、C→E、D→E：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:340px">
+            <svg viewBox="0 0 300 170" role="img" aria-label="早上出門的有向圖"><line class="ed" x1="43.6" y1="76.5" x2="95.6" y2="44.0" marker-end="url(#fah)"/><line class="ed" x1="43.6" y1="93.5" x2="95.6" y2="126.0" marker-end="url(#fah)"/><line class="ed" x1="126.0" y1="35.0" x2="173.0" y2="35.0" marker-end="url(#fah)"/><line class="ed" x1="125.3" y1="130.2" x2="253.8" y2="90.1" marker-end="url(#fah)"/><line class="ed" x1="203.6" y1="43.5" x2="255.6" y2="76.0" marker-end="url(#fah)"/><g class="nd"><circle cx="30" cy="85" r="15"/><text x="30" y="85">A</text></g><g class="nd"><circle cx="110" cy="35" r="15"/><text x="110" y="35">B</text></g><g class="nd"><circle cx="110" cy="135" r="15"/><text x="110" y="135">C</text></g><g class="nd"><circle cx="190" cy="35" r="15"/><text x="190" y="35">D</text></g><g class="nd"><circle cx="270" cy="85" r="15"/><text x="270" y="85">E</text></g></svg>
+            <figcaption>5 個點、5 條有向邊。E 出門有兩個先修：穿好衣服（C）、吃完早餐（D）。</figcaption>
+          </figure>
+        </div>
+        <p>下面把頂點照某個順序排成一排，再把原本的箭頭畫成上方的弧線。<b>全部往右指</b>就合格；只要有一條<b>往左回頭</b>（紅色），就不合格：</p>
+        <div class="figs">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 300 108" role="img" aria-label="順序 A C B D E"><path class="ed" d="M49,66 Q99.0,2 149,66" marker-end="url(#fah)"/><path class="ed" d="M49,66 Q71.0,24 93,66" marker-end="url(#fah)"/><path class="ed" d="M161,66 Q183.0,24 205,66" marker-end="url(#fah)"/><path class="ed" d="M105,66 Q183.0,-20 261,66" marker-end="url(#fah)"/><path class="ed" d="M217,66 Q239.0,24 261,66" marker-end="url(#fah)"/><rect class="cell" x="20" y="70" width="46" height="30" rx="6"/><text class="ctext" x="43" y="85">A</text><rect class="cell" x="76" y="70" width="46" height="30" rx="6"/><text class="ctext" x="99" y="85">C</text><rect class="cell" x="132" y="70" width="46" height="30" rx="6"/><text class="ctext" x="155" y="85">B</text><rect class="cell" x="188" y="70" width="46" height="30" rx="6"/><text class="ctext" x="211" y="85">D</text><rect class="cell" x="244" y="70" width="46" height="30" rx="6"/><text class="ctext" x="267" y="85">E</text></svg>
+            <figcaption><b class="verdict">✔ 是。</b>A C B D E：五條弧線全部往右指。先穿衣服再刷牙，也完全沒問題。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 300 108" role="img" aria-label="順序 A B D C E"><path class="ed" d="M49,66 Q71.0,24 93,66" marker-end="url(#fah)"/><path class="ed" d="M49,66 Q127.0,-20 205,66" marker-end="url(#fah)"/><path class="ed" d="M105,66 Q127.0,24 149,66" marker-end="url(#fah)"/><path class="ed" d="M217,66 Q239.0,24 261,66" marker-end="url(#fah)"/><path class="ed" d="M161,66 Q211.0,2 261,66" marker-end="url(#fah)"/><rect class="cell" x="20" y="70" width="46" height="30" rx="6"/><text class="ctext" x="43" y="85">A</text><rect class="cell" x="76" y="70" width="46" height="30" rx="6"/><text class="ctext" x="99" y="85">B</text><rect class="cell" x="132" y="70" width="46" height="30" rx="6"/><text class="ctext" x="155" y="85">D</text><rect class="cell" x="188" y="70" width="46" height="30" rx="6"/><text class="ctext" x="211" y="85">C</text><rect class="cell" x="244" y="70" width="46" height="30" rx="6"/><text class="ctext" x="267" y="85">E</text></svg>
+            <figcaption><b class="verdict">✔ 也是。</b>A B D C E：刷牙、吃早餐之後才穿衣服，一樣全部往右。<b>答案不只一種。</b></figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 108" role="img" aria-label="順序 A C E B D"><path class="ed" d="M49,66 Q127.0,-20 205,66" marker-end="url(#fah)"/><path class="ed" d="M49,66 Q71.0,24 93,66" marker-end="url(#fah)"/><path class="ed" d="M217,66 Q239.0,24 261,66" marker-end="url(#fah)"/><path class="ed" d="M105,66 Q127.0,24 149,66" marker-end="url(#fah)"/><path class="ed bad" d="M261,66 Q211.0,2 161,66" marker-end="url(#fahBad)"/><rect class="cell" x="20" y="70" width="46" height="30" rx="6"/><text class="ctext" x="43" y="85">A</text><rect class="cell" x="76" y="70" width="46" height="30" rx="6"/><text class="ctext" x="99" y="85">C</text><rect class="cell bad" x="132" y="70" width="46" height="30" rx="6"/><text class="ctext" x="155" y="85">E</text><rect class="cell" x="188" y="70" width="46" height="30" rx="6"/><text class="ctext" x="211" y="85">B</text><rect class="cell bad" x="244" y="70" width="46" height="30" rx="6"/><text class="ctext" x="267" y="85">D</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>A C E B D：D → E 往左回頭——還沒吃早餐（D）就出門（E）了。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 108" role="img" aria-label="順序 B A C D E"><path class="ed bad" d="M93,66 Q71.0,24 49,66" marker-end="url(#fahBad)"/><path class="ed" d="M105,66 Q127.0,24 149,66" marker-end="url(#fah)"/><path class="ed" d="M49,66 Q127.0,-20 205,66" marker-end="url(#fah)"/><path class="ed" d="M161,66 Q211.0,2 261,66" marker-end="url(#fah)"/><path class="ed" d="M217,66 Q239.0,24 261,66" marker-end="url(#fah)"/><rect class="cell bad" x="20" y="70" width="46" height="30" rx="6"/><text class="ctext" x="43" y="85">B</text><rect class="cell bad" x="76" y="70" width="46" height="30" rx="6"/><text class="ctext" x="99" y="85">A</text><rect class="cell" x="132" y="70" width="46" height="30" rx="6"/><text class="ctext" x="155" y="85">C</text><rect class="cell" x="188" y="70" width="46" height="30" rx="6"/><text class="ctext" x="211" y="85">D</text><rect class="cell" x="244" y="70" width="46" height="30" rx="6"/><text class="ctext" x="267" y="85">E</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>B A C D E：A → B 往左回頭——還沒起床就刷牙。只要<b>一條</b>邊違規就不算。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">這張圖一共有 <b>3 種</b>拓撲順序：A B C D E、A B D C E、A C B D E。有的點之間根本沒有先後規定（例如 B 刷牙和 C 穿衣服），誰先誰後都可以，所以答案<b>通常不唯一</b>。遊戲裡為了讓結果固定，會訂一條「平手規則」（見 02 段）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>對照圖例：這是有向無環圖（DAG）嗎？</h3>
+        <div class="figs three">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 140" role="img" aria-label="菱形的有向無環圖"><line class="ed" x1="43.9" y1="62.2" x2="95.2" y2="33.3" marker-end="url(#fah)"/><line class="ed" x1="43.9" y1="77.8" x2="95.2" y2="106.7" marker-end="url(#fah)"/><line class="ed" x1="123.9" y1="32.8" x2="175.2" y2="61.7" marker-end="url(#fah)"/><line class="ed" x1="123.9" y1="107.2" x2="175.2" y2="78.3" marker-end="url(#fah)"/><g class="nd"><circle cx="30" cy="70" r="15"/><text x="30" y="70">A</text></g><g class="nd"><circle cx="110" cy="25" r="15"/><text x="110" y="25">B</text></g><g class="nd"><circle cx="110" cy="115" r="15"/><text x="110" y="115">C</text></g><g class="nd"><circle cx="190" cy="70" r="15"/><text x="190" y="70">D</text></g></svg>
+            <figcaption><b class="verdict">✔ 是 DAG。</b>從任何一點順著箭頭走，最後都停在 D，走不回原點。拓撲順序例如 A B C D。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 220 140" role="img" aria-label="三個點繞一圈的環"><line class="ed bad" x1="50.2" y1="99.7" x2="99.1" y2="41.1" marker-end="url(#fahBad)"/><line class="ed bad" x1="120.2" y1="40.3" x2="169.1" y2="98.9" marker-end="url(#fahBad)"/><line class="ed bad" x1="164.0" y1="112.0" x2="57.0" y2="112.0" marker-end="url(#fahBad)"/><g class="nd bad"><circle cx="40" cy="112" r="15"/><text x="40" y="112">A</text></g><g class="nd bad"><circle cx="110" cy="28" r="15"/><text x="110" y="28">B</text></g><g class="nd bad"><circle cx="180" cy="112" r="15"/><text x="180" y="112">C</text></g><text class="lbl bad" x="110" y="80">繞一圈</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>A → B → C → A 繞一圈，是<b>環</b>。A 要在 B 前、B 要在 C 前、C 又要在 A 前——A 要排在自己前面，不可能。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 220 140" role="img" aria-label="看起來像三角形但不是環"><line class="ed" x1="50.2" y1="99.7" x2="99.1" y2="41.1" marker-end="url(#fah)"/><line class="ed" x1="120.2" y1="40.3" x2="169.1" y2="98.9" marker-end="url(#fah)"/><line class="ed" x1="56.0" y1="112.0" x2="163.0" y2="112.0" marker-end="url(#fah)"/><g class="nd"><circle cx="40" cy="112" r="15"/><text x="40" y="112">A</text></g><g class="nd"><circle cx="110" cy="28" r="15"/><text x="110" y="28">B</text></g><g class="nd"><circle cx="180" cy="112" r="15"/><text x="180" y="112">C</text></g><text class="lbl good" x="110" y="80">走不回 A</text></svg>
+            <figcaption><b class="verdict">✔ 是 DAG。</b>畫出來像三角形，但箭頭是 A→B、B→C、A→C，<b>順著箭頭</b>走不回 A。有沒有環要看方向，不是看形狀。順序只有 A B C 一種。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">有環就排不出來</span>
+          <span class="txt">環上的每一個點都要排在下一個點前面，繞一圈回來，就變成「X 要排在 X 自己前面」，這是不可能的。所以<b>有環的圖沒有任何拓撲順序</b>。遊戲第 4 關會看到：演算法跑到一半佇列就空了，剩下的點卡住，那就是有環的證據。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>跟拓撲排序一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>一般的排序（第 14、20 關）</td><td class="verdict no">不一樣</td><td>一般排序比的是<b>數值大小</b>，任兩個都比得出誰大。拓撲排序只看<b>箭頭</b>，沒有箭頭相連的兩個點誰先都可以，所以答案不唯一。</td></tr>
+              <tr><td>BFS 廣度優先走訪（第 22 關）</td><td class="verdict no">很像但不同</td><td>兩個都用佇列。BFS 從<b>一個起點</b>出發，鄰居<b>第一次被看到</b>就進佇列；Kahn 從<b>所有入度 0 的點</b>出發，鄰居要等到<b>入度減到 0</b>（所有先修都排完了）才進佇列。</td></tr>
+              <tr><td>無向圖</td><td class="verdict no">不能做</td><td>無向邊沒有「誰在前」的意思，無法談拓撲順序。拓撲排序只對有向圖有意義。</td></tr>
+              <tr><td>「入度」和「出度」</td><td class="verdict no">相反</td><td>入度數<b>指進來</b>的箭頭（我的先修有幾門），出度數<b>指出去</b>的箭頭（我是幾門課的先修）。Kahn 演算法看的是入度。</td></tr>
+              <tr><td>有環的圖「排出一部分」</td><td class="verdict no">不算</td><td>定義要求<b>所有</b>頂點都排進去。有環時只能排出環以外、而且不被環卡住的那些點，不是拓撲順序。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>選課圖裡，E 演算法的入度是多少？G 物件導向的出度呢？</summary>
+            <div class="ans">E 的入度 <b>2</b>：C 資料結構 → E、D 離散數學 → E。G 的出度 <b>0</b>：沒有任何課以物件導向為先修，所以它沒有指出去的箭頭。</div>
+          </details>
+          <details>
+            <summary>選課圖：D B A C E H F G 是拓撲順序嗎？B A C D E F G H 呢？</summary>
+            <div class="ans">第一個<b>是</b>：逐條檢查 B→A、A→C、D→C、A→G、C→E、C→F、D→E、E→H，前面的都排在後面的左邊。第二個<b>不是</b>：D 離散數學 → C 資料結構，但 C 排在 D 前面，等於還沒修離散就修資結。</div>
+          </details>
+          <details>
+            <summary>早上出門那張圖，為什麼 A 一定排第一、E 一定排最後？</summary>
+            <div class="ans">A 是<b>唯一</b>入度 0 的點，其他點都有人要排在它前面，所以第一個只能是 A。E 是唯一出度 0 的點，而且 B、C、D 都有路徑走到 E（例如 B→D→E），它們全都得排在 E 前面，所以 E 只能最後。</div>
+          </details>
+          <details>
+            <summary>如果規定寫錯，變成「X → Y、Y → Z、Z → X」，為什麼一門都排不出來？</summary>
+            <div class="ans">三個點的入度都是 1，<b>沒有任何一個入度是 0</b>，第一個位置沒人能排。換個角度：X 要在 Y 前、Y 要在 Z 前、Z 又要在 X 前，連起來就是 X 要在 X 自己前面——矛盾。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手看入度一個一個降到 0。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>上面是有向圖，每個圓圈右上角的小數字是它<b>目前的入度</b>。下面三排格子：<b>入度陣列 indeg</b>、<b>佇列</b>（入度 0、等著排出去的點）、<b>結果</b>（已經排好的順序）。被處理過的邊會變成淡淡的虛線，代表「擦掉了」。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li><span>挑一個<b>關卡</b>，或自己輸入箭頭（例如 <code>A&gt;B A&gt;C B&gt;D</code>，字母 A～L）。</span></li>
+            <li><span>按 <b>下一步</b>：先數每個點的入度，再把入度 0 的點放進佇列。</span></li>
+            <li><span>之後每一輪：從佇列<b>前面</b>取出一個點 → 排進結果 → 擦掉它的出邊、鄰居入度減 1 → 減到 0 的排到佇列<b>後面</b>。</span></li>
+            <li><span>隨時 <b>上一步</b> 倒回去，反覆走看不懂的地方。</span></li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li><span>先不給答案，由你回答：某個點的入度是多少？一開始誰進佇列？下一個取出的是誰？擦掉它的邊後誰的入度變 0？最後有沒有環？</span></li>
+            <li><span>答對得分、連對加分；答錯立刻解釋正確答案和理由。</span></li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>入度就是「還有幾個先修」</b> —— 入度 0 的點隨時可以排出去。</li>
+            <li><b>Kahn 演算法</b> —— 佇列裝「可以排的點」，取出一個、擦掉它的邊、解鎖新的點。</li>
+            <li><b>答案不唯一</b> —— 同時有好幾個點可以排時，挑誰都合法；程式靠固定規則讓結果唯一。</li>
+            <li><b>順便抓到環</b> —— 佇列空了卻還有點沒排，就代表圖裡有環。</li>
+            <li><b>O(V+E)</b> —— 每個點進出佇列一次、每條邊擦掉一次。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">第 1 關暖身看完整流程 → 第 2 關選課圖（主角）→ 第 3 關看平手規則 → 第 4 關看有環時怎麼卡住 → 第 5 關 10 個點挑戰闖關。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看入度降到 0、課一門一門排出來。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="callout" data-k="key">
+        <span class="tag">平手規則</span>
+        <span class="txt">佇列<b>先進先出</b>。一開始入度 0 的點<b>照字母順序</b>排進佇列；擦掉一個點的出邊時，鄰居也<b>照字母順序</b>處理（鄰接串列照字母排好），誰的入度先變成 0 誰就先排隊。照這條規則，每一關的結果只有一種，而且跟下面的 C++ 程式跑出來一模一樣。</span>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="120" placeholder="自訂：例如 A>B A>C B>D C>D" aria-label="自訂有向邊">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">有向圖 ＋ 入度 ＋ 佇列 ＋ 結果</h3>
+            <span class="panel-note" id="graphNote"></span>
+          </div>
+
+          <div class="vlabel">GRAPH · 有向圖（右上角小數字＝目前入度；虛線＝已擦掉的邊）</div>
+          <div class="gbox">
+            <svg id="graph" class="graph" viewBox="0 0 600 300" role="img" aria-label="拓撲排序的有向圖"></svg>
+          </div>
+          <div class="legend">
+            <span><i></i>還在等</span>
+            <span><i class="l-qd"></i>在佇列裡</span>
+            <span><i class="l-cur"></i>剛取出</span>
+            <span><i class="l-done"></i>已排進結果</span>
+            <span><i class="l-bad"></i>卡住／環</span>
+          </div>
+          <div class="names" id="names"></div>
+
+          <div class="vlabel">INDEG · 入度陣列（還有幾條箭頭指進來）</div>
+          <div class="rail"><div class="cells" id="indegRow"></div></div>
+
+          <div class="vlabel">QUEUE · 佇列（前面取出、後面加入）</div>
+          <div class="rail"><div class="cells" id="queueRow"></div></div>
+
+          <div class="vlabel">ORDER · 結果（拓撲順序，由左到右）</div>
+          <div class="rail"><div class="cells" id="orderRow"></div></div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">統計</h3>
+              <span class="panel-note" id="phaseNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="ok"><div class="k">已排出</div><div class="v" id="stOut">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">佇列長度</div><div class="v" id="stQ">0</div></div>
+              <div class="stat"><div class="k">已擦掉的邊</div><div class="v" id="stGone">0</div></div>
+              <div class="stat"><div class="k">V ／ E</div><div class="v" id="stVE">0</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">Kahn 演算法 · O(V+E)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，Kahn 演算法就這麼短。頂點用 0～n−1 編號（A＝0、B＝1……），<code>adj[u]</code> 是 u 指向的點，照編號由小到大排好——這就是遊戲的平手規則：</p>
+        <pre class="code">#include &lt;cstdio&gt;
+#include &lt;vector&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+<i>// 回傳一個拓撲順序；如果圖裡有環，回傳空的 vector</i>
+vector&lt;int&gt; topoSort(int n, vector&lt;vector&lt;int&gt;&gt;&amp; adj) {
+    vector&lt;int&gt; indeg(n, 0);
+    for (int u = 0; u &lt; n; u++)              <i>// 數每個點的入度</i>
+        for (int v : adj[u]) indeg[v]++;
+    queue&lt;int&gt; q;
+    for (int u = 0; u &lt; n; u++)              <i>// 入度 0 的點照編號進佇列</i>
+        if (indeg[u] == 0) q.push(u);
+    vector&lt;int&gt; order;
+    while (!q.empty()) {
+        int u = q.front(); q.pop();          <i>// 取出佇列最前面的點</i>
+        order.push_back(u);                  <i>// 排進結果</i>
+        for (int v : adj[u]) {               <i>// 擦掉 u 的每一條出邊</i>
+            indeg[v]--;
+            if (indeg[v] == 0) q.push(v);    <i>// 先修全修完了 → 排隊</i>
+        }
+    }
+    if ((int)order.size() &lt; n) return {};    <i>// 有點沒排到 → 有環</i>
+    return order;
+}
+
+int main() {
+    <i>// 選課圖：A程設 B計概 C資結 D離散 E演算法 F資料庫 G物件 H人工智慧</i>
+    int n = 8;
+    vector&lt;vector&lt;int&gt;&gt; adj(n);
+    auto edge = [&amp;](char u, char v) { adj[u - 'A'].push_back(v - 'A'); };
+    edge('A','C'); edge('A','G');            <i>// 每個點的鄰居照字母順序加入</i>
+    edge('B','A');
+    edge('C','E'); edge('C','F');
+    edge('D','C'); edge('D','E');
+    edge('E','H');
+    vector&lt;int&gt; order = topoSort(n, adj);
+    if (order.empty()) printf("有環，排不出來\n");
+    for (int u : order) printf("%c ", 'A' + u);   <i>// 印出 B D A C G E F H</i>
+    printf("\n");
+}</pre>
+        <p>如果想要「佇列裡永遠先取字母最小的」，把 <code>queue&lt;int&gt;</code> 換成 <code>priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt;</code>、<code>q.front()</code> 換成 <code>q.top()</code> 就好。結果會不一樣（例如選課圖變成 B A D C E F G H），但<b>一樣合法</b>。這一頁的動畫用的是普通佇列，跟上面的程式一致。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「一直挑沒有先修的課」這個直覺，到 O(V+E) 的 Kahn 演算法。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>輸入：一張有向圖，V 個頂點、E 條有向邊；每條邊 u → v 代表「u 要排在 v 前面」。</p>
+        <p>輸出：一個包含<b>全部 V 個頂點</b>的順序，讓每條邊的起點都在終點左邊；如果圖裡有環、根本排不出來，要<b>回報有環</b>。</p>
+      </div>
+
+      <div class="block">
+        <h3>破除錯誤直覺：照名字排？照先修門數排？都不行</h3>
+        <p>用選課圖試兩種「看起來很合理」的排法：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>排法</th><th class="mono">排出來的順序</th><th>哪裡錯</th></tr></thead>
+            <tbody>
+              <tr><td>照代號（字母）排</td><td class="mono">A B C D E F G H</td><td class="verdict no">B 計概 → A 程設 被倒過來：還沒修計概就修程設。D 離散 → C 資結 也倒過來了。代號跟先後規定一點關係都沒有。</td></tr>
+              <tr><td>照「先修門數」（入度）由少到多排</td><td class="mono">B D ｜ A F G H ｜ C E</td><td class="verdict no">F 資料庫、H 人工智慧都只有 1 門先修，就排到有 2 門先修的 C 資結、E 演算法前面——但 C → F、E → H，資料庫要先修資結、AI 要先修演算法。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="no">
+          <span class="tag">為什麼會錯</span>
+          <span class="txt">入度只看「<b>直接</b>指進來的箭頭有幾條」，看不到更上游的一整串。H 人工智慧雖然只有 1 門直接先修，但那門（演算法）自己又要先修資結、離散，資結又要先修程設、程設又要先修計概……一路往回推，共有 5 門課都得排在它前面。所以入度不能只算一次就拿來排——<b>要邊排邊更新</b>。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：DAG 裡一定有入度 0 的點</h3>
+        <p>假設一張圖<b>每個點的入度都 ≥ 1</b>。隨便挑一個點，沿著某條指進來的箭頭往回走一步；到了新的點，它也有箭頭指進來，再往回走……可以一直走下去。但圖只有 V 個點，走 V 步之內一定會<b>走到走過的點</b>——這就繞出一個環了。</p>
+        <ul class="bullets ok">
+          <li><b>所以：沒有環 ⇒ 一定有入度 0 的點。</b>它沒有任何先修，放在第一個絕對安全。</li>
+          <li><b>拿掉它之後，剩下的圖還是 DAG</b>（拿掉點不會變出新的環），所以又會有新的入度 0 的點。一直重複，就能把全部的點排完。</li>
+          <li><b>反過來</b>：如果做到一半，剩下的點入度<b>全都 ≥ 1</b>，照上面的往回走論證，剩下的點裡<b>一定有環</b>。這就是 Kahn 演算法偵測環的原理。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>演算法：Kahn 演算法</h3>
+        <ol class="steps">
+          <li><span><b>數入度</b> —— 看過每一條邊 u → v，讓 indeg[v] 加 1。</span></li>
+          <li><span><b>入度 0 的點進佇列</b> —— 照編號（字母）順序放進去。</span></li>
+          <li><span><b>取出佇列最前面的點 u</b>，把 u 排到結果的最後面。</span></li>
+          <li><span><b>擦掉 u 的每一條出邊</b> u → v：indeg[v] 減 1。如果減到 0，v 的先修全排完了，把 v 排到佇列<b>後面</b>。</span></li>
+          <li><span><b>重複 3、4</b>，直到佇列空了。</span></li>
+          <li><span><b>檢查</b> —— 結果有 V 個點：完成；少於 V 個：圖裡有環，剩下沒排到的點就是卡在環上或被環擋住的點。</span></li>
+        </ol>
+        <div class="callout" data-k="key">
+          <span class="tag">一句話</span>
+          <span class="txt">佇列裡永遠只放「現在就可以排」的點；每排一個，就可能解鎖新的點。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：選課圖</h3>
+        <p>考試在紙上追蹤時就是畫這張表。開始時入度：A1 B0 C2 D0 E2 F1 G1 H1，佇列（前 → 後）＝ <b>B D</b>。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>取出</th><th>擦掉出邊後的入度變化</th><th class="mono">佇列（前 → 後）</th><th class="mono">結果</th></tr></thead>
+            <tbody>
+              <tr><td>B 計概</td><td>A：1 → <b>0</b>，進佇列</td><td class="mono">D A</td><td class="mono">B</td></tr>
+              <tr><td>D 離散</td><td>C：2 → 1；E：2 → 1</td><td class="mono">A</td><td class="mono">B D</td></tr>
+              <tr><td>A 程設</td><td>C：1 → <b>0</b>，進佇列；G：1 → <b>0</b>，進佇列</td><td class="mono">C G</td><td class="mono">B D A</td></tr>
+              <tr><td>C 資結</td><td>E：1 → <b>0</b>，進佇列；F：1 → <b>0</b>，進佇列</td><td class="mono">G E F</td><td class="mono">B D A C</td></tr>
+              <tr><td>G 物件</td><td>（沒有出邊）</td><td class="mono">E F</td><td class="mono">B D A C G</td></tr>
+              <tr><td>E 演算法</td><td>H：1 → <b>0</b>，進佇列</td><td class="mono">F H</td><td class="mono">B D A C G E</td></tr>
+              <tr><td>F 資料庫</td><td>（沒有出邊）</td><td class="mono">H</td><td class="mono">B D A C G E F</td></tr>
+              <tr><td>H 人工智慧</td><td>（沒有出邊）</td><td class="mono">（空）</td><td class="mono">B D A C G E F H</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>佇列空了，結果有 8 個點 ＝ V，完成：<b>B D A C G E F H</b>。每個點進出佇列各 1 次，每條邊擦掉 1 次（8 條）。這張圖其實一共有 <b>48 種</b>合法的修課順序，這只是其中一種。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度：為什麼是 O(V+E)</h3>
+        <ul class="bullets">
+          <li><b>數入度 O(V+E)</b> —— 每個點的鄰接串列看一遍，等於每條邊看 1 次。</li>
+          <li><b>佇列 O(V)</b> —— 每個點入度變 0 只會發生 1 次，所以每個點最多進佇列 1 次、出佇列 1 次。</li>
+          <li><b>擦邊 O(E)</b> —— 點 u 被取出時才看它的出邊，而每個點只被取出 1 次，所以每條邊只被擦 1 次。</li>
+          <li><b>合計 O(V+E)</b>，額外空間 O(V)（indeg 陣列、佇列、結果）。</li>
+        </ul>
+        <div class="callout">
+          <span class="tag">對照</span>
+          <span class="txt">如果每一輪都「把所有點掃一遍，找一個入度 0 的」，要做 V 輪、每輪 O(V)，變成 O(V²)。用佇列把「已經可以排的點」記下來，就不用每輪重找。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>另一種做法：DFS 的「反後序」</h3>
+        <p>第 22 關的 DFS 也能做拓撲排序。重點是記錄每個點「<b>完成</b>」的時間：一個點要等它往下能走到的點<b>全部</b>走完，才算完成，然後記到一張清單上（這叫<b>後序</b>）。最後把這張清單<b>倒過來</b>，就是拓撲順序。</p>
+        <ul class="bullets">
+          <li><b>為什麼對</b>：有邊 u → v 時，v 一定比 u 先完成（u 要等 v 走完）。倒過來之後，u 就排在 v 前面。</li>
+          <li><b>選課圖</b>（從 A 開始、鄰居照字母順序）：完成的順序是 H E F C G A B D，倒過來是 <b>D B A G C F E H</b>——跟 Kahn 的答案不同，但一樣合法。</li>
+          <li><b>不能用「拜訪的順序」</b>（前序）：從 A 開始拜訪會先碰到 A，但 B 計概 → A 程設，B 必須在 A 前面。一定要用<b>完成的順序倒過來</b>。</li>
+          <li><b>找環</b>：DFS 時如果沿著邊走到一個「已經開始、但還沒完成」的點，就是繞回自己的祖先——有環。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>實際用途</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>情境</th><th>頂點</th><th>邊 u → v</th></tr></thead>
+            <tbody>
+              <tr><td>編譯程式（make、各種建置工具）</td><td>每個要產生的檔案</td><td>v 要用到 u 的結果，所以先建 u</td></tr>
+              <tr><td>試算表（Excel 重新計算）</td><td>每個儲存格</td><td>v 的公式用到 u（例如 C1 = A1 + B1）；出現環時 Excel 會跳出「循環參照」警告</td></tr>
+              <tr><td>專案排程</td><td>每個工作</td><td>u 做完 v 才能開始（遊戲第 5 關）</td></tr>
+              <tr><td>安裝套件（npm、apt）</td><td>每個套件</td><td>v 依賴 u，要先裝 u</td></tr>
+              <tr><td>排修課計畫</td><td>每門課</td><td>u 是 v 的先修（遊戲第 2 關）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「拓撲排序的答案只有一個」</b> —— 通常有很多個。選課圖有 48 種，第 5 關的專案圖有 297 種。課本或程式給的只是「照某條平手規則排出來的那一個」。</li>
+          <li><b>「Kahn 就是 BFS」</b> —— 結構很像，但 BFS 只要鄰居<b>第一次被看到</b>就排隊；Kahn 要等鄰居的<b>入度減到 0</b> 才排隊。第 2 關的 C 資料結構，被 A 擦邊時才變 0，被 D 擦邊時還是 1，不能提早排隊。</li>
+          <li><b>「一開始把入度算好，照入度排就好」</b> —— 不行（見上面的反例），入度要邊排邊減。</li>
+          <li><b>「有環的話，排出來的那一部分也算答案」</b> —— 不算。定義要求全部頂點都排進去；結果少於 V 個時，正確的回應是「有環，排不出來」。</li>
+          <li><b>「剩下沒排到的點全部都在環上」</b> —— 不一定。第 4 關的 F 畢業審查不在環上，只是它的先修 E 卡在環裡，所以它也排不出來。</li>
+        </ul>
+      </div>
+
+      <div class="callout" data-k="ok">
+        <span class="tag">下一關</span>
+        <span class="txt">拓撲排序處理的是「有方向、有先後」的圖。下一關回到<b>有權重的無向圖</b>：海大校園要鋪網路線，怎麼用最少的線把所有建築連起來？→ <a href="24-mst.html">第 24 關「最小生成樹」</a>（Prim、Kruskal＋併查集）。</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟前面幾關一樣：使用者按「下一步」之前，整個 Kahn 演算法就已經跑完了。<code>buildSteps</code> 每做一個小動作（數入度、取出、擦一條邊……）就存一份<b>入度陣列、佇列、結果、已擦掉的邊</b>的快照；畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 <small>v：頂點（代號、名稱、座標）　e："A&gt;B A&gt;C …"</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(level) <small>Kahn 演算法整個跑完一次；最後檢查有沒有環</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格：indeg + 佇列 + 結果 + 擦掉的邊 + 說明 + 闖關題</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「把擦掉的邊畫回去」這種容易錯的邏輯。</li>
+          <li><b>環也是先算好的</b> —— 最後一步若有點沒排到，buildSteps 會沿著「指進來的邊」往回走，找出一個環存在 step 裡，畫面只要把它塗紅。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">parseLevel(level)<br>buildSteps(level)<br>findCycle()</td><td>把關卡轉成鄰接串列（照字母排好），跑 Kahn 演算法並存快照；有環時找出一個環。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：目前關卡、第幾步、模式、分數。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">buildGraphSVG / paintGraph<br>paintRows / paintStats<br>paintAlgo / paintSay / paintLog</td><td>換關卡時建一次 SVG；之後各自只讀 <code>steps[S.cur]</code>，改顏色和數字。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">renderQuiz / answerQuiz</td><td>題目在 buildSteps 時就跟著步驟生好（step.quiz），這裡只出題、對答案、計分。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// start / count / seed / pop / out / dec / zero / noout / done / cycle</i>
+  <b>line</b>:   <i>// C++ 程式要高亮第幾行</i>
+  <b>u</b>:      <i>// 這一輪取出的點 → 橘色實心</i>
+  <b>v, ei</b>:  <i>// 正在擦的那條邊 u→v（第 ei 條）→ 橘色粗箭頭</i>
+  <b>indeg</b>:  <i>// 入度陣列快照（還沒數之前是 null）</i>
+  <b>q</b>:      <i>// 佇列快照，前 → 後</i>
+  <b>out</b>:    <i>// 結果快照（已排好的順序）</i>
+  <b>gone</b>:   <i>// 已擦掉的邊（編號清單）→ 淡色虛線</i>
+  <b>cyc, cycV</b>: <i>// 有環時：環上的邊與點 → 紅色</i>
+  <b>title, msg, quiz</b>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{tag, n, d, vb, v, e, fin}</code></td><td>幾行</td></tr>
+              <tr><td>平手時改成「永遠先取字母最小的」</td><td><code>buildSteps</code> 裡取佇列的地方改成先排序再取 ＋ <code>CODE</code> 改用 priority_queue</td><td>約 5 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>自訂輸入允許更多點</td><td>事件綁定裡的 <code>[A-L]</code>（字母範圍）</td><td>1 行</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作拓撲排序（Kahn 演算法），不要用任何圖論函式庫。
+
+輸入：n 個頂點（0~n-1）、有向邊清單 {u, v}，意思是 u 要排在 v 前面。
+需要的函式：
+- vector&lt;int&gt; topoSort(int n, vector&lt;vector&lt;int&gt;&gt;&amp; adj)   // 有環時回傳空的 vector
+
+要求：
+1. 用 indeg 陣列記錄入度、用 queue&lt;int&gt; 放入度 0 的點
+2. 每取出一個點，印出「取出誰、哪些點的入度變了、佇列現在是什麼」
+3. 用這張選課圖測試（A=0…H=7）：B→A A→C D→C A→G C→E C→F D→E E→H
+   答案應該是 B D A C G E F H
+4. 再加一條 H→C 讓它出現環，確認函式會回報有環，並印出沒排到的點
+5. 解釋為什麼時間複雜度是 O(V+E)</pre>
+        <h4>延伸題 1：DFS 版本</h4>
+        <pre class="code">改用 DFS 做拓撲排序：記錄每個點「完成」的順序，最後倒過來。
+用三種顏色（沒拜訪 / 拜訪中 / 完成）偵測環。
+用選課圖驗證答案是 D B A G C F E H（從 A 開始、鄰居照字母順序）。</pre>
+        <h4>延伸題 2：最少要幾個學期</h4>
+        <pre class="code">每學期可以修任意多門課，但先修一定要在「之前的學期」修完。
+選課圖最少要幾個學期？（提示：每次把佇列裡的點「整批」取出算一學期；
+答案等於最長那條先修鏈的課數）</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 23 拓撲排序</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  /* v：[代號, 名稱, x, y]（代號是一個大寫字母）；e：有向邊 "U>V"，意思是 U 要排在 V 前面 */
+  var LEVELS = [
+    {tag:"5 點", n:"暖身：早上出門", vb:"0 0 560 290",
+     v:[["A","起床",60,145],["B","刷牙",200,65],["C","穿衣服",200,225],["D","吃早餐",340,65],["E","出門",480,145]],
+     e:"A>B A>C B>D C>E D>E",
+     d:"早上出門前的 5 件事。箭頭 u→v 表示 u 要先做完才能做 v。先數每件事的入度，再一件一件排出來。",
+     fin:"這張圖其實有 3 種合法順序：A B C D E、A B D C E、A C B D E。照平手規則（佇列先進先出、同時進佇列的照字母），程式排出的是第一種。"},
+    {tag:"選課", n:"資工系先修順序", vb:"0 0 640 290",
+     v:[["A","程式設計",190,70],["B","計算機概論",60,70],["C","資料結構",320,170],["D","離散數學",60,240],
+        ["E","演算法",450,240],["F","資料庫",450,110],["G","物件導向",320,40],["H","人工智慧",570,240]],
+     e:"B>A A>C D>C A>G C>E C>F D>E E>H",
+     d:"8 門課、8 條先修規定。B 計概和 D 離散入度 0，大一一開始就能修。注意代號字母和先修順序無關。",
+     fin:"這只是 48 種合法修課順序的其中一種。看 C 資料結構：被 D 擦掉一條邊時入度還剩 1，要等 A 也排完才降到 0——兩門先修都修過才能修。"},
+    {tag:"平手", n:"很多種順序都對", vb:"0 0 560 290",
+     v:[["A","切肉",60,50],["B","洗米",60,240],["C","切菜",60,145],["D","炒菜",270,95],["E","煮飯",270,240],["F","上桌",480,165]],
+     e:"A>D C>D B>E D>F E>F",
+     d:"煮一頓飯：A 切肉、B 洗米、C 切菜三件事一開始都能做，入度都是 0。誰先做都合法——看平手規則怎麼決定。",
+     fin:"這張圖有 20 種合法順序。平手規則讓答案固定成 A B C E D F：E 煮飯比 D 炒菜早排隊（B 一取出 E 就變 0），所以先出來。如果改成「佇列裡永遠先取字母最小的」，會排出 A B C D E F，一樣合法。"},
+    {tag:"有環", n:"規定寫錯了", vb:"0 0 600 290",
+     v:[["A","新生講座",60,145],["B","程式設計",180,70],["C","專題",320,70],["D","實習",450,70],
+        ["E","證照",385,205],["F","畢業審查",540,205],["G","社團博覽會",180,220]],
+     e:"A>B A>G B>C C>D D>E E>C E>F G>F",
+     d:"某系的規定寫錯了：專題要先實習、實習要先拿證照、證照又要先做專題。看演算法跑到哪裡會卡住。",
+     fin:"要修好這份規定，只要拿掉環上任何一條邊（例如刪掉「證照要先做專題」E→C），整張圖就變回 DAG，全部排得出來。"},
+    {tag:"10 點", n:"專案排程挑戰", vb:"0 0 630 310",
+     v:[["A","需求訪談",50,110],["B","畫面設計",155,55],["C","資料庫設計",155,175],["D","後端 API",260,175],
+        ["E","前端頁面",365,110],["F","寫測試",365,240],["G","整合測試",470,175],["H","部署上線",580,110],
+        ["I","使用手冊",260,40],["J","申請主機",520,265]],
+     e:"A>B A>C B>E B>I C>D D>E D>F E>G F>G G>H J>H I>H",
+     d:"一個小專案的 10 個工作、12 條「做完才能開始」的規定。H 部署上線有 3 個先修。建議切到闖關模式挑戰。",
+     fin:"這張圖一共有 297 種合法順序。注意 J 申請主機一開始就進了佇列，第 2 個就排出來；H 要等 J、I、G 三個都排完才降到 0。"}
+  ];
+
+  var CODE = [
+    "vector<int> topoSort(int n, vector<vector<int>>& adj) {",
+    "    vector<int> indeg(n, 0);",
+    "    for (int u = 0; u < n; u++)",
+    "        for (int v : adj[u]) indeg[v]++;",
+    "    queue<int> q;",
+    "    for (int u = 0; u < n; u++)",
+    "        if (indeg[u] == 0) q.push(u);",
+    "    vector<int> order;",
+    "    while (!q.empty()) {",
+    "        int u = q.front(); q.pop();",
+    "        order.push_back(u);",
+    "        for (int v : adj[u]) {",
+    "            indeg[v]--;",
+    "            if (indeg[v] == 0) q.push(v);",
+    "        }",
+    "    }",
+    "    if ((int)order.size() < n) return {};",
+    "    return order;",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "topoSort（拓撲排序）機器的開頭。交給它兩樣東西：頂點數 n，以及鄰接串列 adj——adj[u] 是「u 指向哪些點」的清單（照編號由小到大排好）。做完會交回一個 vector<int>，也就是排好的順序。",
+    "準備入度陣列 indeg，共 n 格，一開始全部是 0。indeg[v] 等一下會存「有幾條箭頭指向 v」。",
+    "for 迴圈：讓 u 從 0 跑到 n-1，每個點輪一次。",
+    "看 u 指向的每一個點 v（for (int v : adj[u]) 的意思是「adj[u] 裡的每一個 v」），每看到一條 u→v，就讓 indeg[v] 加 1（++ 就是加 1）。跑完之後每個點的入度就數好了。",
+    "準備一個佇列 q（queue）：從後面加入、從前面取出，先進先出。它專門放「入度已經是 0、可以排出去」的點。",
+    "再把每個點 u 從 0 到 n-1 看一遍。",
+    "如果 u 的入度是 0（沒有任何點要排在它前面），就把它放進佇列（push）。因為是照編號看，所以一開始的佇列是照字母順序排的。",
+    "準備結果清單 order，一開始是空的。排好的點會一個一個接到它後面。",
+    "while 迴圈：只要佇列不是空的（!q.empty() 的意思是「q 不是空的」），就一直重複下面的事。",
+    "取出佇列最前面的點：q.front() 是看最前面那個，q.pop() 是把它從佇列拿掉。把它叫做 u。",
+    "把 u 接到結果 order 的最後面（push_back）。u 的先修全都已經在 order 裡了，所以放這裡一定合法。",
+    "看 u 指向的每一個點 v。這等於把 u 的出邊一條一條「擦掉」。",
+    "u 已經排好了，所以 v 少了一個要等的先修：indeg[v] 減 1（-- 就是減 1）。",
+    "如果 v 的入度剛好減到 0，代表 v 的先修全都排好了，把 v 放到佇列最後面排隊。沒到 0 就繼續等。",
+    "擦邊迴圈的結尾，回到第 12 行看 u 的下一個鄰居。",
+    "while 迴圈的結尾，回到第 9 行檢查佇列還有沒有點。",
+    "佇列空了。如果結果的點數少於 n，表示有點的入度永遠降不到 0——圖裡有環，排不出來。return {} 是交回一個空的結果，代表失敗。",
+    "所有 n 個點都排進去了，交回這個順序，它就是一個拓撲順序。",
+    "topoSort 結束。每個點進出佇列各一次、每條邊擦掉一次，所以是 O(V+E)。"
+  ];
+
+  var BADGE = {start:"START", count:"COUNT", seed:"SEED", pop:"POP", out:"OUT", dec:"DEC",
+               zero:"ZERO", noout:"SKIP", done:"DONE", cycle:"CYCLE"};
+  /* say / log 的顏色（對應 site.css 的 data-k）*/
+  var KMAP  = {start:"start", count:"start", seed:"push", pop:"hot", out:"ok", dec:"hot",
+               zero:"push", noout:"start", done:"done", cycle:"error"};
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    level:null, levelIdx:-1, G:null, steps:[], cur:0, mode:"demo", playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* ---------- 2. 資料層 ---------- */
+
+  /* 把關卡轉成：照字母排好的頂點、邊清單、鄰接串列（鄰居也照字母排好） */
+  function parseLevel(level){
+    var vs = level.v.slice().sort(function(a, b){ return a[0] < b[0] ? -1 : (a[0] > b[0] ? 1 : 0); });
+    var n = vs.length, idx = {}, i;
+    var ids = [], names = [], pos = [];
+    for(i = 0; i < n; i++){
+      idx[vs[i][0]] = i;
+      ids.push(vs[i][0]); names.push(vs[i][1] || "");
+      pos.push((typeof vs[i][2] === "number") ? {x:vs[i][2], y:vs[i][3]} : null);
+    }
+    var seen = {}, edges = [];
+    String(level.e || "").split(/\s+/).forEach(function(tok){
+      var m = /^([A-Z])>([A-Z])$/.exec(tok);
+      if(!m || idx[m[1]] === undefined || idx[m[2]] === undefined || m[1] === m[2]) return;
+      var u = idx[m[1]], v = idx[m[2]];
+      if(seen[u + "," + v]) return;
+      seen[u + "," + v] = 1;
+      edges.push([u, v]);
+    });
+    edges.sort(function(a, b){ return a[0] - b[0] || a[1] - b[1]; });
+    var adj = [];
+    for(i = 0; i < n; i++) adj.push([]);
+    edges.forEach(function(e, k){ adj[e[0]].push({v:e[1], ei:k}); });
+    return {n:n, ids:ids, names:names, pos:pos, edges:edges, adj:adj};
+  }
+
+  function buildSteps(level){
+    var G = parseLevel(level), n = G.n, ids = G.ids, edges = G.edges, adj = G.adj;
+    var steps = [], indeg = null, q = [], out = [], gone = [], isOut = [], i;
+    for(i = 0; i < n; i++) isOut.push(false);
+
+    function lab(k){ return ids[k] + (G.names[k] ? " " + G.names[k] : ""); }
+    function list(arr){ return arr.length ? arr.map(function(k){ return ids[k]; }).join("、") : ""; }
+    function put(o){
+      o.indeg = indeg ? indeg.slice() : null;
+      o.q = q.slice(); o.out = out.slice(); o.gone = gone.slice();
+      if(o.u === undefined) o.u = -1;
+      if(o.v === undefined) o.v = -1;
+      if(o.ei === undefined) o.ei = -1;
+      if(!o.cyc) o.cyc = [];
+      if(!o.cycV) o.cycV = [];
+      if(o.quiz){
+        o.quiz.opts = uniqOpts(o.quiz.opts);
+        /* 選項去重後只剩一個，就不算題目 */
+        if(o.quiz.opts.length < 2) delete o.quiz;
+      }
+      steps.push(o);
+    }
+    function uniqOpts(arr){
+      var seen = {}, res = [];
+      for(var k = 0; k < arr.length; k++){
+        var o = arr[k];
+        if(o && !seen[o.t]){ seen[o.t] = 1; res.push(o); }
+      }
+      return res;
+    }
+    function outdeg(k){ return adj[k].length; }
+
+    /* --- 開始 --- */
+    put({kind:"start", line:-1,
+      title:"一張有向圖：" + n + " 個點、" + edges.length + " 條邊",
+      msg:level.d || ""});
+
+    /* --- 數入度（第 3、4 行） --- */
+    indeg = [];
+    for(i = 0; i < n; i++) indeg.push(0);
+    edges.forEach(function(e){ indeg[e[1]]++; });
+    var qv = -1;
+    for(i = 0; i < n; i++) if(qv < 0 || indeg[i] > indeg[qv]) qv = i;
+    var countQ = null;
+    if(qv >= 0){
+      var k0 = indeg[qv], o0 = outdeg(qv);
+      countQ = {q:"還沒數之前，先猜猜看：" + lab(qv) + " 的入度是多少？", ans:"a", opts:[
+        {t:String(k0), s:"有 " + k0 + " 條箭頭指向它", v:"a"},
+        o0 !== k0 ? {t:String(o0), s:"這是出度：指出去的箭頭", v:"b"} : null,
+        {t:String(k0 + 1), s:"", v:"c"},
+        k0 > 0 ? {t:String(k0 - 1), s:"", v:"d"} : null]};
+    }
+    put({kind:"count", line:4,
+      title:"數入度：每條 u→v 讓 indeg[v] 加 1",
+      msg:"每個點右上角的小數字就是入度＝有幾條箭頭指向它。" +
+        (qv >= 0 ? "例如 <b>" + lab(qv) + "</b> 有 <b>" + indeg[qv] + "</b> 條箭頭指進來" +
+          (indeg[qv] > 0 ? "（來自 " + list(edges.filter(function(e){ return e[1] === qv; }).map(function(e){ return e[0]; })) + "）" : "") + "。" : "") +
+        "全部入度加起來是 " + edges.length + "，剛好等於邊數。",
+      quiz:countQ});
+
+    /* --- 入度 0 的點進佇列（第 6、7 行） --- */
+    var src = [], sinks = [];
+    for(i = 0; i < n; i++){
+      if(indeg[i] === 0) src.push(i);
+      if(outdeg(i) === 0) sinks.push(i);
+    }
+    var firstOne = -1;
+    for(i = 0; i < n; i++) if(indeg[i] === 1){ firstOne = i; break; }
+    var seedQ = {q:"入度都數好了。一開始哪些點會進佇列？", ans:"a", opts:[
+      {t:src.length ? list(src) : "沒有任何點", s:"入度是 0 的點", v:"a"},
+      sinks.length ? {t:list(sinks), s:"沒有出邊的點", v:"b"} : null,
+      src.length > 1 ? {t:"只有 " + ids[src[0]], s:"字母最小的一個", v:"c"}
+                     : (firstOne >= 0 ? {t:list(src.concat([firstOne]).sort(function(a, b){ return a - b; })), s:"入度 0 和 1 的", v:"c"} : null)]};
+    for(i = 0; i < src.length; i++) q.push(src[i]);
+    put({kind:"seed", line:7,
+      title:src.length ? "入度 0 的點進佇列：" + list(src) : "沒有任何點的入度是 0！",
+      msg:src.length
+        ? "<b>" + list(src) + "</b> 沒有任何箭頭指進來，不用等任何人，現在就能排。照字母順序放進佇列。" +
+          (src.length > 1 ? "它們之間沒有先後規定，誰先都合法；平手規則是照字母。" : "")
+        : "每個點都有箭頭指進來，第一個位置沒有人能排——這張圖一定有環。",
+      quiz:seedQ});
+
+    /* --- 主迴圈（第 9～16 行） --- */
+    while(q.length){
+      var u = q[0], j;
+      /* 闖關：下一個取出的是誰？ */
+      var popOpts = [{t:ids[u], s:"排在佇列最前面", v:"a"}];
+      for(j = 1; j < q.length && popOpts.length < 3; j++) popOpts.push({t:ids[q[j]], s:"還在後面排隊", v:"o" + j});
+      if(q.length === 1){
+        for(j = 0; j < n; j++){
+          if(!isOut[j] && j !== u){
+            popOpts.push({t:ids[j], s:"入度還有 " + indeg[j] + "，不能排", v:"x"});
+            break;
+          }
+        }
+      }
+      q.shift();
+      put({kind:"pop", line:10, u:u,
+        title:"從佇列前面取出 " + lab(u),
+        msg:"佇列先進先出，取出最前面的 <b>" + ids[u] + "</b>。它的入度是 0：要排在它前面的點都已經排好了。" +
+          (q.length ? "佇列剩下 " + list(q) + "。" : "佇列現在空了。"),
+        quiz:{q:"佇列（前 → 後）是 " + list([u].concat(q)) + "。下一個取出的是誰？", ans:"a", opts:popOpts}});
+
+      out.push(u); isOut[u] = true;
+      var zeros = [], nbrs = [];
+      for(j = 0; j < adj[u].length; j++){
+        nbrs.push(adj[u][j].v);
+        if(indeg[adj[u][j].v] === 1) zeros.push(adj[u][j].v);
+      }
+      var outQ = nbrs.length ? {q:ids[u] + " 排進結果了。接著擦掉它的出邊，哪些點的入度會變成 0（進佇列）？", ans:"a", opts:[
+        {t:zeros.length ? list(zeros) : "沒有", s:zeros.length ? "原本入度是 1 的鄰居" : "鄰居都還有別的先修", v:"a"},
+        {t:list(nbrs), s:ids[u] + " 指向的全部", v:"b"},
+        zeros.length ? {t:"沒有", s:"", v:"c"} : null]} : null;
+      put({kind:"out", line:11, u:u,
+        title:ids[u] + " 排進結果，第 " + out.length + " 個",
+        msg:"結果目前是 <b>" + list(out).replace(/、/g, " ") + "</b>。" +
+          (nbrs.length ? "接下來擦掉 " + ids[u] + " 的出邊：" + nbrs.map(function(v){ return ids[u] + "→" + ids[v]; }).join("、") + "。"
+                       : ids[u] + " 沒有出邊，沒有人在等它。"),
+        quiz:outQ});
+
+      if(!adj[u].length){
+        put({kind:"noout", line:12, u:u,
+          title:ids[u] + " 沒有出邊，這一輪結束",
+          msg:"adj[" + ids[u] + "] 是空的，第 12 行的迴圈一次都不跑。回到第 9 行看佇列。"});
+      }
+      for(j = 0; j < adj[u].length; j++){
+        var v = adj[u][j].v, ei = adj[u][j].ei, before = indeg[v];
+        indeg[v]--; gone.push(ei);
+        var hit = indeg[v] === 0;
+        if(hit) q.push(v);
+        put({kind:hit ? "zero" : "dec", line:hit ? 14 : 13, u:u, v:v, ei:ei,
+          title:"擦掉 " + ids[u] + "→" + ids[v] + "：indeg[" + ids[v] + "] " + before + " → " + indeg[v] + (hit ? "，進佇列" : ""),
+          msg:hit
+            ? "<b>" + lab(v) + "</b> 的最後一個先修 " + ids[u] + " 也排好了，入度降到 0，排到佇列<b>最後面</b>。佇列：" + list(q) + "。"
+            : "<b>" + lab(v) + "</b> 還有 " + indeg[v] + " 條箭頭指進來（" +
+              list(edges.filter(function(e){ return e[1] === v && !isOut[e[0]]; }).map(function(e){ return e[0]; })) +
+              " 還沒排），繼續等，不能進佇列。",
+          quiz:{q:"擦掉 " + ids[u] + "→" + ids[v] + " 之後，" + ids[v] + " 的入度變成多少？", ans:"a", opts:[
+            {t:"變成 " + indeg[v] + (hit ? "，進佇列" : "，還要等"), s:"少了一條指進來的箭頭", v:"a"},
+            {t:"還是 " + before, s:"擦掉的是指向它的邊", v:"b"},
+            indeg[v] > 0 ? {t:"變成 0，進佇列", s:"", v:"c"} : null]}});
+      }
+    }
+
+    /* --- 結束：檢查有沒有環（第 17、18 行） --- */
+    var endQ = {q:"佇列空了。結果有 " + out.length + " 個點，整張圖有 " + n + " 個點。這代表？",
+      ans:out.length === n ? "ok" : "cyc", opts:[
+        {t:"全部排好了", s:"結果的點數 = n", v:"ok"},
+        {t:"有環，排不出來", s:"結果的點數 < n", v:"cyc"}]};
+    if(out.length === n){
+      put({kind:"done", line:18,
+        title:"排好了！拓撲順序：" + list(out).replace(/、/g, " "),
+        msg:"佇列空了，" + n + " 個點全部排進結果，每條邊都擦掉了。檢查任何一條邊 u→v，u 都在 v 左邊。" + (level.fin || ""),
+        quiz:endQ});
+    } else {
+      var cyc = findCycle(), left = [];
+      for(i = 0; i < n; i++) if(!isOut[i]) left.push(i);
+      var cycV = cyc.map(function(e){ return edges[e][0]; });
+      var notOn = left.filter(function(k){ return cycV.indexOf(k) < 0; });
+      put({kind:"cycle", line:17, cyc:cyc, cycV:cycV,
+        title:"有環，排不出來！只排了 " + out.length + " / " + n + " 個",
+        msg:"佇列空了，但 <b>" + list(left) + "</b> 的入度都還不是 0，永遠等不到。往回追指進來的箭頭，找到環 <b>" +
+          cycV.concat([cycV[0]]).map(function(k){ return ids[k]; }).join(" → ") + "</b>（紅色）：環上每個點都在等前一個，誰也排不出去。" +
+          (notOn.length ? list(notOn) + " 不在環上，但被環擋住了。" : "") +
+          "程式第 17 行發現 order 只有 " + out.length + " 個 < n = " + n + "，回傳空結果。" + (level.fin || ""),
+        quiz:endQ});
+    }
+    return steps;
+
+    /* 從剩下的點（入度都 > 0）沿著「指進來的邊」往回走，一定會繞回走過的點——那就是環 */
+    function findCycle(){
+      var start = -1, k;
+      for(k = 0; k < n; k++) if(!isOut[k]){ start = k; break; }
+      if(start < 0) return [];
+      var path = [], at = {}, x = start;
+      while(at[x] === undefined){
+        at[x] = path.length; path.push(x);
+        var p = -1;
+        for(k = 0; k < edges.length; k++){
+          if(edges[k][1] === x && !isOut[edges[k][0]] && (p < 0 || edges[k][0] < p)) p = edges[k][0];
+        }
+        x = p;
+      }
+      /* path 是倒著走的：path[t+1] → path[t]。把環這一段反過來就是順著箭頭的方向 */
+      var ring = path.slice(at[x]).reverse();
+      var m = 0;
+      for(k = 1; k < ring.length; k++) if(ring[k] < ring[m]) m = k;
+      ring = ring.slice(m).concat(ring.slice(0, m));
+      var res = [];
+      for(k = 0; k < ring.length; k++){
+        var a = ring[k], b = ring[(k + 1) % ring.length];
+        for(var t = 0; t < edges.length; t++) if(edges[t][0] === a && edges[t][1] === b){ res.push(t); break; }
+      }
+      return res;
+    }
+  }
+
+  /* ---------- 3. 畫面層 ---------- */
+
+  function mk(tag, attrs){
+    var el = document.createElementNS(SVGNS, tag);
+    for(var k in attrs) if(Object.prototype.hasOwnProperty.call(attrs, k)) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  /* 自訂輸入沒有座標：照「最長先修鏈」分層，一層一欄；有環卡住的點放最後一欄 */
+  function autoLayout(G){
+    var n = G.n, layer = [], indeg = [], i, k, q = [];
+    for(i = 0; i < n; i++){ layer.push(-1); indeg.push(0); }
+    G.edges.forEach(function(e){ indeg[e[1]]++; });
+    for(i = 0; i < n; i++) if(indeg[i] === 0){ q.push(i); layer[i] = 0; }
+    while(q.length){
+      var u = q.shift();
+      G.adj[u].forEach(function(a){
+        layer[a.v] = Math.max(layer[a.v], layer[u] + 1);
+        if(--indeg[a.v] === 0) q.push(a.v);
+      });
+    }
+    var maxL = 0;
+    for(i = 0; i < n; i++) if(indeg[i] === 0 && layer[i] > maxL) maxL = layer[i];
+    var hasLeft = false;
+    for(i = 0; i < n; i++) if(indeg[i] > 0){ layer[i] = maxL + 1; hasLeft = true; }
+    var cols = maxL + (hasLeft ? 2 : 1), W = Math.max(420, 100 + (cols - 1) * 120), H = 290;
+    var byL = [];
+    for(k = 0; k < cols; k++) byL.push([]);
+    for(i = 0; i < n; i++) byL[layer[i]].push(i);
+    var pos = [];
+    for(k = 0; k < cols; k++){
+      var c = byL[k];
+      for(var t = 0; t < c.length; t++){
+        var x = cols === 1 ? W / 2 : 50 + (W - 100) * k / (cols - 1);
+        var y = c.length === 1 ? H / 2 - 10 : 40 + (H - 90) * t / (c.length - 1);
+        /* 同一欄上下交錯一點，長邊比較不會穿過別的點 */
+        if(c.length > 1) x += (t % 2 ? 14 : -14);
+        pos[c[t]] = {x:x, y:y};
+      }
+    }
+    return {pos:pos, vb:"0 0 " + W + " " + H};
+  }
+
+  function buildGraphSVG(){
+    var G = S.G, svg = $("graph"), i;
+    var vb = S.level.vb, pos = G.pos;
+    if(pos.some(function(p){ return !p; })){ var al = autoLayout(G); pos = G.pos = al.pos; vb = al.vb; }
+    svg.setAttribute("viewBox", vb);
+    svg.innerHTML = "";
+    var defs = mk("defs", {});
+    [["gah", ""], ["gahHot", " hot"], ["gahGone", " gone"], ["gahCyc", " bad"]].forEach(function(m){
+      var mkr = mk("marker", {id:m[0], viewBox:"0 0 10 10", refX:"9", refY:"5", markerWidth:"11", markerHeight:"11",
+                              markerUnits:"userSpaceOnUse", orient:"auto"});
+      mkr.appendChild(mk("path", {"class":"ah" + m[1], d:"M0,0 L10,5 L0,10 z"}));
+      defs.appendChild(mkr);
+    });
+    svg.appendChild(defs);
+    var R = 19;
+    G.edgeEls = [];
+    for(i = 0; i < G.edges.length; i++){
+      var a = pos[G.edges[i][0]], b = pos[G.edges[i][1]];
+      var dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx*dx + dy*dy) || 1, ux = dx / d, uy = dy / d;
+      /* 兩個點互相指（A→B 和 B→A）時，兩條線各往旁邊偏一點才不會疊在一起 */
+      var off = 0;
+      for(var t = 0; t < G.edges.length; t++) if(G.edges[t][0] === G.edges[i][1] && G.edges[t][1] === G.edges[i][0]) off = 6;
+      var ox = -uy * off, oy = ux * off;
+      var ln = mk("line", {x1:(a.x + ux*(R+1) + ox).toFixed(1), y1:(a.y + uy*(R+1) + oy).toFixed(1),
+                           x2:(b.x - ux*(R+3) + ox).toFixed(1), y2:(b.y - uy*(R+3) + oy).toFixed(1),
+                           "class":"edge", "marker-end":"url(#gah)"});
+      svg.appendChild(ln);
+      G.edgeEls.push(ln);
+    }
+    G.ndEls = []; G.bdgEls = []; G.bdgTx = [];
+    for(i = 0; i < G.n; i++){
+      var p = pos[i];
+      var g = mk("g", {"class":"vx"});
+      g.appendChild(mk("circle", {"class":"body", cx:p.x, cy:p.y, r:R}));
+      var lt = mk("text", {"class":"lt", x:p.x, y:p.y});
+      lt.textContent = G.ids[i];
+      g.appendChild(lt);
+      if(G.names[i]){
+        var nm = mk("text", {"class":"nm", x:p.x, y:p.y + R + 15});
+        nm.textContent = G.names[i];
+        g.appendChild(nm);
+      }
+      var bg = mk("g", {"class":"bdg"});
+      bg.appendChild(mk("circle", {cx:p.x + 17, cy:p.y - 17, r:9}));
+      var bt = mk("text", {x:p.x + 17, y:p.y - 17});
+      bg.appendChild(bt);
+      g.appendChild(bg);
+      svg.appendChild(g);
+      G.ndEls.push(g); G.bdgEls.push(bg); G.bdgTx.push(bt);
+    }
+    /* 名稱圖例 */
+    var host = $("names");
+    host.innerHTML = "";
+    for(i = 0; i < G.n; i++){
+      if(!G.names[i]) continue;
+      var sp = document.createElement("span");
+      var b2 = document.createElement("b"); b2.textContent = G.ids[i];
+      sp.appendChild(b2); sp.appendChild(document.createTextNode(" " + G.names[i]));
+      host.appendChild(sp);
+    }
+  }
+
+  function paintGraph(){
+    var st = S.steps[S.cur], G = S.G, i;
+    var gone = {}, cyc = {};
+    st.gone.forEach(function(e){ gone[e] = 1; });
+    st.cyc.forEach(function(e){ cyc[e] = 1; });
+    for(i = 0; i < G.edgeEls.length; i++){
+      var cls = "edge", m = "gah";
+      if(cyc[i]){ cls += " cyc"; m = "gahCyc"; }
+      else if(i === st.ei){ cls += " hot"; m = "gahHot"; }
+      else if(gone[i]){ cls += " gone"; m = "gahGone"; }
+      G.edgeEls[i].setAttribute("class", cls);
+      G.edgeEls[i].setAttribute("marker-end", "url(#" + m + ")");
+    }
+    var inQ = {}, isOut = {};
+    st.q.forEach(function(k){ inQ[k] = 1; });
+    st.out.forEach(function(k){ isOut[k] = 1; });
+    var ended = st.kind === "cycle";
+    for(i = 0; i < G.n; i++){
+      var c = "vx";
+      if(i === st.u && (st.kind === "pop" || st.kind === "out" || st.kind === "noout" || st.kind === "dec" || st.kind === "zero")) c += " cur";
+      else if(isOut[i]) c += " done";
+      else if(inQ[i]) c += " qd";
+      else if(ended) c += (st.cycV.indexOf(i) >= 0 ? " cyc" : " stuck");
+      if(i === st.v) c += " touch";
+      G.ndEls[i].setAttribute("class", c);
+      var bc = "bdg";
+      if(st.indeg){
+        G.bdgTx[i].textContent = st.indeg[i];
+        if(i === st.v) bc += " chg";
+        else if(st.indeg[i] === 0) bc += " zero";
+      } else {
+        G.bdgTx[i].textContent = "?";
+      }
+      G.bdgEls[i].setAttribute("class", bc);
+    }
+    $("graphNote").textContent = "V = " + G.n + "，E = " + G.edges.length;
+  }
+
+  function cell(head, val, cls){
+    var d = document.createElement("div");
+    d.className = "cl" + (cls ? " " + cls : "");
+    var h = document.createElement("span"); h.className = "hd"; h.textContent = head;
+    var b = document.createElement("span"); b.className = "bx"; b.textContent = val;
+    d.appendChild(h); d.appendChild(b);
+    return d;
+  }
+
+  function paintRows(){
+    var st = S.steps[S.cur], G = S.G, i;
+    var isOut = {}, inQ = {};
+    st.out.forEach(function(k){ isOut[k] = 1; });
+    st.q.forEach(function(k){ inQ[k] = 1; });
+
+    var row = $("indegRow");
+    row.innerHTML = "";
+    for(i = 0; i < G.n; i++){
+      var c = "";
+      if(!st.indeg) c = "";
+      else if(i === st.v) c = "chg";
+      else if(isOut[i]) c = "off";
+      else if(st.kind === "cycle") c = "bad";
+      else if(st.indeg[i] === 0) c = "zero";
+      row.appendChild(cell(G.ids[i], st.indeg ? st.indeg[i] : "?", c));
+    }
+
+    var qr = $("queueRow");
+    qr.innerHTML = "";
+    if(!st.q.length){
+      var e = document.createElement("span");
+      e.className = "qempty";
+      e.textContent = (st.kind === "start" || st.kind === "count") ? "（還沒開始放）" : "（空的）";
+      qr.appendChild(e);
+    } else {
+      var f = document.createElement("span"); f.className = "qend"; f.textContent = "前 ←";
+      qr.appendChild(f);
+      st.q.forEach(function(k, t){
+        var cc = "qd" + (t === 0 ? " front" : "") + ((st.kind === "zero" && k === st.v) || (st.kind === "seed") ? " new" : "");
+        qr.appendChild(cell(t === 0 ? "front" : String(t + 1), G.ids[k], cc));
+      });
+      var bk = document.createElement("span"); bk.className = "qend"; bk.textContent = "← 後";
+      qr.appendChild(bk);
+    }
+
+    var orow = $("orderRow");
+    orow.innerHTML = "";
+    st.out.forEach(function(k, t){
+      orow.appendChild(cell("#" + (t + 1), G.ids[k], "ok" + (st.kind === "out" && t === st.out.length - 1 ? " new" : "")));
+    });
+    if(st.kind === "cycle"){
+      for(i = 0; i < G.n; i++) if(!isOut[i]) orow.appendChild(cell("卡住", G.ids[i], "bad"));
+    } else {
+      for(i = st.out.length; i < G.n; i++) orow.appendChild(cell("#" + (i + 1), "·", "slot"));
+    }
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur], G = S.G;
+    $("stOut").textContent = st.out.length + "/" + G.n;
+    $("stQ").textContent = st.q.length;
+    $("stGone").textContent = st.gone.length + "/" + G.edges.length;
+    $("stVE").textContent = G.n + "／" + G.edges.length;
+    var ph = "";
+    if(st.kind === "start") ph = "";
+    else if(st.kind === "count" || st.kind === "seed") ph = "準備";
+    else if(st.kind === "done") ph = "完成";
+    else if(st.kind === "cycle") ph = "有環";
+    else ph = "第 " + (st.out.length + (st.kind === "pop" ? 1 : 0)) + " 輪";
+    $("phaseNote").textContent = ph;
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < CODE.length; i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < CODE.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", KMAP[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log"), G = S.G;
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", KMAP[st.kind] || "start");
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = st.v >= 0 ? G.ids[st.u] + "→" + G.ids[st.v] : (st.u >= 0 ? G.ids[st.u] : "—");
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "佇列 " + (st.q.length ? st.q.map(function(k){ return G.ids[k]; }).join("") : "空");
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintGraph(); paintRows(); paintStats();
+    paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 4. 導覽 ---------- */
+
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length - 1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length - 1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length - 1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length - 1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 5. 闖關 ---------- */
+
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){
+      if(S.steps[k].quiz) return k;
+    }
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right / S.asked * 100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1 + LEVELS.length) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadLevelObj(S.level, S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = st.quiz.q;
+    opts.innerHTML = "";
+    var list = st.quiz.opts, rot = ni % list.length;
+    for(var k = 0; k < list.length; k++){
+      var o = list[(k + rot) % list.length];
+      addOpt(opts, o.t, o.s || "", o.v);
+    }
+  }
+
+  function addOpt(host, label, sub, val){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    if(sub){
+      var sm = document.createElement("small");
+      sm.textContent = sub;
+      b.appendChild(sm);
+    }
+    b.addEventListener("click", function(){ answerQuiz(val); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(val){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.ans, correctLabel = "";
+    for(var k = 0; k < st.quiz.opts.length; k++){
+      if(st.quiz.opts[k].v === correct) correctLabel = st.quiz.opts[k].t;
+    }
+
+    S.asked++;
+    var win = (val === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right / S.asked * 100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。按上方「下一關」繼續。</b>";
+    }
+  }
+
+  /* ---------- 6. 載入 ---------- */
+
+  function loadLevelObj(lv, idx){
+    stopPlay();
+    S.level = lv;
+    S.levelIdx = (typeof idx === "number") ? idx : -1;
+    S.G = parseLevel(lv);
+    S.steps = buildSteps(lv);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    buildGraphSVG();
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadLevelObj(LEVELS[i], i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著圖、入度和佇列的目前狀態，回答下一步會發生什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* 自訂輸入："A>B A->C B→D"；單獨一個字母＝沒有邊的點。字母 A～L，自己指自己的邊會被忽略 */
+  function parseCustom(text){
+    var toks = String(text).toUpperCase().replace(/\s*(->|→|＞|>)\s*/g, ">").split(/[\s,，、;；]+/);
+    var letters = {}, es = [];
+    toks.forEach(function(tok){
+      var m = /^([A-L])(?:>([A-L]))?$/.exec(tok);
+      if(!m) return;
+      letters[m[1]] = 1;
+      if(m[2]){ letters[m[2]] = 1; if(m[1] !== m[2]) es.push(m[1] + ">" + m[2]); }
+    });
+    var vs = Object.keys(letters).sort();
+    if(vs.length < 2) return null;
+    return {
+      tag:"custom", n:"自訂",
+      v:vs.map(function(c){ return [c, ""]; }),
+      e:es.slice(0, 40).join(" "),
+      d:"你的圖：" + vs.length + " 個點。先數入度，再一個一個排出來；如果有環，最後會卡住。",
+      fin:""
+    };
+  }
+
+  /* ---------- 7. 事件綁定 ---------- */
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadLevelObj(S.level, S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var lv = parseCustom($("customInput").value.trim());
+    if(lv) loadLevelObj(lv, -1);
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 8. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

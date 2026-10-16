@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>最小生成樹 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：
+   加權圖（邊的狀態：候選／正在看／收下／成環跳過）、排好序的邊清單、併查集 p[] 表、優先佇列。 */
+
+/* 00 段小圖：site.css 只有 .ed / .ed.bad，這裡補上「收下的邊」「候選邊」「沒選的邊」和權重數字 */
+.fig .ed.good{stroke:var(--jade);stroke-width:3.4}
+.fig .ed.hot{stroke:var(--accent);stroke-width:2.6}
+.fig .ed.dim{stroke:var(--line);stroke-width:1.2;stroke-dasharray:3 3;opacity:.7}
+.fig .wl{font-family:var(--font-mono);font-size:11px;font-weight:700;fill:var(--ink-soft);
+  text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:var(--sunken);stroke-width:4px}
+.fig .wl.good{fill:var(--jade)}
+.fig .wl.bad{fill:var(--alarm)}
+.fig .wl.hot{fill:var(--accent)}
+
+/* 遊戲裡的圖 */
+.gbox{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;padding:4px}
+svg.graph{display:block;width:100%;max-width:640px;margin:0 auto;height:auto}
+.edge{stroke:var(--line);stroke-width:2.4;transition:stroke var(--dur),stroke-width var(--dur),opacity var(--dur)}
+.edge.cand{stroke:var(--accent);stroke-width:2.2;stroke-dasharray:3 4;opacity:.75}
+.edge.hot{stroke:var(--accent);stroke-width:5;stroke-dasharray:7 5;opacity:1;animation:dashmove .6s linear infinite}
+.edge.tree{stroke:var(--jade);stroke-width:5.5;opacity:1}
+.edge.rej{stroke:var(--alarm);stroke-width:3;stroke-dasharray:6 4;opacity:.85}
+.edge.skip{opacity:.3}
+@keyframes dashmove{to{stroke-dashoffset:-12}}
+.wlab{font-family:var(--font-mono);font-size:13px;font-weight:700;fill:var(--ink-soft);
+  text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:var(--sunken);stroke-width:5px}
+.wlab.hot{fill:var(--accent);font-size:15px}
+.wlab.tree{fill:var(--jade)}
+.wlab.rej{fill:var(--alarm);text-decoration:line-through}
+.wlab.skip{opacity:.4}
+.gn circle{fill:var(--surface);stroke:var(--ink-faint);stroke-width:2;transition:fill var(--dur),stroke var(--dur)}
+.gn .nid{font-family:var(--font-mono);font-size:15px;font-weight:700;fill:var(--ink);
+  text-anchor:middle;dominant-baseline:central}
+.gn .nname{font-size:10.5px;font-weight:600;fill:var(--ink-faint);text-anchor:middle}
+.gn .ntop{font-family:var(--font-mono);font-size:10.5px;font-weight:700;fill:var(--accent);text-anchor:middle;letter-spacing:.06em}
+.gn.set circle{fill:var(--jade-soft);stroke:var(--jade);stroke-width:2.6}
+.gn.qd circle{fill:var(--accent-soft);stroke:var(--accent)}
+.gn.cur circle{fill:var(--accent);stroke:var(--accent)}
+.gn.cur .nid{fill:var(--surface)}
+.gn.touch circle{stroke:var(--accent);stroke-width:3.6}
+
+.legend{display:flex;gap:6px 14px;flex-wrap:wrap;justify-content:center;font-size:11.5px;color:var(--ink-soft)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:18px;height:0;border-top:4px solid var(--line)}
+.legend i.l-tree{border-top-color:var(--jade)}
+.legend i.l-hot{border-top:4px dashed var(--accent)}
+.legend i.l-rej{border-top:3px dashed var(--alarm)}
+.legend i.l-cand{border-top:2px dashed var(--accent)}
+.legend i.l-in{width:13px;height:13px;border:2px solid var(--jade);border-radius:50%;background:var(--jade-soft)}
+.legend i.l-qd{width:13px;height:13px;border:2px solid var(--accent);border-radius:50%;background:var(--accent-soft)}
+.legend i.l-grp{width:13px;height:13px;border:2px solid hsl(205 55% 45%);border-radius:50%;
+  background:color-mix(in srgb, hsl(205 70% 55%) 30%, var(--surface))}
+
+.vlabel{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.dsgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:10px}
+.dsbox{background:var(--sunken);border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+
+/* 邊清單 / 優先佇列：一列一條 */
+.elist{display:flex;flex-direction:column;gap:3px;font-family:var(--font-mono);font-size:12.5px;
+  max-height:250px;overflow-y:auto}
+.erow{display:flex;align-items:center;gap:8px;padding:3px 8px;border-radius:5px;
+  background:var(--surface);color:var(--ink-soft);border:1.5px solid transparent}
+.erow .rk{flex:0 0 22px;color:var(--ink-faint);font-size:10.5px}
+.erow .en{font-weight:700;color:var(--ink)}
+.erow .ew{color:var(--accent);font-weight:700}
+.erow .st{margin-left:auto;font-size:11px;font-weight:700;font-family:var(--font-sans)}
+.erow[data-s="cur"]{border-color:var(--accent);background:var(--accent-soft)}
+.erow[data-s="cur"] .st{color:var(--accent)}
+.erow[data-s="tree"]{background:var(--jade-soft)}
+.erow[data-s="tree"] .st{color:var(--jade)}
+.erow[data-s="rej"]{background:var(--alarm-soft)}
+.erow[data-s="rej"] .en{text-decoration:line-through;color:var(--alarm)}
+.erow[data-s="rej"] .st{color:var(--alarm)}
+.erow[data-s="skip"]{opacity:.55}
+.erow[data-s="stale"]{opacity:.6}
+.erow[data-s="stale"] .en{text-decoration:line-through}
+.erow[data-s="stale"] .st{color:var(--alarm)}
+.erow[data-s="top"]{border-color:var(--accent)}
+.erow[data-s="top"] .st{color:var(--accent)}
+.hand{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-soft)}
+.hand b{color:var(--ink)}
+
+/* 併查集 p[] / in[] 表 */
+.prow{display:flex;gap:5px;flex-wrap:wrap}
+.pcell{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.pcell .k{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);font-weight:700}
+.pcell .v{width:40px;height:36px;display:grid;place-items:center;border-radius:7px;
+  font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--ink);
+  background:var(--surface);border:1.8px solid var(--line);transition:border-color var(--dur),box-shadow var(--dur)}
+.pcell .v.grp{background:color-mix(in srgb, hsl(var(--gh) 70% 55%) 28%, var(--surface));border-color:hsl(var(--gh) 55% 45%)}
+.pcell .v.chg{box-shadow:0 0 0 2.5px var(--accent);border-color:var(--accent)}
+.pcell .v.on{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.pcell .v.path{border-color:var(--accent);border-style:dashed;border-width:2.2px}
+.dsnote{font-size:12.5px;color:var(--ink-soft);line-height:1.55}
+.dsnote b{color:var(--ink);font-family:var(--font-mono)}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">24 · 最小生成樹</span>
+    <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 24 · Minimum Spanning Tree</p>
+    <h1>最小生成樹</h1>
+    <p class="lede">學校要在六棟建築之間鋪網路線，每兩棟之間的施工長度不一樣。要讓<b>每一棟都連得上</b>，又要<b>總長度最短</b>，該挑哪幾段來鋪？這一關用兩種方法解它：Kruskal 從最便宜的線開始挑、遇到會繞圈的就跳過；Prim 從一棟建築開始，每次往外接一段最便宜的線。兩種方法走法不同，總長度一樣都是 13。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>加權無向圖＋併查集／堆積</b></div>
+      <div class="fact"><span>難度</span><b>中階～進階</b></div>
+      <div class="fact"><span>時間</span><b>O(E log E)</b></div>
+      <div class="fact"><span>先備知識</span><b>21、22、13</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：最小生成樹（MST）到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>定義：最小生成樹（Minimum Spanning Tree）</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 最小生成樹 MST</span>
+          <div class="defline">在一張<em>連通的加權無向圖</em>裡，挑出一部分的邊，讓<em>所有頂點都連在一起</em>、<em>沒有環</em>，而且這些邊的<em>權重加起來最小</em>。挑出來的這組邊就叫最小生成樹。</div>
+          <p>頂點有 V 個時，最小生成樹<b>一定剛好有 V − 1 條邊</b>。校園有 6 棟建築，所以要挑 5 段線。</p>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>白話</b></td><td>用最少的總長度，把所有地點「串」起來。只要彼此找得到路就好，不要求兩點之間是直達或最近。</td></tr>
+              <tr><td><b>拆成三個條件</b></td><td>① <b>全部連到</b>：每個頂點都在裡面，任兩個頂點之間都有路。② <b>沒有環</b>：不會繞一圈回到原點。③ <b>總重最小</b>：所有符合 ①② 的挑法裡，權重加總最小的那個。</td></tr>
+              <tr><td><b>名字拆開看</b></td><td><b>生成</b>（spanning）＝ 涵蓋全部頂點；<b>樹</b> ＝ 連通又沒有環；<b>最小</b> ＝ 總權重最小。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">花最少的錢，把所有地方接起來。比喻：學校要鋪網路線，A 校門、B 圖書館、C 餐廳、D 系館、E 宿舍、F 體育館。圖上每條邊是「可以鋪線的路段」，數字是長度。六棟都要連上網，線越短越省錢——<b>多鋪一段繞成一圈是浪費</b>，因為少了它大家還是連得到。真實世界的電網、水管、光纖、道路規劃，都是這個問題。</span>
+        </div>
+        <div class="callout">
+          <span class="tag">先備</span>
+          <span class="txt">這一關用到三個前面的東西：<a href="21-graph-basics.html">第 21 關「圖的基本概念」</a>（頂點、邊、權重、環、連通）、<a href="22-graph-traversal.html">第 22 關「圖的走訪」</a>（連通元件——一張圖可以分成好幾塊）、<a href="13-heap.html">第 13 關「堆積」</a>（Prim 用最小堆積快速拿出最便宜的邊）。還沒玩過的話，先去看它們的 00 段。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">加權無向圖 <small>weighted undirected graph</small></div>
+            <div class="td">一堆<b>頂點</b>用<b>邊</b>連起來，邊沒有方向（A–B 和 B–A 是同一條），每條邊上有一個數字叫<b>權重</b>（長度、價錢、時間）。V＝頂點數，E＝邊數。（第 21 關）</div>
+            <div class="ta">校園地圖：建築是頂點，路段是邊，路段長度是權重。</div>
+          </div>
+          <div class="term">
+            <div class="tn">環 <small>cycle</small></div>
+            <div class="td">從一個頂點出發，沿著邊走，<b>不重複走同一條邊</b>，最後回到出發點。例如 A–B–C–A。</div>
+            <div class="ta">在校園裡繞一圈回到原地。</div>
+          </div>
+          <div class="term">
+            <div class="tn">連通 <small>connected</small></div>
+            <div class="td">任兩個頂點之間<b>都有路可以走到</b>。不連通的圖會分成好幾塊，每一塊叫一個<b>連通元件</b>。（第 22 關）</div>
+            <div class="ta">整個校園的路都接在一起，沒有孤島。</div>
+          </div>
+          <div class="term">
+            <div class="tn">子圖 <small>subgraph</small></div>
+            <div class="td">從原本的圖裡<b>挑一部分</b>頂點和邊出來，形成的新圖。只能挑、不能新增原本沒有的邊。</div>
+            <div class="ta">從完整的校園地圖上，用螢光筆畫出其中幾段路。</div>
+          </div>
+          <div class="term">
+            <div class="tn">樹 <small>tree</small></div>
+            <div class="td"><b>連通而且沒有環</b>的圖。V 個頂點的樹一定剛好 V−1 條邊：少一條就斷開，多一條就出現環。</div>
+            <div class="ta">一個家族樹：每個人都找得到彼此，但不會繞圈。</div>
+          </div>
+          <div class="term">
+            <div class="tn">生成樹 <small>spanning tree</small></div>
+            <div class="td">一個子圖，它<b>包含原圖的全部頂點</b>，而且本身是一棵樹（連通、沒有環、V−1 條邊）。一張圖通常有很多棵不同的生成樹。</div>
+            <div class="ta">用螢光筆畫幾段路，剛好讓六棟建築彼此走得到，而且畫的路不繞圈。</div>
+          </div>
+          <div class="term">
+            <div class="tn">總重 <small>total weight</small></div>
+            <div class="td">一棵生成樹裡<b>所有邊的權重加起來</b>。我們要比的就是這個數字。</div>
+            <div class="ta">鋪網路線的總長度＝總花費。</div>
+          </div>
+          <div class="term">
+            <div class="tn">最小生成樹 <small>MST</small></div>
+            <div class="td">所有生成樹裡，<b>總重最小</b>的那一棵（可能不只一棵，總重都一樣）。</div>
+            <div class="ta">所有鋪線方案裡，最省錢的那一種。</div>
+          </div>
+          <div class="term">
+            <div class="tn">切割／跨越兩邊的邊 <small>cut / crossing edge</small></div>
+            <div class="td">把頂點<b>分成兩群</b>（左邊、右邊），就是一個切割。一端在左邊、另一端在右邊的邊，叫<b>跨越兩邊的邊</b>。</div>
+            <div class="ta">在地圖上畫一條線把校園切成兩半，跨過這條線的路段。</div>
+          </div>
+          <div class="term">
+            <div class="tn">貪心 <small>greedy</small></div>
+            <div class="td">每一步都挑<b>眼前最划算</b>的選擇，挑了就不反悔。MST 的兩個演算法都是貪心，而且證明過一定對。</div>
+            <div class="ta">逛夜市每攤都先買最便宜的那樣。</div>
+          </div>
+          <div class="term">
+            <div class="tn">併查集 <small>Union-Find / DSU</small></div>
+            <div class="td">記錄「誰跟誰同一組」的工具。每個頂點有一個 <b>p[x]</b>（往上一層是誰），一路往上找到的<b>老大</b>（p[x] = x 的那個）就代表這一組。兩個動作：<b>find</b>（找老大）、<b>union</b>（兩組合併）。</div>
+            <div class="ta">每個社團有一個社長；問「你們社長是誰」就知道是不是同一社。</div>
+          </div>
+          <div class="term">
+            <div class="tn">優先佇列 <small>priority queue / min-heap</small></div>
+            <div class="td">一個盒子，放進去的東西可以<b>隨時拿出最小的那個</b>。用最小堆積做，放進去、拿出來都只要 O(log n)。（第 13 關）</div>
+            <div class="ta">號碼牌機，永遠叫號碼最小的先來。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(E log E) <small>時間複雜度</small></div>
+            <div class="td">邊有 E 條時，大約要做 E × log₂ E 步。主要花在把邊排序。E = 1,000 時約 1 萬步。</div>
+            <div class="ta">把所有路段依長度排一次隊，再從頭看過去。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>看圖判斷：這是生成樹嗎？</h3>
+        <p>下面三張都是從校園地圖挑出來的子圖。綠色＝挑到的邊，虛線＝沒挑的邊。先自己判斷，再看說明：</p>
+        <div class="figs three">
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 190" role="img" aria-label="有環的子圖"><line class="ed bad" x1="30" y1="95" x2="105" y2="35"/><line class="ed bad" x1="30" y1="95" x2="105" y2="155"/><line class="ed bad" x1="105" y1="35" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="195" y2="155"/><line class="ed dim" x1="195" y1="35" x2="270" y2="95"/><line class="ed good" x1="195" y1="155" x2="270" y2="95"/><text class="wl bad" x="67.5" y="65">4</text><text class="wl bad" x="67.5" y="125">2</text><text class="wl bad" x="105" y="95">1</text><text class="wl good" x="150" y="35">5</text><text class="wl" x="150" y="95">8</text><text class="wl" x="150" y="155">10</text><text class="wl good" x="195" y="95">2</text><text class="wl" x="232.5" y="65">6</text><text class="wl good" x="232.5" y="125">3</text><g class="nd"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>挑了 6 條邊，比 V−1 = 5 多一條：A–B–C 繞成一個<b>環</b>（紅色）。拿掉環上任一條，六棟還是連得到——多的那條是浪費。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 190" role="img" aria-label="漏掉 F 的子圖"><line class="ed dim" x1="30" y1="95" x2="105" y2="35"/><line class="ed good" x1="30" y1="95" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="195" y2="155"/><line class="ed dim" x1="195" y1="35" x2="270" y2="95"/><line class="ed dim" x1="195" y1="155" x2="270" y2="95"/><text class="wl" x="67.5" y="65">4</text><text class="wl good" x="67.5" y="125">2</text><text class="wl good" x="105" y="95">1</text><text class="wl good" x="150" y="35">5</text><text class="wl" x="150" y="95">8</text><text class="wl" x="150" y="155">10</text><text class="wl good" x="195" y="95">2</text><text class="wl" x="232.5" y="65">6</text><text class="wl" x="232.5" y="125">3</text><g class="nd"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd bad"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g><text class="lbl bad" x="270" y="128">沒接到</text></svg>
+            <figcaption><b class="verdict">✘ 不是。</b>F 體育館沒接到，<b>沒有包含全部頂點</b>。只挑了 4 條，少於 V−1 = 5。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 300 190" role="img" aria-label="一棵生成樹"><line class="ed good" x1="30" y1="95" x2="105" y2="35"/><line class="ed dim" x1="30" y1="95" x2="105" y2="155"/><line class="ed dim" x1="105" y1="35" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="195" y2="35"/><line class="ed good" x1="105" y1="155" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="270" y2="95"/><line class="ed dim" x1="195" y1="155" x2="270" y2="95"/><text class="wl good" x="67.5" y="65">4</text><text class="wl" x="67.5" y="125">2</text><text class="wl" x="105" y="95">1</text><text class="wl good" x="150" y="35">5</text><text class="wl good" x="150" y="95">8</text><text class="wl" x="150" y="155">10</text><text class="wl good" x="195" y="95">2</text><text class="wl good" x="232.5" y="65">6</text><text class="wl" x="232.5" y="125">3</text><g class="nd"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g></svg>
+            <figcaption><b class="verdict">✔ 是。</b>六棟全部連到、沒有環、剛好 <b>5 條邊</b>。總重 4+5+8+2+6 = <b>25</b>。是生成樹——但是不是「最小」？看下一排。</figcaption>
+          </figure>
+        </div>
+        <h4>再判斷：這是「最小」生成樹嗎？</h4>
+        <div class="figs three">
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 190" role="img" aria-label="總重 18 的生成樹"><line class="ed dim" x1="30" y1="95" x2="105" y2="35"/><line class="ed good" x1="30" y1="95" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="105" y2="155"/><line class="ed dim" x1="105" y1="35" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="35"/><line class="ed good" x1="105" y1="155" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="195" y2="155"/><line class="ed dim" x1="195" y1="35" x2="270" y2="95"/><line class="ed good" x1="195" y1="155" x2="270" y2="95"/><text class="wl" x="67.5" y="65">4</text><text class="wl good" x="67.5" y="125">2</text><text class="wl good" x="105" y="95">1</text><text class="wl" x="150" y="35">5</text><text class="wl" x="150" y="95">8</text><text class="wl good" x="150" y="155">10</text><text class="wl good" x="195" y="95">2</text><text class="wl" x="232.5" y="65">6</text><text class="wl good" x="232.5" y="125">3</text><g class="nd"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g></svg>
+            <figcaption><b class="verdict">✘ 不是最小。</b>它是生成樹（連通、無環、5 條），總重 1+2+10+2+3 = <b>18</b>。用了很長的 C–E 10，可以換成 B–D 5，變成 13。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 190" role="img" aria-label="最便宜的五條邊"><line class="ed bad" x1="30" y1="95" x2="105" y2="35"/><line class="ed bad" x1="30" y1="95" x2="105" y2="155"/><line class="ed bad" x1="105" y1="35" x2="105" y2="155"/><line class="ed dim" x1="105" y1="35" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="195" y2="155"/><line class="ed dim" x1="195" y1="35" x2="270" y2="95"/><line class="ed good" x1="195" y1="155" x2="270" y2="95"/><text class="wl bad" x="67.5" y="65">4</text><text class="wl bad" x="67.5" y="125">2</text><text class="wl bad" x="105" y="95">1</text><text class="wl" x="150" y="35">5</text><text class="wl" x="150" y="95">8</text><text class="wl" x="150" y="155">10</text><text class="wl good" x="195" y="95">2</text><text class="wl" x="232.5" y="65">6</text><text class="wl good" x="232.5" y="125">3</text><g class="nd"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g><text class="lbl bad" x="150" y="186">左右兩塊沒連起來</text></svg>
+            <figcaption><b class="verdict">✘ 連生成樹都不是。</b>「直接挑最短的 5 條」：1、2、2、3、4，總重 12 比 13 還小——但 A–B–C 成環，左右兩塊<b>沒連起來</b>。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 300 190" role="img" aria-label="最小生成樹"><line class="ed dim" x1="30" y1="95" x2="105" y2="35"/><line class="ed good" x1="30" y1="95" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="35"/><line class="ed dim" x1="105" y1="155" x2="195" y2="155"/><line class="ed good" x1="195" y1="35" x2="195" y2="155"/><line class="ed dim" x1="195" y1="35" x2="270" y2="95"/><line class="ed good" x1="195" y1="155" x2="270" y2="95"/><text class="wl" x="67.5" y="65">4</text><text class="wl good" x="67.5" y="125">2</text><text class="wl good" x="105" y="95">1</text><text class="wl good" x="150" y="35">5</text><text class="wl" x="150" y="95">8</text><text class="wl" x="150" y="155">10</text><text class="wl good" x="195" y="95">2</text><text class="wl" x="232.5" y="65">6</text><text class="wl good" x="232.5" y="125">3</text><g class="nd good"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd good"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd good"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd good"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd good"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd good"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g></svg>
+            <figcaption><b class="verdict">✔ 是最小生成樹。</b>B–C 1、A–C 2、D–E 2、E–F 3、B–D 5，總重 <b>13</b>。校園地圖的所有生成樹裡沒有更小的（我們用電腦把每一種挑法都試過）。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">為什麼沒有環</span>
+          <span class="txt">如果挑出來的邊裡有一個環，<b>環上隨便拿掉一條</b>，大家還是連得到（繞環的另一邊就好），總重卻變小了。所以總重最小的那組邊，一定不會有環——它一定是一棵樹。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀念：切一刀，跨過去最便宜的那條一定要</h3>
+        <div class="figs">
+          <figure class="fig solo">
+            <svg viewBox="0 0 300 190" role="img" aria-label="把校園切成兩邊"><line class="ed" x1="30" y1="95" x2="105" y2="35"/><line class="ed" x1="30" y1="95" x2="105" y2="155"/><line class="ed" x1="105" y1="35" x2="105" y2="155"/><line class="ed good" x1="105" y1="35" x2="195" y2="35"/><line class="ed hot" x1="105" y1="155" x2="195" y2="35"/><line class="ed hot" x1="105" y1="155" x2="195" y2="155"/><line class="ed" x1="195" y1="35" x2="195" y2="155"/><line class="ed" x1="195" y1="35" x2="270" y2="95"/><line class="ed" x1="195" y1="155" x2="270" y2="95"/><text class="wl" x="67.5" y="65">4</text><text class="wl" x="67.5" y="125">2</text><text class="wl" x="105" y="95">1</text><text class="wl good" x="150" y="35">5</text><text class="wl hot" x="150" y="95">8</text><text class="wl hot" x="150" y="155">10</text><text class="wl" x="195" y="95">2</text><text class="wl" x="232.5" y="65">6</text><text class="wl" x="232.5" y="125">3</text><g class="nd hot"><circle cx="30" cy="95" r="14"/><text x="30" y="95">A</text></g><g class="nd hot"><circle cx="105" cy="35" r="14"/><text x="105" y="35">B</text></g><g class="nd hot"><circle cx="105" cy="155" r="14"/><text x="105" y="155">C</text></g><g class="nd"><circle cx="195" cy="35" r="14"/><text x="195" y="35">D</text></g><g class="nd"><circle cx="195" cy="155" r="14"/><text x="195" y="155">E</text></g><g class="nd"><circle cx="270" cy="95" r="14"/><text x="270" y="95">F</text></g><line x1="128" y1="6" x2="128" y2="170" style="stroke:var(--ink-faint);stroke-width:1.4;stroke-dasharray:5 4"/><text class="lbl" x="62" y="182">左邊 {A,B,C}</text><text class="lbl" x="238" y="182">右邊 {D,E,F}</text></svg>
+            <figcaption>把校園切成左邊 {A,B,C}、右邊 {D,E,F}。跨越兩邊的邊只有 <b>B–D 5、C–D 8、C–E 10</b>（橘色）。六棟要連起來，至少要用一條跨過去——選最便宜的 <b>B–D 5</b>（綠色）一定不會錯。</figcaption>
+          </figure>
+        </div>
+        <p>這叫<b>切割性質</b>（cut property）：不管怎麼切，<b>跨越兩邊的邊裡最便宜的那條，一定可以放進最小生成樹</b>。理由很直白：如果最小生成樹沒用它、而是用了另一條更貴的跨越邊，把貴的換成便宜的，大家還是連得到，總重更小——矛盾。後面兩個演算法，都是一直在用這個性質。</p>
+      </div>
+
+      <div class="block">
+        <h3>最小生成樹 ≠ 最短路徑</h3>
+        <p>很多人以為「最小生成樹裡兩點之間的路，就是最短路」。不是。看這個三角形：</p>
+        <div class="figs three">
+          <figure class="fig">
+            <svg viewBox="0 0 300 165" role="img" aria-label="三角形原圖"><line class="ed" x1="40" y1="130" x2="150" y2="35"/><line class="ed" x1="150" y1="35" x2="260" y2="130"/><line class="ed" x1="40" y1="130" x2="260" y2="130"/><text class="wl" x="95" y="82.5">3</text><text class="wl" x="205" y="82.5">3</text><text class="wl" x="150" y="130">4</text><g class="nd"><circle cx="40" cy="130" r="15"/><text x="40" y="130">A</text></g><g class="nd"><circle cx="150" cy="35" r="15"/><text x="150" y="35">B</text></g><g class="nd"><circle cx="260" cy="130" r="15"/><text x="260" y="130">C</text></g></svg>
+            <figcaption><b>原圖。</b>A–B 3、B–C 3、A–C 4。</figcaption>
+          </figure>
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 300 165" role="img" aria-label="三角形的最小生成樹"><line class="ed good" x1="40" y1="130" x2="150" y2="35"/><line class="ed good" x1="150" y1="35" x2="260" y2="130"/><line class="ed dim" x1="40" y1="130" x2="260" y2="130"/><text class="wl good" x="95" y="82.5">3</text><text class="wl good" x="205" y="82.5">3</text><text class="wl" x="150" y="130">4</text><g class="nd"><circle cx="40" cy="130" r="15"/><text x="40" y="130">A</text></g><g class="nd"><circle cx="150" cy="35" r="15"/><text x="150" y="35">B</text></g><g class="nd"><circle cx="260" cy="130" r="15"/><text x="260" y="130">C</text></g></svg>
+            <figcaption><b class="verdict">✔ 最小生成樹。</b>A–B、B–C，總重 6。用 A–C 的話總重是 7，比較大。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 300 165" role="img" aria-label="MST 路徑比最短路徑長"><line class="ed bad" x1="40" y1="130" x2="150" y2="35"/><line class="ed bad" x1="150" y1="35" x2="260" y2="130"/><line class="ed hot" x1="40" y1="130" x2="260" y2="130"/><text class="wl bad" x="95" y="82.5">3</text><text class="wl bad" x="205" y="82.5">3</text><text class="wl hot" x="150" y="130">4</text><g class="nd hot"><circle cx="40" cy="130" r="15"/><text x="40" y="130">A</text></g><g class="nd"><circle cx="150" cy="35" r="15"/><text x="150" y="35">B</text></g><g class="nd hot"><circle cx="260" cy="130" r="15"/><text x="260" y="130">C</text></g><text class="lbl bad" x="150" y="158">MST 裡 A→C：3+3 = 6</text></svg>
+            <figcaption><b class="verdict">✘ 不是 A 到 C 的最短路。</b>在 MST 裡 A 到 C 要走 A→B→C = 6；但直接走 A–C 只要 <b>4</b>。</figcaption>
+          </figure>
+        </div>
+        <div class="callout">
+          <span class="tag">兩個不同問題</span>
+          <span class="txt"><b>最小生成樹</b>：讓<b>全部</b>連起來，總長最短（鋪網路線）。<b>最短路徑</b>（<a href="17-dijkstra.html">第 17 關</a>）：從<b>某一點到另一點</b>，走的路最短（導航）。校園地圖剛好兩者一樣，但一般不會。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>跟最小生成樹一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>最短路徑（第 17 關 Dijkstra）</td><td class="verdict no">不一樣</td><td>最短路徑只管「起點到某點」最近；MST 只管「全部接起來」總長最短。上面的三角形就是反例。</td></tr>
+              <tr><td>走訪樹（第 22 關 BFS／DFS 走出來的樹）</td><td class="verdict no">不一定</td><td>BFS／DFS 走出來的也是生成樹（連通、無環），但它<b>不看權重</b>，總重通常不是最小。</td></tr>
+              <tr><td>「挑最便宜的 V−1 條邊」</td><td class="verdict no">不一樣</td><td>可能成環、也可能有頂點沒接到（上面第二排中間那張）。要「跳過會成環的邊」才對——這就是 Kruskal。</td></tr>
+              <tr><td>最小生成樹只有一棵？</td><td class="verdict no">不一定</td><td>權重有平手時可能有好幾棵，但<b>總重一定一樣</b>。所有權重都不一樣時，才保證只有一棵。（遊戲第 4 關）</td></tr>
+              <tr><td>邊數一定是 V−1？</td><td class="verdict ok">連通時是</td><td>樹一定是 V−1 條。圖不連通時湊不出一棵樹，只能每塊各做一棵，叫<b>最小生成森林</b>：邊數 ＝ V − 塊數。（遊戲第 6 關）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary>一張連通圖有 10 個頂點、30 條邊。它的最小生成樹有幾條邊？</summary>
+            <div class="ans"><b>9 條（V − 1）。</b>跟邊有幾條無關。少於 9 條一定有頂點接不到，多於 9 條一定有環。</div>
+          </details>
+          <details>
+            <summary>整張圖裡權重最小的那條邊，一定會在 MST 裡嗎？</summary>
+            <div class="ans"><b>會（至少有一棵 MST 用到它）。</b>把它的兩端切成兩邊，它就是跨越兩邊最便宜的邊——切割性質。Kruskal 第一條收的就是它，因為只有一條邊時不可能成環。</div>
+          </details>
+          <details>
+            <summary>整張圖裡權重最大的那條邊，一定不會在 MST 裡嗎？</summary>
+            <div class="ans"><b>不一定。</b>如果某個頂點<b>只有這一條邊</b>連出去，不用它那個頂點就接不到，只好用。只有當它在某個環上、而且是環上最重的，才可以丟掉。</div>
+          </details>
+          <details>
+            <summary>校園地圖上，MST 用了 B–D 5，卻沒用比較便宜的 A–B 4。為什麼？</summary>
+            <div class="ans">因為 A–B 4 加進去會成環：先收的 B–C 1、A–C 2 已經讓 A、B 走得到彼此（A–C–B），再加 A–B 就繞成 A–B–C–A。而 B–D 5 是把左邊 {A,B,C} 和右邊 {D,E,F} 接起來最便宜的邊，一定要。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手看 Kruskal 和 Prim 一條一條把邊挑出來。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上方是校園地圖，下方是演算法手上的資料。<b>綠色粗線</b>是已經收進最小生成樹的邊，<b>橘色虛線</b>是正在看的邊，<b>紅色虛線</b>是因為會成環而跳過的邊。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>。關卡名稱前面寫著用哪一種演算法（Kruskal 或 Prim）。</li>
+            <li>按 <b>下一步</b> 一格一格走。Kruskal 關卡看左下「排好序的邊」和右下「併查集 p[]」；Prim 關卡看左下「優先佇列」和右下「in[] 已在樹裡」。</li>
+            <li>Kruskal 的頂點顏色代表<b>組別</b>：同一個顏色＝已經連在一起；Prim 的綠色頂點＝已經在樹裡。</li>
+            <li>隨時 <b>上一步</b> 倒回去，下面的程式也會跟著亮到對應的那一行。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你回答：下一條要看哪條邊？find(X) 是誰？收下還是跳過？pq 會拿出哪一張？現在總重多少？MST 會有幾條邊？</li>
+            <li>答對得分、連對加分；答錯立刻解釋正確答案和理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>最小生成樹的定義</b> —— 全部連通、沒有環、V−1 條邊、總重最小。</li>
+            <li><b>Kruskal</b> —— 邊由小到大排好，一條一條看，會成環就跳過。</li>
+            <li><b>併查集</b> —— 用 find 找老大，判斷兩端是不是已經同一組（同一組再連就成環）。</li>
+            <li><b>Prim</b> —— 從一個頂點長出去，每次接上「離開目前這棵樹最便宜的邊」，用最小堆積找。</li>
+            <li><b>切割性質</b> —— 兩個演算法都對的原因。</li>
+            <li><b>平手與不連通</b> —— 最小生成樹可能不只一棵；不連通的圖只能做出最小生成森林。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">第 1 關 Kruskal → 第 2 關 Prim（同一張圖，總重一樣 13，但收邊順序不同）→ 第 3 關換起點 → 第 4 關平手 → 第 5 關一直成環（看 find 怎麼找老大）→ 第 6 關不連通。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看邊一條一條被收下或跳過。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title" id="graphTitle">地圖</h3>
+            <span class="panel-note" id="graphNote"></span>
+          </div>
+
+          <div class="gbox">
+            <svg class="graph" id="graph" viewBox="0 0 540 320" role="img" aria-label="加權圖"></svg>
+          </div>
+          <div class="legend" id="legend"></div>
+
+          <div class="dsgrid">
+            <div class="dsbox">
+              <div class="vlabel" id="dsLLabel">EDGES</div>
+              <div id="dsL"></div>
+            </div>
+            <div class="dsbox">
+              <div class="vlabel" id="dsRLabel">UNION-FIND</div>
+              <div id="dsR"></div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">統計</h3>
+              <span class="panel-note" id="algoNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="ok"><div class="k">已收的邊</div><div class="v" id="stCnt">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">目前總重</div><div class="v" id="stTot">0</div></div>
+              <div class="stat" data-k="hot"><div class="k" id="stAK">已檢查</div><div class="v" id="stA">0</div></div>
+              <div class="stat" data-k="no"><div class="k" id="stBK">成環跳過</div><div class="v" id="stB">0</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title" id="algoTitle">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note" id="algoCx"></span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，兩個演算法就這麼短。上面的面板會依關卡切換成 Kruskal 或 Prim 那一段；這裡是可以直接編譯的完整版（C++17）。頂點用編號 0～n−1（A=0、B=1……），邊用 <code>(w, u, v)</code> 三個數一組：</p>
+        <pre class="code">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef tuple&lt;int,int,int&gt; T;             <i>// (權重, 頂點, 頂點)</i>
+
+<i>// ---------- Kruskal ＋ 併查集 ----------</i>
+int p[100];                                 <i>// p[x]：x 往上一層是誰；p[x] == x 代表 x 是老大</i>
+int find(int x) {
+    if (p[x] != x) p[x] = find(p[x]);       <i>// 一路往上找老大，順手把 x 直接掛到老大底下</i>
+    return p[x];
+}
+int kruskal(int n, vector&lt;T&gt; edges) {        <i>// edges 裡每一條是 (w, u, v)，u &lt; v</i>
+    sort(edges.begin(), edges.end());       <i>// 先比 w，平手比 u，再平手比 v</i>
+    for (int x = 0; x &lt; n; x++) p[x] = x;   <i>// 一開始每個頂點自己一組</i>
+    int total = 0, cnt = 0;
+    for (auto [w, u, v] : edges) {
+        int ru = find(u), rv = find(v);
+        if (ru == rv) continue;             <i>// 已經同一組 → 再連就成環，跳過</i>
+        if (ru &lt; rv) p[rv] = ru; else p[ru] = rv;   <i>// 兩組合併，編號小的當老大</i>
+        total += w; cnt++;                  <i>// 收下這條邊</i>
+        if (cnt == n - 1) break;            <i>// 收滿 V−1 條就完成</i>
+    }
+    return total;
+}
+
+<i>// ---------- Prim ＋ 最小堆積 ----------</i>
+int prim(int n, vector&lt;vector&lt;pair&lt;int,int&gt;&gt;&gt;&amp; adj, int s) {   <i>// adj[v] = {(鄰居, 權重), …}</i>
+    vector&lt;bool&gt; in(n, false);              <i>// in[v]：v 是否已經在樹裡</i>
+    priority_queue&lt;T, vector&lt;T&gt;, greater&lt;T&gt;&gt; pq;   <i>// 票 (w, v, from)，最小的先出來</i>
+    pq.push({0, s, -1});                    <i>// 起點：花 0 就能進樹</i>
+    int total = 0;
+    while (!pq.empty()) {
+        auto [w, v, from] = pq.top(); pq.pop();
+        if (in[v]) continue;                <i>// v 早就在樹裡 → 舊票，丟掉</i>
+        in[v] = true; total += w;           <i>// 用 from–v 這條邊把 v 接進樹</i>
+        for (auto [x, wx] : adj[v])
+            if (!in[x]) pq.push({wx, x, v}); <i>// 從 v 往外的邊都變成候選票</i>
+    }
+    return total;
+}
+
+int main() {
+    int n = 6;                              <i>// A B C D E F = 0 1 2 3 4 5</i>
+    vector&lt;T&gt; edges = {{4,0,1},{2,0,2},{1,1,2},{5,1,3},{8,2,3},
+                       {10,2,4},{2,3,4},{6,3,5},{3,4,5}};
+    vector&lt;vector&lt;pair&lt;int,int&gt;&gt;&gt; adj(n);
+    for (auto [w, u, v] : edges) { adj[u].push_back({v, w}); adj[v].push_back({u, w}); }
+    for (auto&amp; a : adj) sort(a.begin(), a.end());   <i>// 鄰居照字母順序</i>
+    printf("Kruskal = %d\n", kruskal(n, edges));    <i>// 13</i>
+    printf("Prim    = %d\n", prim(n, adj, 0));       <i>// 13（從 A 出發）</i>
+}</pre>
+        <p>遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從「挑最便宜的」這個直覺出發，修掉它的漏洞，就得到 Kruskal 和 Prim。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一張<b>連通的加權無向圖</b>（V 個頂點、E 條邊），挑出 V−1 條邊，讓所有頂點連通、沒有環，而且權重總和最小。輸出這些邊（或它們的總重）。</p>
+        <p>最笨的方法是把所有「挑 V−1 條邊」的組合都試一遍。校園地圖 9 條挑 5 條就有 126 種；邊一多，組合數爆炸，完全不可行。我們要一個「一條一條決定、不用反悔」的方法。</p>
+      </div>
+
+      <div class="block">
+        <h3>破除錯誤直覺</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>直覺</th><th>對嗎？</th><th>反例</th></tr></thead>
+            <tbody>
+              <tr><td>「直接挑最便宜的 V−1 條邊」</td><td class="verdict no">錯</td><td>校園挑最便宜的 5 條：1、2、2、3、4，A–B–C 成環，而且左邊 {A,B,C} 和右邊 {D,E,F} 根本沒接上。</td></tr>
+              <tr><td>「每個頂點都接它最便宜的那條邊」</td><td class="verdict no">錯</td><td>校園：A 接 A–C 2、B 和 C 接 B–C 1、D 和 E 接 D–E 2、F 接 E–F 3——只接出 4 條邊，分成兩塊，B–D 5 永遠不會被選到。</td></tr>
+              <tr><td>「MST 就是從某點出發的最短路徑樹」</td><td class="verdict no">錯</td><td>三角形 A–B 3、B–C 3、A–C 4：MST 是 {A–B, B–C}，但 A 到 C 的最短路是直接走 A–C 4。（00 段的圖）</td></tr>
+              <tr><td>「最便宜的先挑，但遇到會成環的就跳過」</td><td class="verdict ok">對</td><td>這就是 <b>Kruskal</b>。只要多一個「會不會成環」的檢查。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>關鍵觀察：切割性質</h3>
+        <p>把頂點隨便分成兩群。<b>跨越兩群的邊裡，最便宜的那條一定可以放進最小生成樹</b>（00 段那張切成 {A,B,C}｜{D,E,F} 的圖）。</p>
+        <ul class="bullets">
+          <li><b>Kruskal 為什麼對</b>：它看到一條邊 u–v、而且 u、v 還不同組時，把「u 那一組」當左邊、其他當右邊。比這條便宜的邊都已經看過了：不是收下（在組內）就是成環被跳過（也在組內），沒有一條跨過這一刀。所以 u–v 就是跨越這刀最便宜的，可以收。</li>
+          <li><b>Prim 為什麼對</b>：把「目前已經在樹裡的頂點」當左邊、其他當右邊。它每次挑的，正是跨越這一刀最便宜的邊。</li>
+          <li><b>平手時</b>：跨越的邊裡有好幾條一樣便宜，挑哪一條都可以，結果可能是不同的樹，但總重一樣。所以程式要把<b>平手規則寫死</b>，答案才固定。</li>
+        </ul>
+        <div class="callout" data-k="key">
+          <span class="tag">本頁的平手規則</span>
+          <span class="txt"><b>Kruskal</b>：邊寫成 (w, u, v)，u 的字母比 v 小；先比權重 w，一樣再比 u，再一樣比 v。所以 A–C 2 排在 D–E 2 前面。<b>Prim</b>：票寫成 (w, v, from)；先比 w，一樣比要加入的頂點 v，再一樣比 from。這兩個規則就是 C++ <code>tuple</code> 比大小的預設方式，所以遊戲的動畫和程式跑出來的一模一樣。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法一：Kruskal（從最便宜的邊開始挑）</h3>
+        <ol class="steps">
+          <li>把所有邊<b>依權重由小到大排序</b>。</li>
+          <li>每個頂點自己一組（併查集：<code>p[x] = x</code>）。</li>
+          <li>從最便宜的邊開始，一條一條看 u–v：用 <b>find</b> 找 u 的老大、v 的老大。</li>
+          <li>老大<b>一樣</b> → u、v 已經連在一起了，再加這條會成環 → <b>跳過</b>。</li>
+          <li>老大<b>不一樣</b> → <b>收下</b>這條邊，用 <b>union</b> 把兩組併成一組（本頁規則：字母小的老大當新老大）。</li>
+          <li>收滿 V−1 條就停（剩下的邊不用看了）。</li>
+        </ol>
+        <p><b>為什麼要併查集？</b>「加這條會不會成環」等於問「u 和 v 現在是不是已經走得到彼此」。每次都用第 22 關的 BFS 去走一遍太慢（O(V+E)）；併查集只要沿著 p[] 往上找老大。程式第 3 行的 <code>p[x] = find(p[x])</code> 叫<b>路徑壓縮</b>：找完之後順手把路上每個人直接掛到老大底下，下次就一步到位。遊戲第 5 關看得到它把 D→C→A 壓成 D→A（第 6 關是把 F→E→D 壓成 F→D）。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算 Kruskal：校園地圖</h3>
+        <p>排好序：B–C 1、A–C 2、D–E 2、E–F 3、A–B 4、B–D 5、D–F 6、C–D 8、C–E 10。p[] 依序是 p[A] p[B] p[C] p[D] p[E] p[F]：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>#</th><th>邊（權重）</th><th>find(u)</th><th>find(v)</th><th>結果</th><th class="mono">p[A..F] 之後</th><th class="mono">總重</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>B–C（1）</td><td>B</td><td>C</td><td class="verdict ok">收下，p[C] = B</td><td class="mono">A B B D E F</td><td class="mono">1</td></tr>
+              <tr><td>2</td><td>A–C（2）</td><td>A</td><td>C→B，老大 B</td><td class="verdict ok">收下，p[B] = A</td><td class="mono">A A B D E F</td><td class="mono">3</td></tr>
+              <tr><td>3</td><td>D–E（2）</td><td>D</td><td>E</td><td class="verdict ok">收下，p[E] = D</td><td class="mono">A A B D D F</td><td class="mono">5</td></tr>
+              <tr><td>4</td><td>E–F（3）</td><td>E→D，老大 D</td><td>F</td><td class="verdict ok">收下，p[F] = D</td><td class="mono">A A B D D D</td><td class="mono">8</td></tr>
+              <tr><td>5</td><td>A–B（4）</td><td>A</td><td>B→A，老大 A</td><td class="verdict no">同一組 → 成環，跳過</td><td class="mono">A A B D D D</td><td class="mono">8</td></tr>
+              <tr><td>6</td><td>B–D（5）</td><td>B→A，老大 A</td><td>D</td><td class="verdict ok">收下，p[D] = A；收滿 5 條，停</td><td class="mono">A A B A D D</td><td class="mono">13</td></tr>
+              <tr><td>—</td><td>D–F 6、C–D 8、C–E 10</td><td colspan="4">已經收滿 V−1 = 5 條，不用再看</td><td class="mono">13</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>演算法二：Prim（從一個頂點長出去）</h3>
+        <ol class="steps">
+          <li>選一個起點放進樹（本頁的程式：放一張票 (0, 起點, −1) 進優先佇列）。</li>
+          <li>從優先佇列拿出<b>最小的票</b> (w, v, from)。</li>
+          <li>如果 v <b>已經在樹裡</b> → 這是舊票（從那時到現在 v 已經用別的邊接進來了），<b>丟掉</b>。</li>
+          <li>否則用 from–v 這條邊把 v <b>接進樹</b>，總重加 w。</li>
+          <li>看 v 的每個鄰居 x：x 還不在樹裡，就放一張票 (w(v,x), x, v) 進優先佇列。回到第 2 步，直到佇列空了。</li>
+        </ol>
+        <p>優先佇列就是<a href="13-heap.html">第 13 關的最小堆積</a>：放票、拿最小的票都只要 O(log n)。舊票不刪、拿到時再丟，這招和<a href="17-dijkstra.html">第 17 關 Dijkstra</a> 一樣，叫 lazy deletion。</p>
+        <p>另一種寫法是不用堆積，改用一個 <code>key[v]</code> 陣列記「v 接進樹最便宜要多少」，每輪掃一遍找最小——每輪 O(V)，總共 O(V²)。點很少、邊很多（稠密圖）時這個版本反而好。本頁動畫用的是堆積版本，跟上面的程式一行一行對應。</p>
+      </div>
+
+      <div class="block">
+        <h3>手算 Prim：校園地圖，從 A 出發</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>取出的票 (w, v, from)</th><th>處理</th><th>接進樹的邊</th><th class="mono">總重</th><th>放進 pq 的新票</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">(0, A, −)</td><td>A 是起點，進樹</td><td>—</td><td class="mono">0</td><td class="mono">(4,B,A) (2,C,A)</td></tr>
+              <tr><td class="mono">(2, C, A)</td><td>C 進樹</td><td class="verdict ok">A–C 2</td><td class="mono">2</td><td class="mono">(1,B,C) (8,D,C) (10,E,C)</td></tr>
+              <tr><td class="mono">(1, B, C)</td><td>B 進樹</td><td class="verdict ok">B–C 1</td><td class="mono">3</td><td class="mono">(5,D,B)</td></tr>
+              <tr><td class="mono">(4, B, A)</td><td>B 已在樹裡 → 舊票，丟掉</td><td>—</td><td class="mono">3</td><td>—</td></tr>
+              <tr><td class="mono">(5, D, B)</td><td>D 進樹</td><td class="verdict ok">B–D 5</td><td class="mono">8</td><td class="mono">(2,E,D) (6,F,D)</td></tr>
+              <tr><td class="mono">(2, E, D)</td><td>E 進樹</td><td class="verdict ok">D–E 2</td><td class="mono">10</td><td class="mono">(3,F,E)</td></tr>
+              <tr><td class="mono">(3, F, E)</td><td>F 進樹</td><td class="verdict ok">E–F 3</td><td class="mono">13</td><td>—（鄰居都在樹裡）</td></tr>
+              <tr><td class="mono">(6,F,D) (8,D,C) (10,E,C)</td><td>都是舊票，一張一張丟掉，佇列空了</td><td>—</td><td class="mono">13</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>收到的邊和 Kruskal <b>一模一樣</b>（校園地圖的 MST 只有一棵），總重都是 13，只是<b>收邊的順序不同</b>：Kruskal 是 B–C、A–C、D–E、E–F、B–D（全圖最便宜的先）；Prim 是 A–C、B–C、B–D、D–E、E–F（從 A 一路長出去）。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <p>V＝頂點數，E＝邊數。連通圖的 E 至少 V−1，最多約 V²／2，所以 log E 和 log V 只差一個常數倍（log E ≤ 2 log V）。</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>演算法</th><th>主要花在哪</th><th class="mono">時間</th><th class="mono">額外空間</th></tr></thead>
+            <tbody>
+              <tr><td><b>Kruskal</b></td><td>排序 E 條邊 O(E log E)；之後最多 E 次 find／union，有路徑壓縮時每次平均不超過 O(log V)，實際上幾乎是常數</td><td class="mono" style="color:var(--jade);font-weight:700">O(E log E)</td><td class="mono">O(V + E)</td></tr>
+              <tr><td><b>Prim（堆積版）</b></td><td>每條邊最多變成一張票（另一端還不在樹裡時才放），每張票放進、拿出堆積各 O(log E)；E 張票合計 O(E log E) ＝ O(E log V)</td><td class="mono" style="color:var(--jade);font-weight:700">O(E log V)</td><td class="mono">O(E)</td></tr>
+              <tr><td>Prim（key 陣列版）</td><td>V 輪，每輪掃一遍 V 個頂點找最小</td><td class="mono">O(V²)</td><td class="mono">O(V)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>什麼時候用哪一個</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>情況</th><th>建議</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr><td>邊本來就是一張清單（例如 (w,u,v) 的表格）</td><td><b>Kruskal</b></td><td>排序＋併查集就寫完，程式最短。</td></tr>
+              <tr><td>稀疏圖（E 跟 V 差不多）</td><td>兩個都好</td><td>都是 O(E log V) 左右。</td></tr>
+              <tr><td>稠密圖（E 接近 V²），或用鄰接矩陣存</td><td><b>Prim（key 陣列版）</b></td><td>O(V²) 不用排序 V² 條邊。</td></tr>
+              <tr><td>圖不連通，要最小生成森林</td><td><b>Kruskal</b></td><td>不用改，跑完自然每塊各一棵；Prim 要對每一塊各從一個起點跑一次。</td></tr>
+              <tr><td>邊會一條一條陸續加進來</td><td><b>Kruskal</b> 的併查集</td><td>併查集很適合「隨時問兩點是否已連通」。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「Kruskal 和 Prim 一定挑出同一棵樹」</b> —— 權重有平手時不一定，但<b>總重一定一樣</b>。權重全都不同時，MST 只有一棵，兩個一定一樣。</li>
+          <li><b>「Prim 的起點不同，總重會不同」</b> —— 不會。從哪裡出發都得到最小生成樹（第 2、3 關：從 A、從 F 都是 13）。</li>
+          <li><b>「成環的判斷就是看這條邊的兩端是不是已經有邊」</b> —— 不對。要看兩端是不是<b>已經走得到彼此</b>（同一組），中間可能隔好幾條邊，例如 A–B 4：A、B 之間沒有直接的邊，但 A–C–B 已經連起來了。</li>
+          <li><b>「最小生成樹裡兩點之間的路就是最短路」</b> —— 不是，看 00 段的三角形。要最短路請用第 17 關的 Dijkstra。</li>
+          <li><b>「權重可以是負的嗎？會壞掉嗎？」</b> —— 不會。Kruskal 和 Prim 只比大小，負權重一樣對（這點跟 Dijkstra 不同）。</li>
+        </ul>
+        <div class="callout" data-k="ok">
+          <span class="tag">下一關</span>
+          <span class="txt">MST 讓「全部連起來」最省；如果你要的是「從校門走到體育館最快的路」，那是另一個問題——到 <a href="17-dijkstra.html">第 17 關「最短路徑（Dijkstra）」</a>，它也用優先佇列，但比的是「從起點走過來的總距離」，不是單一條邊的長度。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>使用者按「下一步」之前，整個演算法就已經跑完了。<code>buildSteps</code> 依關卡的 <code>algo</code> 跑 Kruskal 或 Prim，每一步存一份<b>快照</b>（邊的狀態、p[] 或 pq、總重……）；畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 <small>nodes、edges [u, v, w]、algo、start</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(level) <small>kruskal：排序＋併查集 ／ prim：最小堆積</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格：快照 + 程式行號 + 說明 + 闖關題</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「把邊從樹裡拿掉」「把兩組拆開」這種容易錯的反向邏輯。</li>
+          <li><b>程式面板跟著關卡換</b> —— <code>CODE.kruskal</code>、<code>CODE.prim</code> 兩份，各配一份同長度的 <code>CODE_DOC</code>。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps(level)<br>buildKruskal / buildPrim</td><td>唯一真正跑演算法的地方，邊跑邊存快照。平手規則寫在排序的比較函式裡。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：目前關卡、第幾步、模式、分數。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">buildGraphSVG / paintGraph<br>paintDS / paintStats<br>paintAlgo / paintSay / paintLog</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">renderQuiz / answerQuiz</td><td>題目在 buildSteps 時就跟著步驟生好（step.quiz），這裡只出題、對答案、計分。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// start / sort / init / pick / find / squash / rej / union / add / full / pop / stale / fresh / push / nskip / done</i>
+  <b>line</b>:   <i>// C++ 程式要高亮第幾行（從 1 開始；-1 = 不亮）</i>
+  <b>es</b>:     <i>// 每條邊的狀態："" / cur / tree / rej / skip</i>
+  <b>total, cnt</b>: <i>// 目前總重、已收幾條邊</i>
+  <i>// Kruskal 才有：</i> <b>p</b> <i>(併查集快照)</i>, <b>order</b> <i>(邊的顯示順序)</i>, <b>si</b> <i>(正在看第幾條)</i>, <b>fu, fv</b> <i>(find 的路徑)</i>
+  <i>// Prim 才有：</i>    <b>inT</b> <i>(誰在樹裡)</i>, <b>pq</b> <i>(優先佇列快照)</i>, <b>hand</b> <i>(剛拿出的票)</i>
+  <b>title, msg, quiz</b>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 加一筆 <code>{tag, n, algo, nodes, edges, start, d, fin}</code></td><td>約 5 行</td></tr>
+              <tr><td>改平手規則</td><td><code>buildKruskal</code> 的排序比較函式、<code>buildPrim</code> 的 <code>tcmp</code>（記得 C++ 程式也要一起改）</td><td>2 行</td></tr>
+              <tr><td>拿掉路徑壓縮</td><td><code>findRec</code> 裡改 p 的那一行＋<code>CODE.kruskal</code> 第 3 行</td><td>約 3 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>1000</code>（毫秒）</td><td>1 行</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 寫最小生成樹，兩種方法都要：
+
+1. Kruskal：邊存成 tuple(w, u, v)，sort 之後一條一條看；
+   用併查集（find 要有路徑壓縮、union 讓編號小的當老大）判斷會不會成環。
+2. Prim：用 priority_queue 存 tuple(w, v, from)，greater 讓最小的先出來；
+   拿到 v 已在樹裡的舊票就丟掉。
+
+要求：
+- 頂點 A~F 對應 0~5，邊：A-B 4, A-C 2, B-C 1, B-D 5, C-D 8, C-E 10, D-E 2, D-F 6, E-F 3
+- 兩種方法都印出「收邊的順序」和總重（應該都是 13）
+- 每一步印出 Kruskal 的 p[] 陣列，標出哪條邊因為成環被跳過
+- 再測一張不連通的圖，說明 Kruskal 會得到什麼（最小生成森林）</pre>
+        <h4>延伸題 1：第二小的生成樹</h4>
+        <pre class="code">找出總重「第二小」的生成樹。提示：先做出 MST，再試著加一條不在 MST 的邊、
+拿掉它造成的環上最重的那條。時間複雜度是多少？</pre>
+        <h4>延伸題 2：最大生成樹</h4>
+        <pre class="code">如果要「總重最大」的生成樹（例如每條邊是頻寬），程式要改哪裡？為什麼還是對的？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 24 最小生成樹</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  /* 組別顏色（Kruskal 的併查集每一組一個色相，跟著「老大」走） */
+  var HUES = [205, 25, 150, 275, 335, 55, 180, 95];
+
+  /* 海大校園地圖（第 21、22、24 關共用） */
+  var CAMPUS = [
+    {id:"A", name:"校門",   x:60,  y:160},
+    {id:"B", name:"圖書館", x:190, y:60},
+    {id:"C", name:"餐廳",   x:190, y:260},
+    {id:"D", name:"系館",   x:350, y:60},
+    {id:"E", name:"宿舍",   x:350, y:260},
+    {id:"F", name:"體育館", x:480, y:160}
+  ];
+  var CAMPUS_E = [["A","B",4],["A","C",2],["B","C",1],["B","D",5],["C","D",8],["C","E",10],["D","E",2],["D","F",6],["E","F",3]];
+  /* 平手版：A–B 從 4 改成 2，A–B、A–C 一樣長 */
+  var TIE_E    = [["A","B",2],["A","C",2],["B","C",1],["B","D",5],["C","D",8],["C","E",10],["D","E",2],["D","F",6],["E","F",3]];
+  /* 一直成環：find 要往上爬好幾層 */
+  var CYC = [
+    {id:"A", name:"", x:90,  y:80},
+    {id:"B", name:"", x:90,  y:250},
+    {id:"C", name:"", x:310, y:60},
+    {id:"D", name:"", x:280, y:225},
+    {id:"E", name:"", x:470, y:150}
+  ];
+  var CYC_E = [["A","B",2],["A","C",5],["A","D",4],["B","D",3],["C","D",1],["C","E",7],["D","E",6]];
+  /* 不連通：左右兩塊 */
+  var FOREST_E = [["A","B",3],["A","C",2],["B","C",1],["D","E",4],["D","F",5],["E","F",1]];
+
+  var LEVELS = [
+    {tag:"Kruskal", n:"校園地圖", algo:"kruskal", nodes:CAMPUS, edges:CAMPUS_E,
+     d:"六棟建築要鋪網路線，總長度要最短。Kruskal：把 9 條邊從短到長排好，一條一條看；兩端已經連通（會成環）的就跳過。",
+     fin:"注意 A–B 4 比 B–D 5 便宜卻沒被選：A、B 早就經過 C 連在一起了。"},
+    {tag:"Prim·A", n:"從 A 長出去", algo:"prim", start:"A", nodes:CAMPUS, edges:CAMPUS_E,
+     d:"同一張校園地圖，換 Prim：從 A 校門出發，每次從優先佇列拿出最便宜的「往外接」的邊。",
+     fin:"跟第 1 關收到同樣 5 條邊、總重一樣 13，只是收的順序不同：A–C、B–C、B–D、D–E、E–F。"},
+    {tag:"Prim·F", n:"換起點 F", algo:"prim", start:"F", nodes:CAMPUS, edges:CAMPUS_E,
+     d:"還是 Prim，這次從 F 體育館出發。起點不同，最後的樹會不一樣嗎？",
+     fin:"從 F 出發，收邊順序變成 E–F、D–E、B–D、B–C、A–C，總重還是 13——起點不影響答案。"},
+    {tag:"平手", n:"兩棵都最小", algo:"kruskal", nodes:CAMPUS, edges:TIE_E,
+     d:"把 A–B 改成 2，現在 A–B、A–C、D–E 三條都是 2。平手規則：權重一樣時比第一個字母，再比第二個字母。看看 Kruskal 選哪一條。",
+     fin:"Kruskal 依平手規則先看 A–B，收下了；A–C 就成環被跳過。如果把 A–B 換成 A–C，也是一棵總重 13 的生成樹——這張圖有兩棵最小生成樹，總重一樣。"},
+    {tag:"成環", n:"一直成環", algo:"kruskal", nodes:CYC, edges:CYC_E,
+     d:"5 個頂點、7 條邊。這一關有兩條邊會因為成環被跳過，而且 find 要往上爬兩層才找到老大——仔細看右下的 p[] 怎麼變。",
+     fin:"A–D 4 和 A–C 5 都被跳過。第一次 find(D) 走了 D → C → A 兩層，路徑壓縮之後 p[D] 直接變成 A，下次一步就到。"},
+    {tag:"森林", n:"不連通的圖", algo:"kruskal", nodes:CAMPUS, edges:FOREST_E,
+     d:"如果 B–D、C–D、C–E 這幾段路都沒了，校園就分成左右兩塊，不可能做出一棵連通全部的樹。Kruskal 照跑，看看會得到什麼。",
+     fin:"收了 4 條邊（V − 2 塊 = 6 − 2），每一塊各一棵最小生成樹，合起來叫<b>最小生成森林</b>。cnt 永遠到不了 V−1 = 5，所以迴圈把邊全部看完才結束。"}
+  ];
+
+  var CODE = {
+    kruskal:[
+      "int p[100];",
+      "int find(int x) {",
+      "    if (p[x] != x) p[x] = find(p[x]);",
+      "    return p[x];",
+      "}",
+      "int kruskal(int n, vector<T> edges) {",
+      "    sort(edges.begin(), edges.end());",
+      "    for (int x = 0; x < n; x++) p[x] = x;",
+      "    int total = 0, cnt = 0;",
+      "    for (auto [w, u, v] : edges) {",
+      "        int ru = find(u), rv = find(v);",
+      "        if (ru == rv) continue;",
+      "        if (ru < rv) p[rv] = ru; else p[ru] = rv;",
+      "        total += w; cnt++;",
+      "        if (cnt == n - 1) break;",
+      "    }",
+      "    return total;",
+      "}"
+    ],
+    prim:[
+      "int prim(int n, vector<vector<pair<int,int>>>& adj, int s) {",
+      "    vector<bool> in(n, false);",
+      "    priority_queue<T, vector<T>, greater<T>> pq;",
+      "    pq.push({0, s, -1});",
+      "    int total = 0;",
+      "    while (!pq.empty()) {",
+      "        auto [w, v, from] = pq.top(); pq.pop();",
+      "        if (in[v]) continue;",
+      "        in[v] = true; total += w;",
+      "        for (auto [x, wx] : adj[v])",
+      "            if (!in[x]) pq.push({wx, x, v});",
+      "    }",
+      "    return total;",
+      "}"
+    ]
+  };
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = {
+    kruskal:[
+      "準備一排格子 p（併查集）。p[x] 記的是「x 往上一層是誰」。如果 p[x] 就是 x 自己，x 就是這一組的老大。頂點用編號存：A=0、B=1……",
+      "find（找老大）這台機器的開頭：給它一個頂點 x，它回答「x 這一組的老大是誰」。",
+      "如果 x 不是老大（p[x] 不是自己），就先去找 p[x] 的老大，再把 p[x] 直接改成那個老大。這叫「路徑壓縮」：找一次之後，路上每個人都直接掛在老大底下，下次一步就找到。",
+      "回答：老大就是 p[x]。",
+      "find 結束。",
+      "kruskal 這台機器的開頭：n 是頂點數，edges 是所有的邊。每條邊是三個數 (w, u, v)：權重 w、兩端 u 和 v（u 的編號比 v 小）。",
+      "把所有邊排序。三個數一組的東西，C++ 會先比 w，一樣再比 u，再一樣比 v——這就是本頁的平手規則。排完後最便宜的邊在最前面。",
+      "一開始每個頂點自己一組，自己就是老大：p[x] = x。",
+      "total 記目前總重，cnt 記已經收了幾條邊，兩個都從 0 開始。",
+      "從排好序的第一條邊開始，一條一條拿出來看，這條邊叫 (w, u, v)。",
+      "分別找出 u 的老大 ru、v 的老大 rv。",
+      "老大一樣＝u 和 v 已經在同一組、本來就走得到彼此。再加這條邊就會繞成一個環，所以 continue：跳過這條，直接看下一條。",
+      "老大不一樣：把兩組合併成一組。做法是讓其中一個老大認另一個當老大——本頁規定編號小（字母前面）的當新老大。",
+      "收下這條邊：總重加上 w，已收的邊數加 1。",
+      "已經收了 n−1 條（V−1）就是一棵完整的生成樹了，break 跳出迴圈，剩下的邊不用看。",
+      "迴圈的結尾，回到第 10 行看下一條邊。",
+      "回傳總重。圖不連通時 cnt 到不了 n−1，邊全部看完才會走到這裡，得到的是最小生成森林。",
+      "kruskal 結束。"
+    ],
+    prim:[
+      "prim 這台機器的開頭：n 是頂點數；adj[v] 是 v 的鄰居清單，每一項是（鄰居 x, 邊的權重 wx）；s 是起點。& 表示直接用原本那份清單，不複製。",
+      "in[v] 記 v 有沒有已經在樹裡，一開始全部都是 false（不在）。",
+      "準備一個優先佇列 pq（第 13 關的最小堆積）。裡面放的「票」是三個數 (w, v, from)：花 w 就能用 from–v 這條邊把 v 接進樹。greater 的意思是「最小的先出來」；平手時比 v，再比 from。",
+      "放第一張票 (0, s, -1)：起點不用任何邊，花 0 就能進樹；-1 表示沒有 from。",
+      "total 記目前總重，從 0 開始。",
+      "只要 pq 裡還有票，就一直做下去。",
+      "拿出 pq 裡最小的一張票，把它的三個數分別叫 w、v、from，然後把這張票從 pq 移掉。",
+      "如果 v 已經在樹裡了，這張是舊票（v 早就用別的、更便宜的邊接進來了）——continue：丟掉，拿下一張。",
+      "v 不在樹裡：把 v 標成在樹裡，總重加 w。from–v 這條邊就是剛收進樹的邊。",
+      "一個一個看 v 的鄰居 x，wx 是 v–x 這條邊的權重。",
+      "如果 x 還不在樹裡，就放一張票 (wx, x, v) 進 pq：「花 wx 可以用 v–x 把 x 接進來」。x 已經在樹裡的就不放（放了也只會變成舊票）。",
+      "迴圈的結尾，回到第 6 行。",
+      "回傳總重。",
+      "prim 結束。"
+    ]
+  };
+
+  var BADGE = {start:"START", sort:"SORT", init:"INIT", pick:"NEXT", find:"FIND", squash:"PATH", rej:"CYCLE",
+               union:"UNION", add:"TAKE", full:"FULL", pop:"POP", stale:"STALE", fresh:"NEW", push:"PUSH",
+               nskip:"SKIP", done:"DONE"};
+  /* say / log 的顏色（對應 site.css 的 data-k）*/
+  var KMAP  = {start:"start", sort:"start", init:"start", pick:"hot", find:"hot", squash:"hot", rej:"no",
+               union:"push", add:"ok", full:"done", pop:"hot", stale:"no", fresh:"push", push:"push",
+               nskip:"start", done:"done"};
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    level:null, levelIdx:-1, steps:[], cur:0, mode:"demo", playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+  /* 目前關卡的 SVG 元素（換關卡時重建） */
+  var G = { edgeEls:[], wEls:[], ndEls:[], topEls:[] };
+
+  /* ---------- 2. 資料層：把整個演算法一次跑完 ---------- */
+
+  function uniqOpts(list){
+    var seen = {}, res = [];
+    for(var k=0;k<list.length;k++){
+      var o = list[k];
+      if(o && !seen[o.t]){ seen[o.t] = 1; res.push(o); }
+    }
+    return res;
+  }
+
+  /* 把關卡轉成編號：頂點 0..n-1，邊 {u<v, w, ei} */
+  function prep(level){
+    var ids = [], idx = {}, i;
+    for(i=0;i<level.nodes.length;i++){ ids.push(level.nodes[i].id); idx[level.nodes[i].id] = i; }
+    var edges = [];
+    for(i=0;i<level.edges.length;i++){
+      var a = idx[level.edges[i][0]], b = idx[level.edges[i][1]];
+      edges.push({u:Math.min(a,b), v:Math.max(a,b), w:level.edges[i][2], ei:i});
+    }
+    return {n:ids.length, ids:ids, idx:idx, edges:edges};
+  }
+  function countComp(g){
+    var c = [], k, n = g.n;
+    for(k=0;k<n;k++) c.push(k);
+    function f(x){ while(c[x] !== x) x = c[x]; return x; }
+    for(k=0;k<g.edges.length;k++){ var a = f(g.edges[k].u), b = f(g.edges[k].v); if(a !== b) c[a] = b; }
+    var r = 0;
+    for(k=0;k<n;k++) if(f(k) === k) r++;
+    return r;
+  }
+
+  function buildSteps(level){
+    return level.algo === "prim" ? buildPrim(level) : buildKruskal(level);
+  }
+
+  /* 共用：V−1 題 */
+  function edgeCountQuiz(n, E, comps){
+    var good = n - comps;
+    return {q:"這張圖有 V = " + n + " 個頂點、E = " + E + " 條邊" + (comps > 1 ? "，分成 " + comps + " 塊" : "") + "。做完之後總共會收幾條邊？", ans:"a",
+      opts:[
+        comps > 1 ? {t:good + " 條", s:"V − 塊數", v:"a"} : {t:good + " 條", s:"V − 1", v:"a"},
+        comps > 1 ? {t:(n-1) + " 條", s:"V − 1", v:"b"} : {t:n + " 條", s:"V", v:"b"},
+        {t:E + " 條", s:"全部的邊 E", v:"c"}]};
+  }
+
+  /* ===== Kruskal ===== */
+  function buildKruskal(level){
+    var g = prep(level), n = g.n, ids = g.ids, E = g.edges, steps = [];
+    var comps = countComp(g), target = n - comps;
+    var sorted = E.slice().sort(function(a,b){ return (a.w - b.w) || (a.u - b.u) || (a.v - b.v); });
+    var p = null, es = [], total = 0, cnt = 0, checked = 0, rej = 0, isSorted = false, si = -1, k;
+    for(k=0;k<E.length;k++) es.push("");
+
+    function nm(e){ return ids[e.u] + "–" + ids[e.v]; }
+    function lab(e){ return nm(e) + "（" + e.w + "）"; }
+    function put(o){
+      o.algo = "kruskal";
+      o.p = p ? p.slice() : null;
+      o.es = es.slice();
+      o.total = total; o.cnt = cnt; o.checked = checked; o.rej = rej; o.target = target;
+      o.order = (isSorted ? sorted : E).map(function(e){ return e.ei; });
+      o.sorted = isSorted; o.si = si;
+      if(!o.hl) o.hl = [];
+      if(o.quiz){ o.quiz.opts = uniqOpts(o.quiz.opts); if(o.quiz.opts.length < 2) delete o.quiz; }
+      steps.push(o);
+    }
+    /* find（含路徑壓縮）：回傳走過的路徑；p 會被改 */
+    function findRec(x){
+      var path = [x];
+      while(p[path[path.length-1]] !== path[path.length-1]) path.push(p[path[path.length-1]]);
+      var r = path[path.length-1], changed = [];
+      for(var j=0;j<path.length-1;j++) if(p[path[j]] !== r){ p[path[j]] = r; changed.push(path[j]); }
+      return {x:x, path:path, root:r, changed:changed};
+    }
+    function pathTxt(f){ return f.path.map(function(z){ return ids[z]; }).join(" → "); }
+
+    put({kind:"start", line:-1, title:"原本的圖：還沒挑任何邊", msg:level.d});
+
+    isSorted = true;
+    put({kind:"sort", line:7,
+      title:"把 " + E.length + " 條邊由小到大排好",
+      msg:"排序規則：先比權重；一樣的話比第一個字母，再一樣比第二個字母。左下的清單現在就是 Kruskal 要看的順序：<b>" +
+        sorted.map(function(e){ return nm(e) + " " + e.w; }).join("、") + "</b>。",
+      quiz:E.length === 0 ? null : {q:"把邊由小到大排好之後，第一條要看的是哪一條？", ans:"a", opts:[
+        {t:lab(sorted[0]), s:"", v:"a"},
+        {t:lab(E[0]), s:"", v:"b"},
+        {t:lab(sorted[sorted.length-1]), s:"", v:"c"},
+        sorted.length > 1 ? {t:lab(sorted[1]), s:"", v:"d"} : null]}});
+
+    p = [];
+    for(k=0;k<n;k++) p.push(k);
+    put({kind:"init", line:8,
+      title:"每個頂點自己一組：p[x] = x",
+      msg:"一開始還沒有任何邊，每個頂點都是自己一組、自己當老大。右下的 p[] 表每一格都寫著自己。"});
+
+    put({kind:"init", line:9,
+      title:"total = 0、cnt = 0",
+      msg:"總重和已收邊數都從 0 開始。" + (comps > 1
+        ? "這張圖<b>不連通</b>（分成 " + comps + " 塊），不可能連成一棵樹，最後會收 V − 塊數 = <b>" + target + "</b> 條。"
+        : "生成樹一定剛好 <b>V − 1 = " + (n-1) + "</b> 條邊，收滿就能停。"),
+      quiz:edgeCountQuiz(n, E.length, comps)});
+
+    var stopped = false;
+    for(var i=0;i<sorted.length;i++){
+      var e = sorted[i];
+      si = i; es[e.ei] = "cur"; checked++;
+      var pickQ = (i === 0) ? null : {q:"接下來要看哪一條邊？", ans:"a", opts:[
+        {t:lab(e), s:"", v:"a"},
+        i + 1 < sorted.length ? {t:lab(sorted[i+1]), s:"", v:"b"} : null,
+        {t:lab(sorted[i-1]), s:"", v:"c"}]};
+      put({kind:"pick", line:10, hl:[e.u, e.v],
+        title:"第 " + (i+1) + " 條：" + lab(e),
+        msg:"清單上還沒看過的邊裡，<b>" + nm(e) + "</b>（權重 " + e.w + "）排最前面。問題是：" + ids[e.u] + " 和 " + ids[e.v] + " 現在是不是已經連在一起了？用 find 找它們的老大。",
+        quiz:pickQ});
+
+      var pBefore = p.slice();
+      var fu = findRec(e.u), fv = findRec(e.v);
+      var pAfter = p; p = pBefore;
+      /* 問比較有意思的那一端：要往上爬的那個 */
+      var tgt = (fu.path.length > 1) ? fu : (fv.path.length > 1 ? fv : fu);
+      var other = (tgt === fu) ? fv : fu;
+      var hl = [];
+      fu.path.forEach(function(z){ if(hl.indexOf(z) < 0) hl.push(z); });
+      fv.path.forEach(function(z){ if(hl.indexOf(z) < 0) hl.push(z); });
+      put({kind:"find", line:11, hl:hl, fu:fu, fv:fv,
+        title:"find(" + ids[e.u] + ") = " + ids[fu.root] + "、find(" + ids[e.v] + ") = " + ids[fv.root],
+        msg:"沿著 p[] 一路往上找老大：<b>" + pathTxt(fu) + "</b>" + (fu.path.length === 1 ? "（自己就是老大）" : "") +
+          "；<b>" + pathTxt(fv) + "</b>" + (fv.path.length === 1 ? "（自己就是老大）" : "") + "。" +
+          (fu.root === fv.root ? "兩個老大<b>一樣</b>。" : "兩個老大<b>不一樣</b>。"),
+        quiz:{q:"沿著 p[] 往上找：find(" + ids[tgt.x] + ") = ？", ans:"a", opts:[
+          {t:ids[tgt.root], s:"", v:"a"},
+          {t:ids[tgt.x], s:"", v:"b"},
+          tgt.path.length > 2 ? {t:ids[tgt.path[1]], s:"", v:"c"} : null,
+          {t:ids[other.root], s:"", v:"d"},
+          {t:ids[other.x], s:"", v:"e"}]}});
+      p = pAfter;
+      var changed = fu.changed.concat(fv.changed);
+      if(changed.length){
+        put({kind:"squash", line:3, hl:hl, chg:changed,
+          title:"路徑壓縮：" + changed.map(function(z){ return "p[" + ids[z] + "] = " + ids[p[z]]; }).join("、"),
+          msg:"find 往上爬了不只一層，所以第 3 行順手把路上的人直接掛到老大底下：" +
+            changed.map(function(z){ return "<b>p[" + ids[z] + "]</b> 從 " + ids[pBefore[z]] + " 改成 <b>" + ids[p[z]] + "</b>"; }).join("、") +
+            "。組別沒變，只是下次找老大一步就到。"});
+      }
+
+      var decQ = {q:lab(e) + "：收下還是跳過？", ans:(fu.root === fv.root ? "r" : "t"), opts:[
+        {t:"收下", s:"兩端不同組", v:"t"},
+        {t:"跳過（會成環）", s:"兩端已同組", v:"r"}]};
+      if(fu.root === fv.root){
+        es[e.ei] = "rej"; rej++;
+        put({kind:"rej", line:12, hl:[e.u, e.v],
+          title:"成環！跳過 " + lab(e),
+          msg:ids[e.u] + " 和 " + ids[e.v] + " 的老大都是 <b>" + ids[fu.root] + "</b>，表示它們<b>已經走得到彼此</b>了。再加 " + nm(e) + " 就會繞成一個環——浪費，跳過。",
+          quiz:decQ});
+        continue;
+      }
+      var ru = fu.root, rv = fv.root, hi = Math.max(ru, rv), lo = Math.min(ru, rv);
+      p[hi] = lo;
+      es[e.ei] = "tree";
+      put({kind:"union", line:13, hl:[e.u, e.v], chg:[hi],
+        title:"不同組 → 收下 " + lab(e) + "，兩組合併",
+        msg:"老大 " + ids[ru] + " ≠ " + ids[rv] + "，" + ids[e.u] + " 和 " + ids[e.v] + " 還沒連通，這條邊不會成環。合併：字母比較後面的老大 " + ids[hi] + " 改認 <b>" + ids[lo] + "</b> 當老大，<b>p[" + ids[hi] + "] = " + ids[lo] + "</b>。兩組變一組，顏色也變成一樣。",
+        quiz:decQ});
+
+      var old = total;
+      total += e.w; cnt++;
+      put({kind:"add", line:14, hl:[e.u, e.v],
+        title:"總重 " + old + " + " + e.w + " = " + total + "，已收 " + cnt + " 條",
+        msg:nm(e) + " 正式進入最小生成樹（綠色粗線）。目前總重 <b>" + total + "</b>，已收 <b>" + cnt + "</b> 條，" +
+          (cnt === n - 1 ? "剛好收滿 V − 1 = " + (n-1) + " 條。" : "還差 " + (target - cnt) + " 條。"),
+        quiz:{q:"收下 " + lab(e) + " 之後，目前總重是多少？", ans:"a", opts:[
+          {t:String(total), s:old + " + " + e.w, v:"a"},
+          {t:String(old), s:"不變", v:"b"},
+          {t:String(e.w), s:"只算這條", v:"c"}]}});
+
+      if(cnt === n - 1){
+        for(var j=i+1;j<sorted.length;j++) es[sorted[j].ei] = "skip";
+        var left = sorted.length - 1 - i;
+        si = -1;
+        put({kind:"full", line:15,
+          title:"收滿 " + (n-1) + " 條 → break",
+          msg:"已經有 V − 1 = " + (n-1) + " 條邊，所有頂點都同一組了。" + (left > 0 ? "剩下 " + left + " 條邊（淡掉的）一定都會成環，不用再看。" : "邊也剛好看完了。"),
+          quiz:left > 0 ? {q:"已經收了 " + cnt + " 條邊（V − 1）。還要繼續看剩下的 " + left + " 條嗎？", ans:"s", opts:[
+            {t:"不用，停", s:"V − 1 條就是一棵樹", v:"s"},
+            {t:"要，全部看完", s:"", v:"g"}]} : null});
+        stopped = true;
+        break;
+      }
+    }
+    si = -1;
+    var tree = [];
+    for(k=0;k<E.length;k++) if(es[k] === "tree") tree.push(k);
+    var order = sorted.filter(function(e){ return es[e.ei] === "tree"; });
+    put({kind:"done", line:17, treeE:tree,
+      title:(comps > 1 ? "完成！最小生成森林，總重 " : "完成！最小生成樹總重 ") + total,
+      msg:(stopped ? "" : "邊全部看完了，迴圈結束。") +
+        "收下的邊（依收的順序）：<b>" + order.map(function(e){ return nm(e) + " " + e.w; }).join("、") + "</b>，共 " + cnt + " 條，總重 <b>" + total + "</b>。" +
+        (rej ? "因為成環跳過了 " + rej + " 條。" : "") + (level.fin || "")});
+    return steps;
+  }
+
+  /* ===== Prim ===== */
+  function buildPrim(level){
+    var g = prep(level), n = g.n, ids = g.ids, E = g.edges, steps = [], i;
+    var comps = countComp(g);
+    var s = g.idx[level.start] || 0;
+    var adj = [];
+    for(i=0;i<n;i++) adj.push([]);
+    E.forEach(function(e){ adj[e.u].push({x:e.v, w:e.w, ei:e.ei}); adj[e.v].push({x:e.u, w:e.w, ei:e.ei}); });
+    for(i=0;i<n;i++) adj[i].sort(function(a,b){ return a.x - b.x; });
+
+    var inT = [], es = [], pq = [], total = 0, cnt = 0, pops = 0, stale = 0, hand = null, added = [];
+    for(i=0;i<n;i++) inT.push(false);
+    for(i=0;i<E.length;i++) es.push("");
+    /* 票 (w, v, from) 的大小：先比 w，再比 v，再比 from —— 跟 C++ tuple 一樣 */
+    function tcmp(a,b){ return (a.w - b.w) || (a.v - b.v) || (a.f - b.f); }
+    function tk(t){ return "(" + t.w + ", " + ids[t.v] + ", " + (t.f < 0 ? "−" : ids[t.f]) + ")"; }
+    function tEdge(t){ return t.f < 0 ? "起點" : "邊 " + ids[Math.min(t.f,t.v)] + "–" + ids[Math.max(t.f,t.v)]; }
+    function put(o){
+      o.algo = "prim";
+      o.inT = inT.slice(); o.es = es.slice();
+      o.pq = pq.slice().sort(tcmp).map(function(t){ return {w:t.w, v:t.v, f:t.f, ei:t.ei}; });
+      o.hand = hand ? {w:hand.w, v:hand.v, f:hand.f, ei:hand.ei} : null;
+      o.total = total; o.cnt = cnt; o.pops = pops; o.stale = stale; o.target = n - 1;
+      o.added = added.slice(); o.start = s;
+      if(o.cur === undefined) o.cur = -1;
+      if(o.quiz){ o.quiz.opts = uniqOpts(o.quiz.opts); if(o.quiz.opts.length < 2) delete o.quiz; }
+      steps.push(o);
+    }
+
+    put({kind:"start", line:-1, title:"原本的圖：還沒有任何頂點在樹裡", msg:level.d});
+
+    pq.push({w:0, v:s, f:-1, ei:-1});
+    put({kind:"init", line:4,
+      title:"放第一張票 (0, " + ids[s] + ", −)",
+      msg:"起點 <b>" + ids[s] + "</b> 不用任何邊就能進樹，所以票上寫花費 0。之後每張票 (w, v, from) 的意思是：「花 w，用 from–v 這條邊把 v 接進樹」。生成樹最後會有 V − 1 = <b>" + (n-1) + "</b> 條邊。",
+      quiz:edgeCountQuiz(n, E.length, comps)});
+
+    while(pq.length){
+      pq.sort(tcmp);
+      var view = pq.slice(0, 3);
+      var top = pq.shift();
+      hand = top; pops++;
+      var popOpts = view.map(function(t, k){ return {t:tk(t), s:tEdge(t), v:k === 0 ? "a" : "x" + k}; });
+      put({kind:"pop", line:7, cur:top.ei, hl:[top.v],
+        title:"拿出最小的票 " + tk(top),
+        msg:"pq 裡最小的是 <b>" + tk(top) + "</b>" + (view.length > 1 ? "（比第二小的 " + tk(view[1]) + " 還小" + (view[1].w === top.w ? "：權重平手，比 v 的字母" : "") + "）" : "") +
+          "。它代表" + (top.f < 0 ? "起點 " + ids[top.v] : "用 <b>" + ids[top.f] + "–" + ids[top.v] + "</b>（權重 " + top.w + "）把 " + ids[top.v] + " 接進來") + "。",
+        quiz:{q:"pq 裡最小的是哪一張票？（先比 w，再比 v，再比 from）", ans:"a", opts:popOpts}});
+
+      var decQ = {q:"手上的票 " + tk(top) + "：要怎麼處理？", ans:(inT[top.v] ? "d" : "k"), opts:[
+        {t:"把 " + ids[top.v] + " 接進樹", s:tEdge(top), v:"k"},
+        {t:"丟掉（舊票）", s:ids[top.v] + " 已在樹裡", v:"d"}]};
+      if(inT[top.v]){
+        stale++;
+        put({kind:"stale", line:8, cur:top.ei, hl:[top.v],
+          title:ids[top.v] + " 已經在樹裡 → 舊票，丟掉",
+          msg:ids[top.v] + " 早就用別的、更便宜的邊接進樹了。如果再用 " + ids[top.f] + "–" + ids[top.v] + "，就會跟樹裡原本的路繞成一個環。這張票直接丟掉，不做任何事。",
+          quiz:decQ});
+        hand = null;
+        continue;
+      }
+      put({kind:"fresh", line:8, cur:top.ei, hl:[top.v],
+        title:ids[top.v] + " 還不在樹裡 → 收下",
+        msg:ids[top.v] + " 還在樹外面，而這張票是目前「從樹往外接」最便宜的邊" + (top.f < 0 ? "（起點的票）" : "") + "。切割性質保證：把它收下一定不會錯。",
+        quiz:decQ});
+
+      var old = total;
+      inT[top.v] = true; total += top.w; added.push(top.v);
+      if(top.f >= 0){ es[top.ei] = "tree"; cnt++; }
+      put({kind:"add", line:9, cur:-1, hl:[top.v],
+        title:top.f < 0 ? "起點 " + ids[top.v] + " 進樹" : ids[top.f] + "–" + ids[top.v] + " 進樹，總重 " + old + " + " + top.w + " = " + total,
+        msg:"in[" + ids[top.v] + "] = true。" + (top.f < 0 ? "樹現在只有 " + ids[top.v] + " 一個頂點，總重 0。"
+          : "<b>" + ids[top.f] + "–" + ids[top.v] + "</b> 變成綠色粗線。目前總重 <b>" + total + "</b>，已收 <b>" + cnt + "</b> 條。") +
+          "接著看 " + ids[top.v] + " 的鄰居，發新票。",
+        quiz:top.f < 0 ? null : {q:"把 " + ids[top.v] + " 接進樹之後，目前總重是多少？", ans:"a", opts:[
+          {t:String(total), s:old + " + " + top.w, v:"a"},
+          {t:String(old), s:"不變", v:"b"},
+          {t:String(top.w), s:"只算這條", v:"c"}]}});
+
+      var v = top.v;
+      hand = null;
+      for(var j=0;j<adj[v].length;j++){
+        var nb = adj[v][j];
+        var nq = {q:ids[v] + " 的鄰居 " + ids[nb.x] + "（邊權重 " + nb.w + "）：要放票進 pq 嗎？", ans:(inT[nb.x] ? "n" : "y"), opts:[
+          {t:"放 (" + nb.w + ", " + ids[nb.x] + ", " + ids[v] + ")", s:ids[nb.x] + " 還在樹外", v:"y"},
+          {t:"不放", s:ids[nb.x] + " 已在樹裡", v:"n"}]};
+        if(inT[nb.x]){
+          put({kind:"nskip", line:11, cur:nb.ei, hl:[v, nb.x],
+            title:"鄰居 " + ids[nb.x] + " 已在樹裡 → 不放票",
+            msg:ids[nb.x] + " 已經在樹裡，" + ids[v] + "–" + ids[nb.x] + " 兩端都在樹裡，收它只會成環。",
+            quiz:nq});
+        } else {
+          var t = {w:nb.w, v:nb.x, f:v, ei:nb.ei};
+          pq.push(t);
+          put({kind:"push", line:11, cur:nb.ei, hl:[v, nb.x],
+            title:"放票 " + tk(t),
+            msg:"鄰居 " + ids[nb.x] + " 還不在樹裡。放一張票 <b>" + tk(t) + "</b>：花 " + nb.w + " 可以用 " + ids[v] + "–" + ids[nb.x] + " 把 " + ids[nb.x] + " 接進來。" +
+              (pq.some(function(o){ return o !== t && o.v === nb.x && !inT[o.v]; }) ? "pq 裡已經有別張要接 " + ids[nb.x] + " 的票，沒關係，兩張都留著，便宜的會先被拿出來。" : ""),
+            quiz:nq});
+        }
+      }
+    }
+    hand = null;
+    var tree = [];
+    for(i=0;i<E.length;i++) if(es[i] === "tree") tree.push(i);
+    put({kind:"done", line:13, treeE:tree,
+      title:"完成！最小生成樹總重 " + total,
+      msg:"pq 空了。頂點進樹的順序：<b>" + added.map(function(z){ return ids[z]; }).join(" → ") + "</b>；收了 " + cnt + " 條邊，總重 <b>" + total + "</b>。" +
+        (stale ? "途中丟掉 " + stale + " 張舊票。" : "") + (level.fin || "")});
+    return steps;
+  }
+
+  /* ---------- 3. 畫面層 ---------- */
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function mk(tag, attrs){
+    var e = document.createElementNS(SVGNS, tag);
+    for(var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function buildGraphSVG(){
+    var lv = S.level, svg = $("graph"), i;
+    var pos = {};
+    lv.nodes.forEach(function(o){ pos[o.id] = o; });
+    svg.innerHTML = "";
+    G.edgeEls = []; G.wEls = []; G.ndEls = []; G.topEls = [];
+    for(i=0;i<lv.edges.length;i++){
+      var a = pos[lv.edges[i][0]], b = pos[lv.edges[i][1]];
+      var ln = mk("line", {x1:a.x, y1:a.y, x2:b.x, y2:b.y, "class":"edge"});
+      svg.appendChild(ln); G.edgeEls.push(ln);
+    }
+    for(i=0;i<lv.edges.length;i++){
+      var p1 = pos[lv.edges[i][0]], p2 = pos[lv.edges[i][1]];
+      var t = mk("text", {x:(p1.x + p2.x) / 2, y:(p1.y + p2.y) / 2, "class":"wlab"});
+      t.textContent = lv.edges[i][2];
+      svg.appendChild(t); G.wEls.push(t);
+    }
+    lv.nodes.forEach(function(o){
+      var gr = mk("g", {"class":"gn"});
+      var c = mk("circle", {cx:o.x, cy:o.y, r:19});
+      gr.appendChild(c);
+      var id = mk("text", {x:o.x, y:o.y, "class":"nid"}); id.textContent = o.id; gr.appendChild(id);
+      if(o.name){
+        var below = o.y > 200;
+        var nm = mk("text", {x:o.x, y:below ? o.y + 36 : o.y - 27, "class":"nname"}); nm.textContent = o.name; gr.appendChild(nm);
+      }
+      /* p=X／起點 的小字放在名字外側，不壓到邊 */
+      var low = o.y > 200, ty = o.name ? (low ? o.y + 51 : o.y - 42) : (low ? o.y + 36 : o.y - 27);
+      var tp = mk("text", {x:o.x, y:ty, "class":"ntop"}); gr.appendChild(tp);
+      svg.appendChild(gr);
+      G.ndEls.push({g:gr, c:c}); G.topEls.push(tp);
+    });
+  }
+
+  function rootOf(p, x){ var k = 0; while(p[x] !== x && k++ < 100) x = p[x]; return x; }
+
+  function paintGraph(){
+    var st = S.steps[S.cur], lv = S.level, n = lv.nodes.length, i;
+    for(i=0;i<G.edgeEls.length;i++){
+      var s = st.es[i], cls = "edge", wc = "wlab";
+      if(st.algo === "kruskal"){
+        if(s === "cur"){ cls += " hot"; wc += " hot"; }
+        else if(s === "tree"){ cls += " tree"; wc += " tree"; }
+        else if(s === "rej"){ cls += " rej"; wc += " rej"; }
+        else if(s === "skip"){ cls += " skip"; wc += " skip"; }
+      } else {
+        if(s === "tree"){ cls += " tree"; wc += " tree"; }
+        else if(i === st.cur){ cls += " hot"; wc += " hot"; }
+        else {
+          for(var k=0;k<st.pq.length;k++) if(st.pq[k].ei === i && !st.inT[st.pq[k].v]){ cls += " cand"; break; }
+        }
+      }
+      G.edgeEls[i].setAttribute("class", cls);
+      G.wEls[i].setAttribute("class", wc);
+    }
+    var size = {}, root = [];
+    if(st.algo === "kruskal" && st.p){
+      for(i=0;i<n;i++){ root[i] = rootOf(st.p, i); size[root[i]] = (size[root[i]] || 0) + 1; }
+    }
+    var valid = {};
+    if(st.algo === "prim") st.pq.forEach(function(t){ if(!st.inT[t.v]) valid[t.v] = 1; });
+    for(i=0;i<n;i++){
+      var nc = "gn", style = "";
+      if(st.algo === "kruskal"){
+        if(st.p && size[root[i]] > 1){
+          var h = HUES[root[i] % HUES.length];
+          style = "fill:color-mix(in srgb, hsl(" + h + " 70% 55%) 30%, var(--surface));stroke:hsl(" + h + " 55% 45%);stroke-width:2.6px";
+        }
+        if(st.hl.indexOf(i) >= 0) nc += " touch";
+      } else {
+        if(st.inT[i]) nc += " set";
+        else if(valid[i]) nc += " qd";
+        if((st.kind === "pop" || st.kind === "stale" || st.kind === "fresh") && st.hand && st.hand.v === i) nc += " cur";
+        else if(st.hl && st.hl.indexOf(i) >= 0) nc += " touch";
+      }
+      G.ndEls[i].g.setAttribute("class", nc);
+      G.ndEls[i].c.setAttribute("style", style);
+      var top = "";
+      if(st.algo === "prim" && i === st.start) top = "起點";
+      if(st.algo === "kruskal" && st.p && st.p[i] !== i) top = "p=" + lv.nodes[st.p[i]].id;
+      G.topEls[i].textContent = top;
+    }
+    var note = st.algo === "kruskal"
+      ? (st.sorted ? "已看 " + st.checked + " / " + st.order.length + " 條邊" : "還沒排序")
+      : "樹裡 " + st.inT.filter(function(x){ return x; }).length + " / " + n + " 個頂點";
+    $("graphNote").textContent = note;
+  }
+
+  function erow(rk, name, w, state, stTxt){
+    var r = document.createElement("div");
+    r.className = "erow"; r.setAttribute("data-s", state);
+    var a = document.createElement("span"); a.className = "rk"; a.textContent = rk;
+    var b = document.createElement("span"); b.className = "en"; b.textContent = name;
+    var c = document.createElement("span"); c.className = "ew"; c.textContent = w;
+    var d = document.createElement("span"); d.className = "st"; d.textContent = stTxt;
+    r.appendChild(a); r.appendChild(b); r.appendChild(c); r.appendChild(d);
+    return r;
+  }
+  function pcell(k, v, cls, hue){
+    var c = document.createElement("div"); c.className = "pcell";
+    var a = document.createElement("span"); a.className = "k"; a.textContent = k;
+    var b = document.createElement("span"); b.className = "v" + (cls ? " " + cls : ""); b.textContent = v;
+    if(hue !== undefined) b.style.setProperty("--gh", hue);
+    c.appendChild(a); c.appendChild(b);
+    return c;
+  }
+
+  function paintDS(){
+    var st = S.steps[S.cur], lv = S.level, L = $("dsL"), R = $("dsR"), i;
+    var ids = lv.nodes.map(function(o){ return o.id; });
+    L.innerHTML = ""; R.innerHTML = "";
+    var list = document.createElement("div"); list.className = "elist";
+    if(st.algo === "kruskal"){
+      $("dsLLabel").textContent = st.sorted ? "EDGES · 由小到大排好的邊" : "EDGES · 輸入的順序（還沒排序）";
+      $("dsRLabel").textContent = "UNION-FIND · p[x]（同色＝同一組）";
+      var TXT = {cur:"← 正在看", tree:"✔ 收下", rej:"✘ 成環", skip:"不用看", "":""};
+      st.order.forEach(function(ei, k){
+        var e = lv.edges[ei], s = st.es[ei];
+        list.appendChild(erow(st.sorted ? "#" + (k+1) : "", e[0] + "–" + e[1], e[2], s, TXT[s]));
+      });
+      L.appendChild(list);
+      var row = document.createElement("div"); row.className = "prow";
+      if(!st.p){
+        var em = document.createElement("div"); em.className = "dsnote"; em.textContent = "還沒初始化（第 8 行才會把每個 p[x] 設成自己）。";
+        R.appendChild(em);
+      } else {
+        var size = {}, root = [];
+        for(i=0;i<ids.length;i++){ root[i] = rootOf(st.p, i); size[root[i]] = (size[root[i]] || 0) + 1; }
+        var onPath = {};
+        if(st.kind === "find"){ st.fu.path.forEach(function(z){ onPath[z] = 1; }); st.fv.path.forEach(function(z){ onPath[z] = 1; }); }
+        for(i=0;i<ids.length;i++){
+          var cls = [];
+          if(size[root[i]] > 1) cls.push("grp");
+          if(st.chg && st.chg.indexOf(i) >= 0) cls.push("chg");
+          else if(onPath[i]) cls.push("path");
+          row.appendChild(pcell(ids[i], ids[st.p[i]], cls.join(" "), HUES[root[i] % HUES.length]));
+        }
+        R.appendChild(row);
+        var groups = {}, gl = [];
+        for(i=0;i<ids.length;i++){ if(!groups[root[i]]){ groups[root[i]] = []; gl.push(root[i]); } groups[root[i]].push(ids[i]); }
+        var note = document.createElement("div"); note.className = "dsnote";
+        var html = "組別：" + gl.map(function(r){ return "<b>{" + groups[r].join(",") + "}</b>"; }).join(" ");
+        if(st.kind === "find"){
+          html += "<br>find(" + ids[st.fu.x] + ")：<b>" + st.fu.path.map(function(z){ return ids[z]; }).join(" → ") + "</b>" +
+                  "　find(" + ids[st.fv.x] + ")：<b>" + st.fv.path.map(function(z){ return ids[z]; }).join(" → ") + "</b>";
+        }
+        note.innerHTML = html;
+        R.appendChild(note);
+      }
+    } else {
+      $("dsLLabel").textContent = "PQ · 優先佇列（最小的在最上面）";
+      $("dsRLabel").textContent = "in[v] · 已經在樹裡的頂點";
+      var hand = document.createElement("div"); hand.className = "hand";
+      hand.innerHTML = st.hand ? "手上這張：<b>(" + st.hand.w + ", " + ids[st.hand.v] + ", " + (st.hand.f < 0 ? "−" : ids[st.hand.f]) + ")</b>" : "手上：—";
+      L.appendChild(hand);
+      if(st.pq.length === 0){
+        var e0 = document.createElement("div"); e0.className = "dsnote";
+        e0.textContent = st.kind === "start" ? "（還沒有票）" : "（空）";
+        list.appendChild(e0);
+      }
+      st.pq.forEach(function(t, k){
+        var old = st.inT[t.v];
+        var state = old ? "stale" : (k === 0 ? "top" : "");
+        list.appendChild(erow(k === 0 ? "頂" : "", "(" + t.w + ", " + ids[t.v] + ", " + (t.f < 0 ? "−" : ids[t.f]) + ")", "",
+          state, old ? "舊票" : (k === 0 ? "← 下一張" : "")));
+      });
+      L.appendChild(list);
+      var row2 = document.createElement("div"); row2.className = "prow";
+      for(i=0;i<ids.length;i++) row2.appendChild(pcell(ids[i], st.inT[i] ? "✓" : "", st.inT[i] ? "on" : ""));
+      R.appendChild(row2);
+      var nt = document.createElement("div"); nt.className = "dsnote";
+      nt.innerHTML = "進樹順序：" + (st.added.length ? "<b>" + st.added.map(function(z){ return ids[z]; }).join(" → ") + "</b>" : "—");
+      R.appendChild(nt);
+    }
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur];
+    $("stCnt").textContent = st.cnt + " / " + st.target;
+    $("stTot").textContent = st.total;
+    if(st.algo === "kruskal"){
+      $("stAK").textContent = "已看的邊"; $("stA").textContent = st.checked;
+      $("stBK").textContent = "成環跳過"; $("stB").textContent = st.rej;
+    } else {
+      $("stAK").textContent = "拿出的票"; $("stA").textContent = st.pops;
+      $("stBK").textContent = "丟掉舊票"; $("stB").textContent = st.stale;
+    }
+  }
+
+  function renderAlgo(){
+    var code = CODE[S.level.algo], doc = CODE_DOC[S.level.algo];
+    $("algoTitle").textContent = (S.level.algo === "kruskal" ? "Kruskal" : "Prim") + "（C++）——玩到哪，亮到哪";
+    $("algoCx").textContent = S.level.algo === "kruskal" ? "排序 O(E log E) ＋ 併查集" : "最小堆積 O(E log V)";
+    $("algoNote").textContent = S.level.algo === "kruskal" ? "Kruskal" : "Prim";
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < code.length; i++){
+      var li = document.createElement("li");
+      li.textContent = code[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < code.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = code[j].trim();
+      var d = document.createElement("span");
+      d.className = "doc"; d.textContent = doc[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(d);
+      all.appendChild(row);
+    }
+    var lg = $("legend");
+    lg.innerHTML = S.level.algo === "kruskal"
+      ? '<span><i class="l-hot"></i>正在看的邊</span><span><i class="l-tree"></i>收下（在 MST 裡）</span><span><i class="l-rej"></i>成環跳過</span><span><i class="l-grp"></i>同色頂點＝同一組</span>'
+      : '<span><i class="l-in"></i>已在樹裡</span><span><i class="l-qd"></i>pq 裡有票、等著被接</span><span><i class="l-hot"></i>正在處理的邊</span><span><i class="l-cand"></i>候選邊（有票）</span><span><i class="l-tree"></i>收下（在 MST 裡）</span>';
+    $("graphTitle").textContent = S.level.algo === "kruskal" ? "地圖 + Kruskal 的資料" : "地圖 + Prim 的資料";
+  }
+
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, doc = CODE_DOC[S.level.algo];
+    var lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= doc.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = doc[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", KMAP[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function logLabel(st){
+    var lv = S.level, ids = lv.nodes.map(function(o){ return o.id; });
+    if(st.algo === "kruskal"){
+      if(st.si >= 0 && st.kind !== "full"){ var e = lv.edges[st.order[st.si]]; return e[0] + "–" + e[1] + " " + e[2]; }
+      return "—";
+    }
+    if(st.hand) return "(" + st.hand.w + "," + ids[st.hand.v] + "," + (st.hand.f < 0 ? "−" : ids[st.hand.f]) + ")";
+    if(st.cur >= 0){ var e2 = lv.edges[st.cur]; return e2[0] + "–" + e2[1] + " " + e2[2]; }
+    return "—";
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", KMAP[st.kind] || "start");
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = logLabel(st);
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "總重 " + st.total;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintGraph(); paintDS(); paintStats();
+    paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 4. 導覽 ---------- */
+
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length - 1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length - 1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length - 1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length - 1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 1000);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 5. 闖關 ---------- */
+
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){
+      if(S.steps[k].quiz) return k;
+    }
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right / S.asked * 100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1 + LEVELS.length) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadLevel(S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = st.quiz.q;
+    opts.innerHTML = "";
+    var list = st.quiz.opts, rot = ni % list.length;
+    for(var k = 0; k < list.length; k++){
+      var o = list[(k + rot) % list.length];
+      addOpt(opts, o.t, o.s || "", o.v);
+    }
+  }
+
+  function addOpt(host, label, sub, val){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    if(sub){
+      var sm = document.createElement("small");
+      sm.textContent = sub;
+      b.appendChild(sm);
+    }
+    b.addEventListener("click", function(){ answerQuiz(val); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(val){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.ans, correctLabel = "";
+    for(var k = 0; k < st.quiz.opts.length; k++){
+      if(st.quiz.opts[k].v === correct) correctLabel = st.quiz.opts[k].t;
+    }
+
+    S.asked++;
+    var win = (val === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right / S.asked * 100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。按上方「下一關」繼續。</b>";
+    }
+  }
+
+  /* ---------- 6. 載入 ---------- */
+
+  function loadLevel(i){
+    stopPlay();
+    S.level = LEVELS[i];
+    S.levelIdx = i;
+    S.steps = buildSteps(S.level);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    buildGraphSVG();
+    renderAlgo();
+    render();
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = (i + 1) + " " + lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著地圖和下面的資料，回答下一步會發生什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 7. 事件綁定 ---------- */
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadLevel(S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 8. 啟動 ---------- */
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>

@@ -39,7 +39,11 @@
 │  ├─ 17-dijkstra.html             最短路徑派遣（Dijkstra）
 │  ├─ 18-queue-basics.html         佇列排隊入門（push / front / pop / size / empty，佇列第一關）
 │  ├─ 19-queue-console.html        海大餐廳排隊系統（排隊編號、姓名、電話：登記、叫號、看下一位、名單、查順位）
-│  └─ 20-heapsort.html             堆積排序（原地 heap sort：建堆＋分界線左移，接在 13 堆積之後）
+│  ├─ 20-heapsort.html             堆積排序（原地 heap sort：建堆＋分界線左移，接在 13 堆積之後）
+│  ├─ 21-graph-basics.html         圖的基本概念（圖單元第 1 步：術語、鄰接矩陣 vs 鄰接串列）
+│  ├─ 22-graph-traversal.html      圖的走訪 DFS／BFS（圖單元第 2 步：visited、連通元件）
+│  ├─ 23-topological-sort.html     拓撲排序（圖單元第 3 步：DAG、入度、Kahn 演算法）
+│  └─ 24-mst.html                  最小生成樹（圖單元第 4 步：Kruskal＋併查集、Prim；第 5 步是 17 Dijkstra）
 └─ README.md
 ```
 
