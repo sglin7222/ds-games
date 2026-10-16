@@ -203,7 +203,7 @@
           <div class="term">
             <div class="tn">O(log n)、O(n) <small>Big-O 記號</small></div>
             <div class="td">描述「資料變多時，工作量怎麼跟著變多」。n 是資料的數量。<b>O(n)</b>：資料多一倍，工作也多一倍。<b>O(log n)</b>：資料多一倍，工作只多<b>一步</b>——非常快。</div>
-            <div class="ta">O(n) 像從頭到尾翻每一頁找名字；O(log n) 像翻字典，每翻一次就丟掉一半。</div>
+            <div class="ta">O(n) 像從頭到尾翻每一頁找名字；O(log n) 像翻字典，每翻一次就丟掉一半。（後面有<a href="#bigo">完整說明和對照表</a>）</div>
           </div>
         </div>
       </div>
@@ -391,7 +391,7 @@
 
       <div class="block">
         <h3>Max-Heap 能做哪些事：五個基本操作</h3>
-        <p>資料結構除了「怎麼擺」，還要說清楚「能對它做什麼」。Max-Heap 就這五件事，後面的遊戲全部都是在演這五件事：</p>
+        <p>資料結構除了「怎麼擺」，還要說清楚「能對它做什麼」。Max-Heap 就這五件事，後面的遊戲全部都是在演這五件事（「花多少力氣」那一欄的 O(1)、O(log n)、O(n)，下一段會用二分搜尋解釋）：</p>
         <div class="tablewrap">
           <table>
             <thead><tr><th>操作</th><th>白話</th><th class="mono">C++ priority_queue</th><th class="mono">花多少力氣</th></tr></thead>
@@ -407,6 +407,70 @@
         <div class="callout" data-k="no">
           <span class="tag">做不到</span>
           <span class="txt">Max-Heap <b>不擅長</b>「找任意一個數在不在裡面」——因為只有上下有規矩、左右沒有，只能整包翻，O(n)。要快速查找請用二元搜尋樹（第 11 關）或雜湊表（第 16 關）。</span>
+        </div>
+      </div>
+
+      <div class="block" id="bigo">
+        <h3>時間複雜度：O(n) 和 O(log₂ n) 差多少？用二分搜尋來理解</h3>
+        <p><b>時間複雜度</b>不是在量「幾秒」，而是在數「<b>資料有 n 個時，最多要做幾步</b>」。電腦有快有慢，但步數不會騙人。這一關會一直看到兩種：</p>
+        <ul class="bullets">
+          <li><b>線性 O(n)</b>：資料有幾個，就要做幾步。像在一排沒整理的考卷裡找最高分，只能一張一張翻完。</li>
+          <li><b>對數 O(log₂ n)</b>：每做一步，就把剩下的範圍<b>砍掉一半</b>，砍到只剩 1 個為止。要做的步數 = 「n 要對半切幾次才剩 1」。</li>
+        </ul>
+        <div class="tablewrap">
+          <table>
+            <thead style="text-transform:none"><tr><th class="mono" style="text-transform:none">資料量 n</th><th class="mono" style="text-transform:none">線性 O(n)</th><th class="mono" style="text-transform:none">對數 O(log₂ n)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">8</td><td class="mono">8 步</td><td class="mono" style="color:var(--jade);font-weight:700">3 步</td></tr>
+              <tr><td class="mono">1,024</td><td class="mono">1,024 步</td><td class="mono" style="color:var(--jade);font-weight:700">10 步</td></tr>
+              <tr><td class="mono">1,048,576（≈ 10<sup>6</sup>）</td><td class="mono">約 100 萬步</td><td class="mono" style="color:var(--jade);font-weight:700">20 步</td></tr>
+              <tr><td class="mono">1,000,000,000（10<sup>9</sup>）</td><td class="mono">約 10 億步</td><td class="mono" style="color:var(--jade);font-weight:700">約 30 步</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>資料從 8 個變成 10 億個（多了 1 億倍以上），線性的步數跟著多 1 億倍；對數的步數只從 3 變成 30。</p>
+
+        <h4>log₂ n 是什麼？用二分搜尋（猜數字）來看</h4>
+        <p>玩一個遊戲：我心裡想一個 1～8 的數字，你只能問「是不是比某個數大？」我只回答是或否。最聰明的問法是<b>每次都問正中間</b>——不管答案是什麼，都能排除一半。這個方法就叫<b>二分搜尋</b>（第 15 關整關都在玩它）：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:620px">
+            <svg viewBox="0 0 540 196" role="img" aria-label="猜 1 到 8 的數字，每問一題候選人砍一半，3 題猜到"><text class="lbl" x="100" y="28">一開始：8 個都有可能</text><rect class="cell" x="206" y="8" width="36" height="32" rx="6"/><text class="ctext" x="224" y="24">1</text><rect class="cell" x="247" y="8" width="36" height="32" rx="6"/><text class="ctext" x="265" y="24">2</text><rect class="cell" x="288" y="8" width="36" height="32" rx="6"/><text class="ctext" x="306" y="24">3</text><rect class="cell" x="329" y="8" width="36" height="32" rx="6"/><text class="ctext" x="347" y="24">4</text><rect class="cell" x="370" y="8" width="36" height="32" rx="6"/><text class="ctext" x="388" y="24">5</text><rect class="cell" x="411" y="8" width="36" height="32" rx="6"/><text class="ctext" x="429" y="24">6</text><rect class="cell" x="452" y="8" width="36" height="32" rx="6"/><text class="ctext" x="470" y="24">7</text><rect class="cell" x="493" y="8" width="36" height="32" rx="6"/><text class="ctext" x="511" y="24">8</text><text class="lbl" x="100" y="76">問「比 4 大嗎？」是 → 剩 4 個</text><rect class="cell dim" x="206" y="56" width="36" height="32" rx="6"/><rect class="cell dim" x="247" y="56" width="36" height="32" rx="6"/><rect class="cell dim" x="288" y="56" width="36" height="32" rx="6"/><rect class="cell dim" x="329" y="56" width="36" height="32" rx="6"/><rect class="cell" x="370" y="56" width="36" height="32" rx="6"/><text class="ctext" x="388" y="72">5</text><rect class="cell" x="411" y="56" width="36" height="32" rx="6"/><text class="ctext" x="429" y="72">6</text><rect class="cell" x="452" y="56" width="36" height="32" rx="6"/><text class="ctext" x="470" y="72">7</text><rect class="cell" x="493" y="56" width="36" height="32" rx="6"/><text class="ctext" x="511" y="72">8</text><text class="lbl" x="100" y="124">問「比 6 大嗎？」否 → 剩 2 個</text><rect class="cell dim" x="206" y="104" width="36" height="32" rx="6"/><rect class="cell dim" x="247" y="104" width="36" height="32" rx="6"/><rect class="cell dim" x="288" y="104" width="36" height="32" rx="6"/><rect class="cell dim" x="329" y="104" width="36" height="32" rx="6"/><rect class="cell" x="370" y="104" width="36" height="32" rx="6"/><text class="ctext" x="388" y="120">5</text><rect class="cell" x="411" y="104" width="36" height="32" rx="6"/><text class="ctext" x="429" y="120">6</text><rect class="cell dim" x="452" y="104" width="36" height="32" rx="6"/><rect class="cell dim" x="493" y="104" width="36" height="32" rx="6"/><text class="lbl good" x="100" y="172">問「比 5 大嗎？」是 → 剩 1 個</text><rect class="cell dim" x="206" y="152" width="36" height="32" rx="6"/><rect class="cell dim" x="247" y="152" width="36" height="32" rx="6"/><rect class="cell dim" x="288" y="152" width="36" height="32" rx="6"/><rect class="cell dim" x="329" y="152" width="36" height="32" rx="6"/><rect class="cell dim" x="370" y="152" width="36" height="32" rx="6"/><rect class="cell good" x="411" y="152" width="36" height="32" rx="6"/><text class="ctext" x="429" y="168">6</text><rect class="cell dim" x="452" y="152" width="36" height="32" rx="6"/><rect class="cell dim" x="493" y="152" width="36" height="32" rx="6"/></svg>
+            <figcaption>心裡想的數字是 6。<b>每問一題，候選人砍一半</b>（灰色是被排除的）：8 → 4 → 2 → 1，問 <b>3 題</b>就確定。3 正好是 log₂ 8。</figcaption>
+          </figure>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono" style="text-transform:none">n</th><th>對半切的過程</th><th class="mono">切幾次</th><th>為什麼</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">8</td><td class="mono">8 → 4 → 2 → 1</td><td class="mono">3</td><td class="mono">2<sup>3</sup> = 8</td></tr>
+              <tr><td class="mono">1,024</td><td class="mono">1024 → 512 → 256 → … → 2 → 1</td><td class="mono">10</td><td class="mono">2<sup>10</sup> = 1,024</td></tr>
+              <tr><td class="mono">1,048,576</td><td class="mono">每次砍半，砍 20 次</td><td class="mono">20</td><td class="mono">2<sup>20</sup> = 1,048,576</td></tr>
+              <tr><td class="mono">10<sup>9</sup></td><td class="mono">每次砍半，砍約 30 次</td><td class="mono">約 30</td><td class="mono">2<sup>30</sup> = 1,073,741,824 ≈ 10<sup>9</sup></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">log₂ n</span>
+          <span class="txt"><b>log₂ n ＝「n 要對半切幾次才剩 1」＝「2 要自己乘幾次才到 n」。</b>反過來說：資料<b>翻一倍</b>，只要<b>多切一刀</b>。所以 1,024 個要 10 步，2,048 個也才 11 步。</span>
+        </div>
+
+        <h4>這跟 Max-Heap 有什麼關係？</h4>
+        <p>Max-Heap 是<a href="#cbt">完全二元樹</a>：每往下一層，能放的節點數就<b>翻一倍</b>（1、2、4、8……）。倒過來看，從最底層往根走，每往上一層，那一層的人數就<b>砍一半</b>——跟二分搜尋一模一樣。所以 n 個節點的樹，大約只有 log₂ n 層：</p>
+        <ul class="bullets ok">
+          <li><b>push（上浮）</b>：新數字從最底層出發，每次跟爸爸比一下、往上一層，最多走到根——最多約 <b>log₂ n 步</b>。</li>
+          <li><b>pop（下沉）</b>：補上來的數字從根出發，每次往下一層，最多走到最底層——最多約 <b>log₂ n 步</b>。</li>
+          <li>對照：如果不用 heap，而是把數字亂放在陣列裡，每次找最大值都要整排看完——<b>n 步</b>。</li>
+        </ul>
+        <p>套回上面的表：heap 裡有 10 億個數字時，放一個進去或拿走最大值，最多只要換大約 30 層；亂放的陣列每次找最大，要看 10 億個。</p>
+        <div class="check">
+          <details>
+            <summary>heap 裡有 1,024 個數字。插入一個新數字，最多要往上換幾次？</summary>
+            <div class="ans">最多 <b>10 次</b>。1,024 個節點的完全二元樹有 11 層（第 0～10 層），最底層的人最多往上換 10 次就到根。10 正好是 log₂ 1024。</div>
+          </details>
+          <details>
+            <summary>資料量從 100 萬變成 200 萬，O(n) 和 O(log₂ n) 的步數各變多少？</summary>
+            <div class="ans">O(n)：從約 100 萬步變成約 200 萬步，<b>多一倍</b>。O(log₂ n)：從約 20 步變成約 21 步，<b>只多 1 步</b>——因為多一倍的資料只要多切一刀。</div>
+          </details>
         </div>
       </div>
 
