@@ -38,7 +38,8 @@
 │  ├─ 16-hash-table.html           雜湊表大碰撞
 │  ├─ 17-dijkstra.html             最短路徑派遣（Dijkstra）
 │  ├─ 18-queue-basics.html         佇列排隊入門（push / front / pop / size / empty，佇列第一關）
-│  └─ 19-queue-console.html        海大餐廳排隊系統（排隊編號、姓名、電話：登記、叫號、看下一位、名單、查順位）
+│  ├─ 19-queue-console.html        海大餐廳排隊系統（排隊編號、姓名、電話：登記、叫號、看下一位、名單、查順位）
+│  └─ 20-heapsort.html             堆積排序（原地 heap sort：建堆＋分界線左移，接在 13 堆積之後）
 └─ README.md
 ```
 

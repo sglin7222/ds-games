@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>堆積排序 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+/* ============ 本頁專用樣式 ============ */
+/* 版面、控制列、模式切換、關卡籌碼、說明面板、演算法、歷程、闖關計分
+   全部在 assets/site.css，這裡只寫這一關獨有的視覺：
+   SVG 樹、陣列格子列（分成堆積區／已排序區）。每個元素有自己的色相 --eh，
+   樹上的球和陣列的格子永遠同色 —— 「同一份資料的兩種長相」。 */
+
+.tree-wrap{background:var(--sunken);border:1px dashed var(--line);border-radius:8px;
+  padding:6px 4px 2px}
+.tree-wrap svg{display:block;width:100%;height:auto}
+
+.vlabel{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
+.arow-rail{overflow-x:auto;padding:4px 2px 2px}
+.arow{display:flex;gap:6px;align-items:flex-end}
+.acell{flex:0 0 auto;width:46px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.acell .idx{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+.acell .abox{width:46px;height:44px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--ink);
+  background:color-mix(in srgb, hsl(var(--eh) 70% 55%) 26%, var(--surface));
+  border:1.8px solid hsl(var(--eh) 55% 45%);border-radius:8px;
+  transition:border-color var(--dur),box-shadow var(--dur),transform var(--dur),opacity var(--dur)}
+.acell .abox sub{font-size:10px;font-weight:700;color:var(--ink-soft);margin-left:1px}
+/* 已排序區：綠底、不再參與堆積 */
+.acell[data-zone="done"] .abox{background:var(--jade-soft);border-color:var(--jade);border-style:solid}
+.acell[data-zone="done"] .idx{color:var(--jade);font-weight:700}
+.acell[data-state="cur"] .abox{border-color:var(--accent);border-width:2.5px;
+  box-shadow:0 0 0 2.5px var(--accent-soft);transform:translateY(-3px)}
+.acell[data-state="cmp"] .abox{border-color:var(--accent);border-style:dashed;border-width:2.2px}
+.acell[data-state="swap"] .abox{border-color:var(--jade);border-width:2.5px;
+  box-shadow:0 0 0 2.5px var(--jade-soft);transform:translateY(-3px)}
+.acell[data-state="cur"] .idx,.acell[data-state="swap"] .idx{color:var(--ink);font-weight:700}
+/* 堆積區和已排序區中間的分界線 */
+.adiv{flex:0 0 auto;width:4px;height:44px;border-radius:2px;background:var(--accent);margin:0 2px}
+
+.zones{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-soft);padding:2px 2px 0}
+.zones b{color:var(--ink)}
+.zones .z{display:inline-flex;align-items:center;gap:6px}
+.zones .sw{width:12px;height:12px;border-radius:3px;border:1.6px solid var(--line);background:var(--surface)}
+.zones .sw.done{background:var(--jade-soft);border-color:var(--jade)}
+
+.formula{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-faint);
+  padding:4px 2px 0;letter-spacing:.02em}
+.custom{display:flex;gap:6px;flex:0 1 300px}
+.custom input{flex:1}
+</style>
+</head>
+<body>
+
+<!-- ============ 頂部列 ============ -->
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">20 · 堆積排序</span>
+    <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 標題 ============ -->
+  <header class="hero">
+    <p class="eyebrow">Game 20 · Heap Sort</p>
+    <h1>堆積排序</h1>
+    <p class="lede">把第 13 關的最大堆積拿來排序：先建成 Max-Heap，再一次又一次把堆頂的最大值換到陣列最後面。陣列中間有一條分界線——左邊是還在整理的堆積，右邊是已經排好、再也不動的數字。分界線每一輪往左移一格，移到底就排好了。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>最大堆積 Max-Heap</b></div>
+      <div class="fact"><span>難度</span><b>中階</b></div>
+      <div class="fact"><span>時間</span><b>O(n log n)，永遠</b></div>
+      <div class="fact"><span>額外空間</span><b>O(1)</b></div>
+      <div class="fact"><span>先備知識</span><b>13 堆積上浮下沉</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 00 先搞懂定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：堆積排序（Heap Sort）到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>定義：堆積排序（Heap Sort）</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 堆積排序 Heap Sort</span>
+          <div class="defline">堆積排序是一種排序方法：先把整個陣列整理成<em>最大堆積（Max-Heap）</em>，然後一直重複「把<em>堆頂（目前最大值）跟堆積區的最後一格交換</em>、堆積區縮小一格、把新的堆頂<em>下沉</em>」，直到堆積區只剩一個數。</div>
+          <p>做完之後，陣列會<b>由小到大</b>排好。整個過程都在<b>同一個陣列</b>裡完成，不用另外準備第二個陣列。</p>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>同一個定義，換個說法</th><th>內容</th></tr></thead>
+            <tbody>
+              <tr><td><b>白話</b></td><td>每一輪找出「還沒排的數字裡最大的那個」，把它放到最右邊還空著的位置。找最大值靠 Max-Heap，所以很快。</td></tr>
+              <tr><td><b>兩個階段</b></td><td>① <b>建堆</b>：整包數字整理成 Max-Heap（第 13 關的 buildHeap）。② <b>一直取最大</b>：堆頂換到後面 → 堆積區縮小 → 下沉，做 n−1 輪。</td></tr>
+              <tr><td><b>陣列的樣子</b></td><td>陣列中間有一條分界線：<b>左邊是堆積區</b>（還是 Max-Heap，還在整理），<b>右邊是已排序區</b>（已經是最終位置，不會再動）。分界線每輪往左移一格。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">目的</span>
+          <span class="txt">把一堆數字由小到大排好，而且<b>不管資料長怎樣都保證夠快</b>（O(n log n)），又<b>不佔額外空間</b>。比喻：老師要把一疊考卷由低分排到高分，桌上只有一排位子。每次抽出剩下考卷裡<b>最高分</b>的那張，放到最右邊還空著的位子；因為剩下的考卷一直維持「最高分在最上面」的疊法，下一張最高分馬上就找得到。</span>
+        </div>
+        <div class="callout">
+          <span class="tag">先備</span>
+          <span class="txt">這一關完全建立在<a href="13-heap.html">第 13 關「堆積上浮下沉」</a>上：Max-Heap、完全二元樹、下沉、buildHeap。還沒玩過的話，先去看第 13 關的 00 段。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">排序 <small>sorting</small></div>
+            <div class="td">把一堆資料<b>重新排列</b>，讓每一個都 ≤ 它後面那一個（由小到大，也叫<b>遞增</b>）。資料本身不能多也不能少，只是換位置。</div>
+            <div class="ta">把全班考卷由低分到高分疊好。</div>
+          </div>
+          <div class="term">
+            <div class="tn">陣列 / 索引 <small>array / index</small></div>
+            <div class="td">一排有編號的格子，編號（索引）<b>從 0 開始</b>。n 個數就用第 0～n−1 格。</div>
+            <div class="ta">一排有號碼的座位。</div>
+          </div>
+          <div class="term">
+            <div class="tn">交換 <small>swap</small></div>
+            <div class="td">兩個格子裡的數字<b>對調</b>。堆積排序從頭到尾只用「比大小」和「交換」兩種動作。</div>
+            <div class="ta">兩個同學換座位。</div>
+          </div>
+          <div class="term">
+            <div class="tn">最大堆積 <small>Max-Heap</small></div>
+            <div class="td">一棵<b>完全二元樹</b>，每個爸爸都 ≥ 自己的孩子，所以<b>最大值一定在根</b>。存在陣列裡時，第 i 格的孩子在 2i+1、2i+2。（第 13 關的主角）</div>
+            <div class="ta">每個主管都不輸給自己的下屬，總經理一定最強。</div>
+          </div>
+          <div class="term">
+            <div class="tn">堆頂 <small>top / root</small></div>
+            <div class="td">Max-Heap 的根，也就是陣列<b>第 0 格</b>。它永遠是堆積區裡的最大值。</div>
+            <div class="ta">疊考卷時最上面那張，永遠是最高分。</div>
+          </div>
+          <div class="term">
+            <div class="tn">下沉 <small>sift-down</small></div>
+            <div class="td">某一格的數字太小、站錯位置時，讓它跟<b>較大的孩子</b>交換，一路往下，直到它比孩子都大或沒有孩子為止。</div>
+            <div class="ta">不夠格的主管一路降職，直到位置配得上他。</div>
+          </div>
+          <div class="term">
+            <div class="tn">建堆 <small>buildHeap</small></div>
+            <div class="td">把一整包亂放的數字整理成 Max-Heap：從<b>最後一個有孩子的格子</b>（第 n÷2−1 格）往前，每一格做一次下沉。只要 O(n)。</div>
+            <div class="ta">新公司成立，從基層主管開始往上一層一層調整人事。</div>
+          </div>
+          <div class="term">
+            <div class="tn">堆積區 / 已排序區 <small>heap area / sorted area</small></div>
+            <div class="td">排序進行中，陣列分成兩段：<b>左邊</b>第 0～hs−1 格是堆積區（還是 Max-Heap），<b>右邊</b>是已排序區（已經在最終位置）。hs 是堆積區的大小，每輪減 1。</div>
+            <div class="ta">桌上左邊是還沒排的考卷疊，右邊是已經排好位置的考卷。</div>
+          </div>
+          <div class="term">
+            <div class="tn">原地排序 <small>in-place</small></div>
+            <div class="td">排序時<b>只用原本那個陣列</b>，頂多再用幾個變數，不需要再開一個跟資料一樣大的陣列。堆積排序是原地排序。</div>
+            <div class="ta">只在自己的座位區換位子，不用另外借一間教室。</div>
+          </div>
+          <div class="term">
+            <div class="tn">穩定排序 <small>stable</small></div>
+            <div class="td">兩筆資料<b>一樣大</b>時，排完之後還保持原本的先後順序，就叫穩定。<b>堆積排序不穩定</b>：一樣大的資料可能被換到前後顛倒（第 5 關親眼看）。</div>
+            <div class="ta">兩個人都考 80 分，小明本來在小華前面，排完不一定還在前面。</div>
+          </div>
+          <div class="term">
+            <div class="tn">O(n log n) <small>時間複雜度</small></div>
+            <div class="td">資料有 n 個時，大約要做 n × log₂ n 步。n = 1,024 時約 1 萬步；比起 O(n²) 的約 100 萬步快很多。（log₂ n 的意思見<a href="13-heap.html#bigo">第 13 關</a>）</div>
+            <div class="ta">每一輪找最大只要「翻字典」那麼快，翻 n 輪。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>看圖走一次：分界線怎麼移動</h3>
+        <p>用 <code>[4, 10, 3, 5, 1]</code> 當例子（就是遊戲第 1 關）。綠色是已排序區，橘色線是分界線。先自己想想每一輪最大的是誰，再看下面：</p>
+        <div class="figs">
+          <figure class="fig solo" style="max-width:640px">
+            <svg viewBox="0 0 560 300" role="img" aria-label="堆積排序每一輪後的陣列">
+              <text class="lbl" x="92" y="30">原本（亂的）</text>
+              <rect class="cell" x="190" y="12" width="56" height="34" rx="6"/><text class="ctext" x="218" y="29">4</text>
+              <rect class="cell" x="252" y="12" width="56" height="34" rx="6"/><text class="ctext" x="280" y="29">10</text>
+              <rect class="cell" x="314" y="12" width="56" height="34" rx="6"/><text class="ctext" x="342" y="29">3</text>
+              <rect class="cell" x="376" y="12" width="56" height="34" rx="6"/><text class="ctext" x="404" y="29">5</text>
+              <rect class="cell" x="438" y="12" width="56" height="34" rx="6"/><text class="ctext" x="466" y="29">1</text>
+
+              <text class="lbl" x="92" y="88">① 建成 Max-Heap</text>
+              <rect class="cell hot" x="190" y="70" width="56" height="34" rx="6"/><text class="ctext" x="218" y="87">10</text>
+              <rect class="cell" x="252" y="70" width="56" height="34" rx="6"/><text class="ctext" x="280" y="87">5</text>
+              <rect class="cell" x="314" y="70" width="56" height="34" rx="6"/><text class="ctext" x="342" y="87">3</text>
+              <rect class="cell" x="376" y="70" width="56" height="34" rx="6"/><text class="ctext" x="404" y="87">4</text>
+              <rect class="cell" x="438" y="70" width="56" height="34" rx="6"/><text class="ctext" x="466" y="87">1</text>
+
+              <text class="lbl" x="92" y="140">② 第 1 輪：10 到最後</text>
+              <rect class="cell hot" x="190" y="122" width="56" height="34" rx="6"/><text class="ctext" x="218" y="139">5</text>
+              <rect class="cell" x="252" y="122" width="56" height="34" rx="6"/><text class="ctext" x="280" y="139">4</text>
+              <rect class="cell" x="314" y="122" width="56" height="34" rx="6"/><text class="ctext" x="342" y="139">3</text>
+              <rect class="cell" x="376" y="122" width="56" height="34" rx="6"/><text class="ctext" x="404" y="139">1</text>
+              <line x1="435" y1="118" x2="435" y2="160" style="stroke:var(--accent);stroke-width:3"/>
+              <rect class="cell good" x="438" y="122" width="56" height="34" rx="6"/><text class="ctext" x="466" y="139">10</text>
+
+              <text class="lbl" x="92" y="192">③ 第 2 輪：5 到最後</text>
+              <rect class="cell hot" x="190" y="174" width="56" height="34" rx="6"/><text class="ctext" x="218" y="191">4</text>
+              <rect class="cell" x="252" y="174" width="56" height="34" rx="6"/><text class="ctext" x="280" y="191">1</text>
+              <rect class="cell" x="314" y="174" width="56" height="34" rx="6"/><text class="ctext" x="342" y="191">3</text>
+              <line x1="373" y1="170" x2="373" y2="212" style="stroke:var(--accent);stroke-width:3"/>
+              <rect class="cell good" x="376" y="174" width="56" height="34" rx="6"/><text class="ctext" x="404" y="191">5</text>
+              <rect class="cell good" x="438" y="174" width="56" height="34" rx="6"/><text class="ctext" x="466" y="191">10</text>
+
+              <text class="lbl" x="92" y="244">④ 第 3 輪：4 到最後</text>
+              <rect class="cell hot" x="190" y="226" width="56" height="34" rx="6"/><text class="ctext" x="218" y="243">3</text>
+              <rect class="cell" x="252" y="226" width="56" height="34" rx="6"/><text class="ctext" x="280" y="243">1</text>
+              <line x1="311" y1="222" x2="311" y2="264" style="stroke:var(--accent);stroke-width:3"/>
+              <rect class="cell good" x="314" y="226" width="56" height="34" rx="6"/><text class="ctext" x="342" y="243">4</text>
+              <rect class="cell good" x="376" y="226" width="56" height="34" rx="6"/><text class="ctext" x="404" y="243">5</text>
+              <rect class="cell good" x="438" y="226" width="56" height="34" rx="6"/><text class="ctext" x="466" y="243">10</text>
+
+              <text class="lbl good" x="92" y="292">⑤ 第 4 輪：排好了</text>
+              <rect class="cell good" x="190" y="274" width="56" height="24" rx="6"/><text class="ctext" x="218" y="286">1</text>
+              <rect class="cell good" x="252" y="274" width="56" height="24" rx="6"/><text class="ctext" x="280" y="286">3</text>
+              <rect class="cell good" x="314" y="274" width="56" height="24" rx="6"/><text class="ctext" x="342" y="286">4</text>
+              <rect class="cell good" x="376" y="274" width="56" height="24" rx="6"/><text class="ctext" x="404" y="286">5</text>
+              <rect class="cell good" x="438" y="274" width="56" height="24" rx="6"/><text class="ctext" x="466" y="286">10</text>
+            </svg>
+            <figcaption>每一輪：堆頂（橘色，堆積區裡最大的）換到堆積區最後一格，那一格變綠、從此不動；剩下的再下沉整理好。5 個數做 4 輪，最後剩下的 1 自然就在最小的位置。</figcaption>
+          </figure>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">關鍵</span>
+          <span class="txt">注意看已排序區：<b>從右邊開始長</b>，先放進去的是最大的 10，再來 5、4……所以用 <b>Max-Heap</b> 排出來是<b>由小到大</b>——每輪把「最大」丟到「最後」。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>常被搞混的東西</th><th>跟堆積排序一樣嗎？</th><th>差在哪</th></tr></thead>
+            <tbody>
+              <tr><td>第 13 關的「heapsort 雛形」</td><td class="verdict no">不一樣</td><td>第 13 關是一直 pop、把取出的值放到<b>另一排</b>，要多一個陣列，出來的是由大到小。這一關是<b>原地</b>做：取出的最大值直接放進堆積區空出來的最後一格，排完是由小到大。</td></tr>
+              <tr><td>選擇排序（第 14 關）</td><td class="verdict ok">想法相同</td><td>兩個都是「每輪找出最大（或最小），放到該去的位置」。差別是怎麼找：選擇排序整排看一遍，一輪 O(n)；堆積排序靠 Max-Heap，一輪只要 O(log n)。所以整體從 O(n²) 變成 O(n log n)。</td></tr>
+              <tr><td>「用 Max-Heap 應該排出由大到小吧？」</td><td class="verdict no">相反</td><td>最大值每輪被換到<b>最後面</b>，所以最大的在最右邊，結果是由小到大。想要由大到小，就改用 Min-Heap。</td></tr>
+              <tr><td>「資料本來就排好，會比較快嗎？」</td><td class="verdict no">不會</td><td>堆積排序不管資料長怎樣都要先建堆、再做 n−1 輪下沉，最好、最壞都是 O(n log n)。第 3 關可以親眼看：排好的資料一樣要做一大堆交換。</td></tr>
+              <tr><td>穩定排序</td><td class="verdict no">不穩定</td><td>堆頂常常跟很遠的格子交換，一樣大的數字可能前後顛倒。需要穩定時改用合併排序。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details>
+            <summary><code>[4, 10, 3, 5, 1]</code> 建成 Max-Heap 之後長怎樣？</summary>
+            <div class="ans"><code>[10, 5, 3, 4, 1]</code>。n = 5，從第 5÷2−1 = <b>1</b> 格往前：第 1 格的 10 比孩子 5、1 都大，不動；第 0 格的 4 跟較大的孩子 10 換，再跟較大的孩子 5 換，停在第 3 格。</div>
+          </details>
+          <details>
+            <summary>接著第 1 輪：10 換到最後之後，陣列是什麼？下沉完又是什麼？</summary>
+            <div class="ans">交換後 <code>[1, 5, 3, 4 | 10]</code>，10 進入已排序區。1 在根太小，要下沉，<b>但範圍只到第 3 格</b>：1 跟較大的孩子 5 換 → 再跟孩子 4 換（第 4 格的 10 已經排好，不算孩子）→ <code>[5, 4, 3, 1 | 10]</code>。</div>
+          </details>
+          <details>
+            <summary>n 個數字，第二階段要做幾輪？為什麼不是 n 輪？</summary>
+            <div class="ans"><b>n − 1 輪。</b>每輪把一個數送進已排序區。送完 n−1 個之後，堆積區只剩第 0 格一個數——它一定是最小的，而且已經在正確位置，不用再做。</div>
+          </details>
+          <details>
+            <summary>為什麼下沉時要「範圍只到堆積區」，不能看整個陣列？</summary>
+            <div class="ans">因為右邊已排序區的數字都<b>比堆積區大</b>。如果把它們也當成孩子，根會跟它們比、被換回堆積區，辛苦排好的最大值就被拉回來了，結果會錯。所以程式的 siftDown 多傳一個參數 n，告訴它「只看前 n 格」。</div>
+          </details>
+        </div>
+        <div class="callout" data-k="ok">
+          <span class="tag">準備好了</span>
+          <span class="txt">名詞都懂了，往下到 <b>01</b> 看怎麼玩，再到 <b>02</b> 親手看分界線一格一格往左移。</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 01 玩法與學習目標 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上半是樹，下半是陣列，同一個數字在兩邊永遠同色。陣列中間的<b>橘色直線</b>是分界線：左邊是堆積區，右邊綠色格子是已排序區。樹上已排好的節點會變成綠色虛線圈，表示它已經離開堆積了。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>，或自己輸入幾個數字（最多 10 個；在數字後面加字母可以標記一樣大的數，例如 <code>5a 5b 3</code>）。</li>
+            <li>按 <b>下一步</b> 一格一格走：先看<b>建堆</b>，再看每一輪「堆頂換到後面 → 分界線左移 → 下沉」。</li>
+            <li>橘框是主角，虛線框是跟它比較的人，綠框是剛交換的兩個。</li>
+            <li>隨時 <b>上一步</b> 倒回去，反覆走看不懂的地方。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你回答：建堆從哪一格開始？堆頂要跟哪一格換？這次下沉範圍到哪？會跟哪個孩子換？</li>
+            <li>答對得分、連對加分；答錯立刻解釋正確答案和理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>堆積排序的兩個階段</b> —— 先建堆 O(n)，再做 n−1 輪「交換 + 下沉」，每輪 O(log n)。</li>
+            <li><b>為什麼 Max-Heap 排出由小到大</b> —— 最大值每輪被放到堆積區最後一格，已排序區從右邊長出來。</li>
+            <li><b>下沉範圍會縮小</b> —— siftDown 只看堆積區，已排序區的數字不算孩子。這是最容易寫錯的地方。</li>
+            <li><b>原地排序</b> —— 從頭到尾只用同一個陣列，額外空間 O(1)。</li>
+            <li><b>保證 O(n log n)</b> —— 資料亂的、排好的、反過來的，都一樣要做那麼多事。</li>
+            <li><b>不穩定</b> —— 一樣大的數字會被換到前後顛倒，第 5 關親眼看。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">第 1 關看完整流程 → 第 2 關接續第 13 關的建堆 → 第 3、4 關比較排好與反序的資料 → 第 5 關看不穩定 → 第 6 關 10 個數挑戰闖關。</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看分界線怎麼往左移。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+        <form class="custom" id="customForm">
+          <input id="customInput" type="text" maxlength="60" placeholder="自訂：例如 7 2 9 4 或 5a 5b 3" aria-label="自訂數字">
+          <button class="btn" type="submit">載入</button>
+        </form>
+      </div>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">樹（上）＋ 陣列（下）—— 同一份資料</h3>
+            <span class="panel-note" id="treeNote"></span>
+          </div>
+
+          <div class="vlabel">TREE · 堆積區的樹（綠色虛線圈＝已排好、離開堆積）</div>
+          <div class="tree-wrap">
+            <svg id="treeSvg" viewBox="0 0 680 120" role="img" aria-label="堆積的樹形圖"></svg>
+          </div>
+
+          <div class="vlabel">ARRAY · 陣列（橘線左邊是堆積區，右邊是已排序區）</div>
+          <div class="arow-rail">
+            <div class="arow" id="arow"></div>
+          </div>
+          <div class="zones" id="zones"></div>
+          <p class="formula">孩子：left = 2i+1、right = 2i+2　·　但只有「&lt; 堆積區大小 hs」的才算孩子</p>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">統計</h3>
+              <span class="panel-note" id="phaseNote"></span>
+            </div>
+            <div class="stats">
+              <div class="stat"><div class="k">堆積區大小 hs</div><div class="v" id="stHs">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">已排好</div><div class="v" id="stDone">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">累計比較</div><div class="v" id="stCmp">0</div></div>
+              <div class="stat" data-k="hot"><div class="k">累計交換</div><div class="v" id="stSwp">0</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">演算法（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">建堆 O(n) ＋ n−1 輪 × O(log n)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，堆積排序就這麼短。跟第 13 關比，<code>siftDown</code> 只多了一個參數 <code>n</code>（堆積區有幾格）：</p>
+        <pre class="code">#include &lt;vector&gt;
+#include &lt;utility&gt;     <i>// swap</i>
+using namespace std;
+
+<i>// 把第 i 格往下沉；只看前 n 格（堆積區），後面的已排序區不算</i>
+void siftDown(vector&lt;int&gt;&amp; a, int i, int n) {
+    while (true) {
+        int L = 2*i + 1, R = 2*i + 2, b = i;
+        if (L &lt; n &amp;&amp; a[L] &gt; a[b]) b = L;
+        if (R &lt; n &amp;&amp; a[R] &gt; a[b]) b = R;
+        if (b == i) break;                  <i>// 自己最大 → 停</i>
+        swap(a[i], a[b]);
+        i = b;
+    }
+}
+
+void heapSort(vector&lt;int&gt;&amp; a) {
+    int n = a.size();
+    for (int i = n/2 - 1; i &gt;= 0; i--)      <i>// 第一階段：建堆 O(n)</i>
+        siftDown(a, i, n);
+    for (int end = n - 1; end &gt; 0; end--) { <i>// 第二階段：n−1 輪</i>
+        swap(a[0], a[end]);                 <i>// 最大值換到堆積區最後一格</i>
+        siftDown(a, 0, end);                <i>// 堆積區變成前 end 格，新堆頂下沉</i>
+    }
+}
+
+int main() {
+    vector&lt;int&gt; a = {4, 10, 3, 5, 1};
+    heapSort(a);                            <i>// a 變成 {1, 3, 4, 5, 10}</i>
+}</pre>
+        <p>遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理詳解 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">從選擇排序出發，把「找最大值」換成 Max-Heap。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>問題定義</h3>
+        <p>給一個有 n 個數字的陣列，把它<b>原地</b>排成由小到大，而且要求：<b>不管資料長怎樣，最慢也要在 O(n log n) 內做完</b>。</p>
+        <p>第 14 關的幾位選手各有缺點：氣泡、選擇、插入排序最壞 O(n²)；合併排序保證 O(n log n)，但要多一個跟資料一樣大的陣列；快速排序平均很快，但運氣差時退化成 O(n²)。堆積排序剛好把兩個要求都做到。</p>
+      </div>
+
+      <div class="block">
+        <h3>從選擇排序出發</h3>
+        <p>選擇排序的想法非常直覺：<b>每一輪找出還沒排的數字裡最大的，放到最後面</b>。它慢，不是想法錯，而是「找最大」的方法太笨——每輪都要整排看完：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>做法</th><th>每輪怎麼找最大</th><th class="mono">每輪花費</th><th class="mono">n 輪合計</th></tr></thead>
+            <tbody>
+              <tr><td>選擇排序</td><td>剩下的數字從頭看到尾</td><td class="mono" style="color:var(--alarm);font-weight:700">O(n)</td><td class="mono" style="color:var(--alarm);font-weight:700">O(n²)</td></tr>
+              <tr><td><b>堆積排序</b></td><td>剩下的數字維持成 Max-Heap，最大的就在第 0 格；拿走後下沉補好</td><td class="mono" style="color:var(--jade);font-weight:700">O(log n)</td><td class="mono" style="color:var(--jade);font-weight:700">O(n log n)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">一句話</span>
+          <span class="txt">堆積排序 ＝ 選擇排序 ＋ 用 Max-Heap 加速「找最大值」。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>為什麼可以原地做：堆積區縮小的那一格剛好空出來</h3>
+        <p>每一輪 Max-Heap 少一個人（最大值被拿走），堆積區就少一格。被空出來的，<b>正好是堆積區最後一格</b>——而那一格，就是剛被拿走的最大值該去的最終位置。所以「拿走最大值」和「放到正確位置」用<b>一次交換</b>就同時完成了：</p>
+        <ol class="steps">
+          <li><b>交換</b> a[0] 和 a[end] —— 最大值到了 a[end]（它的最終位置），原本最後一格的數字跑到根。</li>
+          <li><b>堆積區縮小</b> —— 堆積區從 end+1 格變成 end 格，a[end] 進入已排序區，從此不動。</li>
+          <li><b>下沉</b> a[0] —— 跑到根的那個數字通常很小，往下沉，<b>範圍只到前 end 格</b>，堆積區恢復成 Max-Heap。</li>
+        </ol>
+        <div class="callout" data-k="no">
+          <span class="tag">最常錯</span>
+          <span class="txt">下沉時忘了把範圍縮小，還用整個陣列的長度判斷孩子存不存在。這樣根會去跟已排序區的大數字比、把它們換回來，排序結果就錯了。程式裡 <code>siftDown(a, 0, end)</code> 的第三個參數就是為了這件事。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次：[4, 10, 3, 5, 1]</h3>
+        <p>考試在紙上追蹤時就是畫這張表。<code>|</code> 是分界線，右邊是已排序區：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>階段</th><th>這一步做什麼</th><th class="mono">陣列結果</th></tr></thead>
+            <tbody>
+              <tr><td>開始</td><td>原本的資料</td><td class="mono">[4, 10, 3, 5, 1]</td></tr>
+              <tr><td>建堆 i = 1</td><td>n÷2−1 = 1。10 的孩子 5、1 都比較小，不動</td><td class="mono">[4, 10, 3, 5, 1]</td></tr>
+              <tr><td>建堆 i = 0</td><td>4 跟較大的孩子 10 換；到第 1 格，再跟較大的孩子 5 換；到第 3 格是葉子，停</td><td class="mono">[10, 5, 3, 4, 1]</td></tr>
+              <tr><td>第 1 輪 end = 4</td><td>10 ↔ 1；下沉範圍 4 格：1 跟 5 換，再跟 4 換（第 4 格已排好，不算孩子）</td><td class="mono">[5, 4, 3, 1 | 10]</td></tr>
+              <tr><td>第 2 輪 end = 3</td><td>5 ↔ 1；下沉範圍 3 格：1 跟較大的孩子 4 換；到第 1 格，左孩子在第 3 格 ≥ 3，停</td><td class="mono">[4, 1, 3 | 5, 10]</td></tr>
+              <tr><td>第 3 輪 end = 2</td><td>4 ↔ 3；下沉範圍 2 格：3 ≥ 孩子 1，不動</td><td class="mono">[3, 1 | 4, 5, 10]</td></tr>
+              <tr><td>第 4 輪 end = 1</td><td>3 ↔ 1；下沉範圍 1 格：根沒有孩子，不動</td><td class="mono">[1 | 3, 4, 5, 10]</td></tr>
+              <tr><td>結束</td><td>堆積區只剩 1 格，它就是最小值</td><td class="mono">[1, 3, 4, 5, 10]</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>全程比較 12 次、交換 9 次（下沉交換 5 次 ＋ 每輪把堆頂換到後面 4 次）。</p>
+      </div>
+
+      <div class="block">
+        <h3>複雜度：為什麼永遠是 O(n log n)</h3>
+        <ul class="bullets">
+          <li><b>建堆 O(n)</b> —— 第 13 關證明過：大多數人在底層，幾乎不用沉。</li>
+          <li><b>第二階段 O(n log n)</b> —— 做 n−1 輪，每輪下沉最多走樹高 log₂ n 層。</li>
+          <li><b>合計 O(n log n)</b>，而且<b>最好、平均、最壞都一樣</b>：不管資料原本長怎樣，每輪換到根的都是堆積區最後一格那個小數字，它幾乎都得一路沉到底。</li>
+          <li><b>額外空間 O(1)</b> —— 只有 i、end、L、R、b 幾個變數。</li>
+        </ul>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="mono" style="text-transform:none">n</th><th class="mono" style="text-transform:none">O(n²)（選擇排序）</th><th class="mono" style="text-transform:none">O(n log₂ n)（堆積排序）</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1,024</td><td class="mono">約 100 萬</td><td class="mono" style="color:var(--jade);font-weight:700">約 1 萬</td></tr>
+              <tr><td class="mono">1,048,576（≈ 10<sup>6</sup>）</td><td class="mono">約 1 兆</td><td class="mono" style="color:var(--jade);font-weight:700">約 2,000 萬</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>不穩定：一樣大的數字會前後顛倒</h3>
+        <p>用 <code>[5ᴬ, 5ᴮ, 3]</code>（兩個 5，用 A、B 分辨誰原本在前面）跑一次，就是遊戲第 5 關：</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>步驟</th><th>發生什麼</th><th class="mono">陣列</th></tr></thead>
+            <tbody>
+              <tr><td>建堆</td><td>5ᴬ 的孩子 5ᴮ、3 都沒有比它大（一樣大不換），已經是 Max-Heap</td><td class="mono">[5ᴬ, 5ᴮ, 3]</td></tr>
+              <tr><td>第 1 輪</td><td>堆頂 5ᴬ ↔ 最後一格 3，5ᴬ 先進已排序區；3 下沉，跟 5ᴮ 換</td><td class="mono">[5ᴮ, 3 | 5ᴬ]</td></tr>
+              <tr><td>第 2 輪</td><td>5ᴮ ↔ 3</td><td class="mono">[3 | 5ᴮ, 5ᴬ]</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>原本 A 在 B 前面，排完變成 B 在 A 前面——<b>不穩定</b>。原因是最先被拿走的 5ᴬ 被送到<b>最後面</b>，同樣大的數字裡，越早被拿走的排越後面。只排數字時沒差；排「學生資料依分數排」這種要保留原順序的情況，就要改用穩定的合併排序。</p>
+      </div>
+
+      <div class="block">
+        <h3>跟其他 O(n log n) 排序比一比</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>排序法</th><th class="mono">最壞時間</th><th class="mono">額外空間</th><th>穩定</th><th>實務上</th></tr></thead>
+            <tbody>
+              <tr><td><b>堆積排序</b></td><td class="mono" style="color:var(--jade);font-weight:700">O(n log n)</td><td class="mono" style="color:var(--jade);font-weight:700">O(1)</td><td class="verdict no">否</td><td>保證不會變慢、不佔空間；但跳來跳去存取陣列，實際速度通常比快速排序慢一些。</td></tr>
+              <tr><td>合併排序</td><td class="mono" style="color:var(--jade);font-weight:700">O(n log n)</td><td class="mono" style="color:var(--alarm);font-weight:700">O(n)</td><td class="verdict ok">是</td><td>需要穩定時的首選。</td></tr>
+              <tr><td>快速排序</td><td class="mono" style="color:var(--alarm);font-weight:700">O(n²)</td><td class="mono">O(log n)</td><td class="verdict no">否</td><td>平均最快，但運氣差會退化。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" data-k="key">
+          <span class="tag">實際用途</span>
+          <span class="txt">C++ 的 <code>std::sort</code> 平常用快速排序，但如果發現快速排序切得太深、快要退化成 O(n²)，就<b>自動改用堆積排序</b>收尾（這種組合叫 introsort）。堆積排序就是那個「保證不會出事」的備胎。標準庫也直接提供 <code>std::make_heap</code>（建堆）和 <code>std::sort_heap</code>（第二階段）。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「堆積排序要先把資料搬到另一個 heap 裡」</b> —— 不用。陣列本身就是 heap（完全二元樹存在陣列裡），建堆和排序都在原陣列上做。</li>
+          <li><b>「建好 Max-Heap 就排好了」</b> —— 不是。Max-Heap 只保證最大值在第 0 格，其他人只是「不輸給自己的孩子」，例如 <code>[10, 5, 3, 4, 1]</code> 就沒排好。還要第二階段。</li>
+          <li><b>「每輪 pop 完要重新建堆」</b> —— 不用，也不可以（每輪 O(n) 會讓總時間變 O(n²)）。只有新的堆頂站錯位置，下沉一次 O(log n) 就修好。</li>
+          <li><b>「最後一輪要做到 end = 0」</b> —— 迴圈條件是 <code>end &gt; 0</code>。堆積區剩一格時它自己就是最小值，不用再交換。</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 04 程式架構 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>跟第 13 關一樣：使用者按「下一步」之前，整個排序過程就已經全部算好了。<code>buildSteps</code> 把建堆和每一輪都跑完，每一步存一份<b>陣列快照和堆積區大小 hs</b>；畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 <small>arr：要排序的數字（可帶 A、B 標籤）</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps(level) <small>建堆 + n−1 輪，整個跑完一次</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格：陣列快照 + hs + 比較/交換計數 + 說明 + 闖關題</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只負責把 steps[目前步數] 畫出來</div>
+        </div>
+        <ul class="bullets ok">
+          <li><b>前進後退變成加減一</b> —— 不必寫「反交換」這種容易錯的邏輯。</li>
+          <li><b>分界線不用另外算</b> —— 每一步都存了 hs，樹和陣列都看它決定誰是綠色。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料層</b></td><td class="mono">buildSteps(level)<br>siftSteps(i, n)</td><td>唯一真正跑演算法的地方。siftSteps 就是 siftDown，多了「邊跑邊存快照」。</td></tr>
+              <tr><td><b>狀態</b></td><td class="mono">S</td><td>一個物件裝所有狀態：目前關卡、第幾步、模式、分數。</td></tr>
+              <tr><td><b>畫面層</b></td><td class="mono">paintTree / paintArray<br>paintStats / paintAlgo<br>paintSay / paintLog</td><td>各自只讀 <code>steps[S.cur]</code>，畫自己那一塊。</td></tr>
+              <tr><td><b>導覽</b></td><td class="mono">goto_ / next / prev<br>startPlay / stopPlay</td><td>只改 <code>S.cur</code>，然後呼叫 <code>render()</code>。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">renderQuiz / answerQuiz</td><td>題目在 buildSteps 時就跟著步驟生好（step.quiz），這裡只出題、對答案、計分。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>核心資料：一個 step 長什麼樣</h3>
+        <pre class="code">{
+  <b>kind</b>:   <i>// start / build / focus / cmp / swap / stay / built / root / done</i>
+  <b>focus</b>:  <i>// 主角在哪一格 → 橘框</i>
+  <b>other, other2</b>: <i>// 一起比較或交換的格子 → 虛線框 / 綠框</i>
+  <b>arr</b>:    <i>// 這一步之後整個陣列的快照 [{v:值, tag:"A", id:顏色編號}, …]</i>
+  <b>hs</b>:     <i>// 堆積區大小：第 0～hs−1 格是堆積區，其餘是已排序區</i>
+  <b>cmp, swp</b>: <i>// 累計比較／交換次數</i>
+  <b>line</b>:   <i>// C++ 程式要高亮第幾行</i>
+  <b>title, msg, quiz</b>
+}</pre>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列加一筆 <code>{tag, n, d, arr}</code></td><td>1 行</td></tr>
+              <tr><td>改成由大到小</td><td><code>siftSteps</code> 裡的 2 個 <code>&gt;</code> 換成 <code>&lt;</code>（變成 Min-Heap）＋文案與 <code>CODE</code></td><td>約 10 行</td></tr>
+              <tr><td>改自動播放速度</td><td><code>startPlay()</code> 裡的 <code>900</code>（毫秒）</td><td>1 行</td></tr>
+              <tr><td>改自訂輸入上限</td><td>事件綁定裡的 <code>.slice(0, 10)</code>（超過 15 個樹會太寬）</td><td>1 行</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>自己動手：給 AI 的 Prompt</h3>
+        <pre class="code">用 C++ 實作原地堆積排序（heap sort），不可以用 std::sort、std::make_heap。
+
+需要的函式：
+- void siftDown(vector&lt;int&gt;&amp; a, int i, int n)   // 只看前 n 格
+- void heapSort(vector&lt;int&gt;&amp; a)
+
+要求：
+1. 索引從 0 開始：left=2i+1、right=2i+2
+2. 先從 n/2-1 往前建堆，再做 n-1 輪「a[0] 和 a[end] 交換 → siftDown(a, 0, end)」
+3. 每一輪印出陣列，用 | 標出堆積區和已排序區的分界
+4. 用 [4, 10, 3, 5, 1] 測試，並說明如果 siftDown 的範圍寫成 a.size() 會出什麼錯
+5. 加一個計數器，比較 n = 1000 時「已排序」「反序」「亂序」三種資料的比較次數</pre>
+        <h4>延伸題 1：由大到小</h4>
+        <pre class="code">只改比較方向，讓同一份程式排出由大到小。解釋為什麼要用 Min-Heap。</pre>
+        <h4>延伸題 2：只要前 k 大</h4>
+        <pre class="code">一百萬個數字只要找出最大的 10 個並排好。
+建堆後只做 10 輪第二階段就停。時間複雜度是多少？跟整個排完比差多少？</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 20 堆積排序</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  var HUES = [205, 25, 150, 275, 335, 55, 180, 95, 235, 305, 130, 0, 220, 70, 260];
+
+  /* arr 的每一項：數字，或 [數字, "標籤"]（用來分辨一樣大的數） */
+  var LEVELS = [
+    {tag:"x5", n:"暖身：5 個數",
+     d:"把 [4, 10, 3, 5, 1] 由小到大排好。先看建堆，再看每一輪：堆頂換到後面、分界線左移、新堆頂下沉。",
+     arr:[4,10,3,5,1],
+     fin:"[1, 3, 4, 5, 10]：已排序區從右邊長出來，先進去的是最大的 10。"},
+    {tag:"x7", n:"接續第 13 關",
+     d:"第 13 關第 5 關的那包數字 [21, 64, 8, 52, 37, 90, 17]。建堆的過程跟第 13 關一模一樣，這次接著把它排完。",
+     arr:[21,64,8,52,37,90,17],
+     fin:"建堆只換了 2 次，後面 6 輪才是主要的工作量——這就是 O(n) ＋ O(n log n)。"},
+    {tag:"sorted", n:"本來就排好",
+     d:"[10, 20, 30, 40, 50, 60, 70] 已經由小到大了。堆積排序會因此偷懶嗎？看右邊的交換次數。",
+     arr:[10,20,30,40,50,60,70],
+     fin:"一點也沒偷懶：要先把它建成 Max-Heap（整個翻過來），再一輪一輪拆。堆積排序不管資料長怎樣都是 O(n log n)。"},
+    {tag:"reverse", n:"由大到小",
+     d:"[70, 60, 50, 40, 30, 20, 10] 由大到小，剛好已經是 Max-Heap。建堆一次都不用換——但第二階段一樣要做滿。",
+     arr:[70,60,50,40,30,20,10],
+     fin:"建堆 0 次交換，但第二階段照樣每輪都要換、要沉：第二階段交換 11 次，上一關（本來就排好）是 12 次，幾乎一樣。"},
+    {tag:"stable?", n:"不穩定",
+     d:"[5ᴬ, 5ᴮ, 3]：兩個 5 一樣大，用 A、B 記住誰原本在前面。排完之後 A 還在 B 前面嗎？",
+     arr:[[5,"A"],[5,"B"],3],
+     fin:"排完是 [3, 5ᴮ, 5ᴬ]：B 跑到 A 前面了。一樣大的數字順序被打亂——堆積排序是「不穩定」的排序。"},
+    {tag:"x10", n:"10 個數挑戰",
+     d:"10 個數 [38, 12, 77, 45, 9, 61, 23, 84, 50, 30]。樹有 4 層，建議切到闖關模式挑戰。",
+     arr:[38,12,77,45,9,61,23,84,50,30],
+     fin:"10 個數做了 9 輪。留意越後面的輪，堆積區越小，下沉走的層數也越少。"}
+  ];
+
+  var CODE = [
+    "void siftDown(vector<int>& a, int i, int n) {",
+    "    while (true) {",
+    "        int L = 2*i+1, R = 2*i+2, b = i;",
+    "        if (L < n && a[L] > a[b]) b = L;",
+    "        if (R < n && a[R] > a[b]) b = R;",
+    "        if (b == i) break;",
+    "        swap(a[i], a[b]); i = b;",
+    "    }",
+    "}",
+    "void heapSort(vector<int>& a) {",
+    "    int n = a.size();",
+    "    for (int i = n/2 - 1; i >= 0; i--)",
+    "        siftDown(a, i, n);",
+    "    for (int end = n - 1; end > 0; end--) {",
+    "        swap(a[0], a[end]);",
+    "        siftDown(a, 0, end);",
+    "    }",
+    "}"
+  ];
+
+  /* 每一行程式的白話說明（對象：完全沒學過程式的人），索引和 CODE 一一對應 */
+  var CODE_DOC = [
+    "siftDown（下沉）機器的開頭。交給它三樣東西：陣列 a、要下沉的格子 i、以及 n——「堆積區只有前 n 格」。& 的意思是直接改原本的陣列，不是改複本。",
+    "while(true)＝一直重複，直到裡面的 break（跳出）喊停。",
+    "算出左孩子 L=2i+1、右孩子 R=2i+2 的位置；b 先假設「我、左、右三人裡最大的是我自己」。",
+    "左孩子要「存在」才算：L < n 的意思是它還在堆積區裡。如果它存在而且比目前的候選人大，候選人換成左孩子。注意這裡比的是 n（堆積區大小），不是整個陣列的長度——已排序區的數字不算孩子。",
+    "右孩子同理。跑完第 4、5 行，b 就是三人之中最大的那個。（左右一樣大時用的是「>」，所以選左邊。）",
+    "如果最大的就是我自己（或我根本沒有孩子），「爸爸 ≥ 孩子」成立——break 跳出，下沉結束。",
+    "否則跟較大的孩子交換，然後跟著沉下去：i = b，下一輪繼續往下比。",
+    "下沉迴圈的結尾，自動回到第 2 行。",
+    "siftDown 結束。每輪往下一層，最多走樹高 log₂ n 層。",
+    "heapSort（堆積排序）機器的開頭：把陣列 a 由小到大排好，直接改在 a 上（原地排序）。",
+    "n 記住總共有幾個數字。",
+    "第一階段：建堆。for 迴圈讓 i 從 n/2-1（最後一個有孩子的格子）開始，每次減 1，一直做到 0。",
+    "對第 i 格做一次下沉，範圍是整個陣列（n 格）。從後往前做，輪到 i 時它底下都已經整理好了。這一段做完，整個陣列就是 Max-Heap。",
+    "第二階段：end 從最後一格 n-1 開始，每輪減 1，做到 end = 1 為止（end > 0）。end 就是「這一輪堆積區的最後一格」。",
+    "swap：堆頂 a[0]（堆積區裡最大的）和 a[end] 交換。最大值就此到了它的最終位置，a[end] 進入已排序區，以後再也不動。",
+    "原本在 a[end] 的數字被換到了根，它通常很小，所以要下沉。第三個參數是 end：堆積區現在只剩前 end 格，已排序區不能被碰到。",
+    "第二階段迴圈的結尾，自動回到第 14 行，end 減 1 再做下一輪。",
+    "heapSort 結束。堆積區只剩第 0 格，它就是最小值，整個陣列已經由小到大排好。"
+  ];
+
+  var BADGE = {start:"START", build:"BUILD", focus:"SIFT", cmp:"CMP", swap:"SWAP", stay:"STAY",
+               built:"HEAP", root:"MOVE", done:"DONE"};
+  /* say / log 的顏色（對應 site.css 的 data-k）*/
+  var KMAP  = {start:"start", build:"start", focus:"hot", cmp:"hot", swap:"push", stay:"ok",
+               built:"done", root:"pop", done:"done"};
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var S = {
+    level:null, levelIdx:-1, steps:[], cur:0, mode:"demo", playing:false, timer:null,
+    score:0, streak:0, best:0, asked:0, right:0, pendingIndex:-1
+  };
+
+  /* 顯示用：數字 + 小標籤（5ᴬ） */
+  var SUP = {A:"ᴬ", B:"ᴮ", C:"ᶜ", D:"ᴰ", E:"ᴱ"};
+  function lab(o){ return String(o.v) + (o.tag ? (SUP[o.tag] || o.tag) : ""); }
+
+  /* ---------- 2. 資料層：把整個排序一次跑完 ---------- */
+
+  function buildSteps(level){
+    var steps = [], a = [], hs = 0, nc = 0, ns = 0;
+    var N = level.arr.length;
+
+    a = level.arr.map(function(x, k){
+      return Array.isArray(x) ? {v:x[0], tag:x[1], id:k} : {v:x, tag:"", id:k};
+    });
+    hs = N;
+
+    function snap(){ return a.map(function(o){ return {v:o.v, tag:o.tag, id:o.id}; }); }
+    function put(o){
+      o.arr = snap(); o.hs = hs; o.cmp = nc; o.swp = ns;
+      if(o.focus === undefined) o.focus = -1;
+      if(o.other === undefined) o.other = -1;
+      if(o.other2 === undefined) o.other2 = -1;
+      /* 選項去重後只剩一個，就不算題目 */
+      if(o.quiz && o.quiz.opts.length < 2) delete o.quiz;
+      steps.push(o);
+    }
+    function uniqOpts(list){
+      var seen = {}, res = [];
+      for(var k=0;k<list.length;k++){
+        var o = list[k];
+        if(o && !seen[o.t]){ seen[o.t] = 1; res.push(o); }
+      }
+      return res;
+    }
+    function zoneTxt(n){ return "堆積區是第 0～" + (n-1) + " 格（n = " + n + "）"; }
+
+    /* 下沉：只看前 n 格。和 C++ 的 siftDown(a, i, n) 一步一步對應 */
+    function siftSteps(i, n){
+      for(;;){
+        var L = 2*i + 1, R = 2*i + 2, b = i;
+        if(L >= n){
+          var inSorted = L < N;
+          put({kind:"stay", focus:i, line:6,
+            title:"沒有孩子 —— 下沉結束",
+            msg:"左孩子應該在 2×" + i + "+1 = " + L + "，" +
+              (inSorted
+                ? "但第 " + L + " 格已經在<b>已排序區</b>（" + zoneTxt(n) + "），<b>不算孩子</b>。"
+                : "但陣列根本沒有第 " + L + " 格。") +
+              "所以 <b>" + lab(a[i]) + "</b> 是堆積區裡的葉子，b 還是自己，第 6 行 break 跳出。",
+            quiz:{q:"第 " + i + " 格的 " + lab(a[i]) + " 在下沉，" + zoneTxt(n) + "。它還有孩子可以比嗎？", ans:"n", opts:[
+              {t:"沒有：左孩子 " + L + " ≥ n = " + n, s:inSorted ? "第 " + L + " 格已經排好，不算" : "超出陣列", v:"n"},
+              {t:"有，第 " + L + " 格", s:"2i+1", v:"y"}]}});
+          return;
+        }
+        var hasR = R < n;
+        nc++;
+        if(a[L].v > a[b].v) b = L;
+        if(hasR){ nc++; if(a[R].v > a[b].v) b = R; }
+        var rOut = !hasR && R < N;
+        put({kind:"cmp", focus:i, other:L, other2:hasR ? R : -1, line:5,
+          title:"跟孩子比：" + lab(a[i]) + " vs 左 " + lab(a[L]) + (hasR ? " vs 右 " + lab(a[R]) : ""),
+          msg:"左孩子 2×" + i + "+1 = <b>" + L + "</b>" +
+            (hasR ? "、右孩子 2×" + i + "+2 = <b>" + R + "</b>"
+                  : (rOut ? "；右孩子應該在第 " + R + " 格，但它已經在已排序區，<b>不算</b>" : "；右孩子 " + R + " 不存在")) +
+            "。三個值 <b>" + lab(a[i]) + "</b>、<b>" + lab(a[L]) + "</b>" + (hasR ? "、<b>" + lab(a[R]) + "</b>" : "") +
+            " 裡誰最大？只能跟「較大的那個孩子」換。",
+          quiz:{q:"第 " + i + " 格的 " + lab(a[i]) + " 正在下沉，" + zoneTxt(n) + "。它的孩子在哪幾格？", ans:"a", opts:uniqOpts([
+            hasR ? {t:"第 " + L + " 和 " + R + " 格", s:"2i+1、2i+2", v:"a"}
+                 : {t:"只有第 " + L + " 格", s:"2i+2 = " + R + " 不在堆積區", v:"a"},
+            (i === 0
+              ? (hasR ? {t:"只有第 " + L + " 格", s:"只看左邊", v:"b"} : {t:"第 " + L + " 和 " + R + " 格", s:"已排序區也算", v:"b"})
+              : {t:"第 " + (i+1) + " 和 " + (i+2) + " 格", s:"i+1、i+2", v:"b"}),
+            {t:"第 " + (2*i) + " 和 " + (2*i+1) + " 格", s:"2i、2i+1", v:"c"}])}});
+        var tie = hasR && a[L].v === a[R].v && b !== i;
+        var swapQ = {q:lab(a[i]) + "、左 " + lab(a[L]) + (hasR ? "、右 " + lab(a[R]) : "") + " —— 會交換嗎？跟誰？",
+          ans:(b === i ? "n" : (b === L ? "L" : "R")),
+          opts:uniqOpts([
+            {t:"跟左孩子 " + lab(a[L]) + " 換", s:"第 " + L + " 格", v:"L"},
+            (hasR && !tie) ? {t:"跟右孩子 " + lab(a[R]) + " 換", s:"第 " + R + " 格", v:"R"} : null,
+            {t:"不換，自己就是最大", s:"", v:"n"}])};
+        if(b === i){
+          put({kind:"stay", focus:i, other:L, other2:hasR ? R : -1, line:6,
+            title:"自己最大 —— 不用換，下沉結束",
+            msg:"<b>" + lab(a[i]) + "</b> 已經 ≥ 所有孩子" + ((a[L].v === a[i].v || (hasR && a[R].v === a[i].v)) ? "（一樣大不用換）" : "") + "，「爸爸 ≥ 孩子」成立——第 6 行 break 跳出。",
+            quiz:swapQ});
+          return;
+        }
+        var side = (b === L) ? "左" : "右";
+        var t = a[i]; a[i] = a[b]; a[b] = t; ns++;
+        put({kind:"swap", focus:i, other:b, line:7,
+          title:"跟" + side + "孩子交換：" + lab(a[i]) + " 升上來、" + lab(a[b]) + " 沉下去",
+          msg:(tie ? "左右兩個孩子一樣大，跟哪個換都合法；程式第 5 行用「&gt;」，所以選左邊。"
+                   : "三人中最大的是" + side + "孩子（第 " + b + " 格）。") +
+            "第 " + i + "、" + b + " 格互換。<b>" + lab(a[b]) + "</b> 繼續往下沉。",
+          quiz:swapQ});
+        i = b;
+      }
+    }
+
+    /* --- 開始 --- */
+    put({kind:"start", line:-1,
+      title:"原本的陣列（還沒整理）",
+      msg:level.d});
+
+    /* --- 第一階段：建堆 --- */
+    var s0 = Math.floor(N / 2) - 1;
+    put({kind:"build", line:12,
+      title:"第一階段：建堆（buildHeap）",
+      msg:"先把整個陣列整理成 Max-Heap。從<b>最後一個有孩子的格子</b>開始往前：n÷2 − 1 = " + N + "÷2 − 1 = <b>" + s0 + "</b>。後面的格子全是葉子，一個人自己就是合法的小堆，不用管。"});
+    for(var i = s0; i >= 0; i--){
+      var fq = (i === s0)
+        ? {q:"n = " + N + "。建堆要從哪一格開始往前做下沉？", ans:"a", opts:uniqOpts([
+            {t:"第 " + s0 + " 格", s:"n÷2 − 1，最後一個有孩子的", v:"a"},
+            {t:"第 " + (N-1) + " 格", s:"最後一格", v:"b"},
+            {t:"第 0 格", s:"從根開始", v:"c"}])}
+        : null;
+      put({kind:"focus", focus:i, line:13,
+        title:"建堆：輪到第 " + i + " 格（" + lab(a[i]) + "）下沉",
+        msg:"因為是從後往前做，第 " + i + " 格底下的左右兩邊都已經整理好了。只要把 <b>" + lab(a[i]) + "</b> 沉到對的位置，以它為根的這一塊就合法。",
+        quiz:fq});
+      siftSteps(i, N);
+    }
+    put({kind:"built", focus:0, line:14,
+      title:"Max-Heap 建好了，最大值 " + lab(a[0]) + " 在第 0 格",
+      msg:"第一階段完成。注意：建好的 Max-Heap <b>還沒排好序</b>，只保證最大值在第 0 格。接下來第二階段：每一輪把堆頂換到堆積區最後一格。",
+      quiz:{q:"Max-Heap 建好了。整個陣列裡最大的數現在在哪一格？", ans:"a", opts:uniqOpts([
+        {t:"第 0 格（堆頂）", s:"Max-Heap 的根", v:"a"},
+        {t:"第 " + (N-1) + " 格（最後一格）", s:"", v:"b"}])}});
+
+    /* --- 第二階段：n−1 輪 --- */
+    for(var end = N - 1; end > 0; end--){
+      var top = a[0], last = a[end];
+      var bigChild = (end >= 3) ? (a[2].v > a[1].v ? 2 : 1) : (end >= 2 ? 1 : -1);
+      var rq = {q:"第 " + (N - end) + " 輪：堆積區是第 0～" + end + " 格。堆頂 " + lab(top) + " 要跟哪一格交換？", ans:"a", opts:uniqOpts([
+        {t:"第 " + end + " 格（堆積區最後一格）", s:"它就是 " + lab(top) + " 的最終位置", v:"a"},
+        end !== N - 1 ? {t:"第 " + (N-1) + " 格（整個陣列最後一格）", s:"那格已經排好了", v:"b"} : null,
+        (bigChild > 0 && bigChild !== end) ? {t:"第 " + bigChild + " 格（較大的孩子）", s:"", v:"c"} : null])};
+      a[0] = last; a[end] = top; ns++;
+      hs = end;
+      put({kind:"root", focus:0, other:end, line:15,
+        title:"第 " + (N - end) + " 輪：堆頂 " + lab(top) + " ↔ 第 " + end + " 格的 " + lab(last),
+        msg:"堆頂 <b>" + lab(top) + "</b> 是堆積區裡最大的，它的最終位置就是堆積區的最後一格（第 " + end + " 格）。交換之後，第 " + end + " 格變綠、進入<b>已排序區</b>，分界線往左移一格，堆積區剩 " + end + " 格。換到根的 <b>" + lab(last) + "</b> 要下沉。",
+        quiz:rq});
+      var dq = {q:"接下來 " + lab(a[0]) + " 要從根下沉。這次下沉只能看哪些格子？", ans:"a", opts:[
+        {t:"第 0～" + (end-1) + " 格", s:"siftDown(a, 0, end)，end = " + end, v:"a"},
+        {t:"第 0～" + (N-1) + " 格", s:"整個陣列", v:"b"}]};
+      put({kind:"focus", focus:0, line:16,
+        title:"新堆頂 " + lab(a[0]) + " 下沉，範圍只有前 " + end + " 格",
+        msg:"呼叫 siftDown(a, 0, " + end + ")：第三個參數 " + end + " 告訴它「堆積區只有第 0～" + (end-1) + " 格」。右邊已排序區的數字都比較大，絕對不能被當成孩子換回來。",
+        quiz:dq});
+      siftSteps(0, end);
+    }
+
+    hs = 0;
+    put({kind:"done", line:18,
+      title:"排好了！",
+      msg:"堆積區只剩第 0 格的 <b>" + lab(a[0]) + "</b>，它就是最小值，不用再動。全部由小到大：<b>" +
+        a.map(lab).join(", ") + "</b>。總共<b>比較 " + nc + " 次</b>、<b>交換 " + ns + " 次</b>。" + (level.fin || "")});
+    return steps;
+  }
+
+  /* ---------- 3. 畫面層 ---------- */
+
+  function hueOf(id){ return HUES[id % HUES.length]; }
+
+  function stateOf(idx, st){
+    if(idx < 0) return "";
+    if((st.kind === "swap" || st.kind === "root") && (idx === st.focus || idx === st.other)) return "swap";
+    if(idx === st.focus) return "cur";
+    if(idx === st.other || idx === st.other2) return "cmp";
+    return "";
+  }
+
+  function dOf(i){ var d = -1, k = i + 1; while(k){ k >>= 1; d++; } return d; }
+  function yOf(d){ return 46 + d * 66; }
+  function xOf(i){
+    var d = dOf(i), pos = i - ((1 << d) - 1), slots = 1 << d;
+    return 20 + 640 * ((pos + 0.5) / slots);
+  }
+
+  function paintTree(){
+    var st = S.steps[S.cur], a = st.arr, n = a.length, hs = st.hs, svg = $("treeSvg");
+    $("treeNote").textContent = "堆積區 " + hs + " 格";
+    var maxd = dOf(n - 1), H = yOf(maxd) + 44, parts = [], i, p;
+    svg.setAttribute("viewBox", "0 0 680 " + H);
+
+    for(i = 1; i < n; i++){
+      p = (i - 1) >> 1;
+      var ec = "var(--line)", ew = 1.6, dash = "";
+      if(i >= hs){ dash = "4 4"; ew = 1.2; }
+      var pair = (p === Math.min(st.focus, st.other) && i === Math.max(st.focus, st.other)) ||
+                 (p === Math.min(st.focus, st.other2) && i === Math.max(st.focus, st.other2));
+      if(pair && st.kind === "cmp"){ ec = "var(--accent)"; ew = 2.6; dash = ""; }
+      if(pair && st.kind === "swap"){ ec = "var(--jade)"; ew = 2.8; dash = ""; }
+      parts.push('<line x1="' + xOf(p) + '" y1="' + yOf(dOf(p)) + '" x2="' + xOf(i) + '" y2="' + yOf(dOf(i)) + '" style="stroke:' + ec + ';stroke-width:' + ew + 'px' + (dash ? ';stroke-dasharray:' + dash : '') + '"/>');
+    }
+    if(hs > 0){
+      parts.push('<text x="' + xOf(0) + '" y="' + (yOf(0) - 28) + '" text-anchor="middle" style="fill:var(--ink-faint);font-size:10px;font-family:var(--font-mono);letter-spacing:.1em">' + (S.cur < firstBuilt() ? "根（還在建堆）" : "堆頂 = 堆積區最大") + '</text>');
+    }
+    for(i = 0; i < n; i++){
+      var x = xOf(i), y = yOf(dOf(i)), hue = hueOf(a[i].id), done = i >= hs;
+      var stt = stateOf(i, st);
+      var fill = done ? "var(--jade-soft)" : "color-mix(in srgb, hsl(" + hue + " 70% 55%) 26%, var(--surface))";
+      var stroke = done ? "var(--jade)" : "hsl(" + hue + " 55% 45%)", w = 1.8, dsh = done ? "4 3" : "";
+      if(stt === "cur"){ stroke = "var(--accent)"; w = 3.2; dsh = ""; }
+      else if(stt === "cmp"){ stroke = "var(--accent)"; w = 2.6; dsh = "5 4"; }
+      else if(stt === "swap"){ stroke = "var(--jade)"; w = 3.4; dsh = ""; }
+      parts.push('<circle cx="' + x + '" cy="' + y + '" r="20" style="fill:' + fill + ';stroke:' + stroke + ';stroke-width:' + w + 'px' + (dsh ? ';stroke-dasharray:' + dsh : '') + '"/>');
+      parts.push('<text x="' + x + '" y="' + (y + 5) + '" text-anchor="middle" style="fill:' + (done ? "var(--ink-soft)" : "var(--ink)") + ';font-size:15px;font-weight:700;font-family:var(--font-mono)">' + a[i].v +
+        (a[i].tag ? '<tspan style="font-size:10px" dy="-6">' + a[i].tag + '</tspan>' : '') + '</text>');
+      parts.push('<text x="' + x + '" y="' + (y + 34) + '" text-anchor="middle" style="fill:' + (done ? "var(--jade)" : "var(--ink-faint)") + ';font-size:10px;font-family:var(--font-mono)">' + i + (done ? " ✓" : "") + '</text>');
+    }
+    svg.innerHTML = parts.join("");
+  }
+  /* 建堆完成前，根還不能叫「堆頂」 */
+  function firstBuilt(){
+    for(var k = 0; k < S.steps.length; k++) if(S.steps[k].kind === "built") return k;
+    return S.steps.length;
+  }
+
+  function paintArray(){
+    var st = S.steps[S.cur], a = st.arr, hs = st.hs, host = $("arow");
+    host.innerHTML = "";
+    for(var i = 0; i < a.length; i++){
+      if(i === hs && hs > 0){
+        var dv = document.createElement("div");
+        dv.className = "adiv"; dv.title = "分界線";
+        host.appendChild(dv);
+      }
+      var cell = document.createElement("div");
+      cell.className = "acell";
+      cell.setAttribute("data-state", stateOf(i, st));
+      if(i >= hs) cell.setAttribute("data-zone", "done");
+      var idx = document.createElement("span");
+      idx.className = "idx"; idx.textContent = i;
+      var box = document.createElement("span");
+      box.className = "abox"; box.textContent = a[i].v;
+      if(a[i].tag){ var sb = document.createElement("sub"); sb.textContent = a[i].tag; box.appendChild(sb); }
+      box.style.setProperty("--eh", hueOf(a[i].id));
+      cell.appendChild(idx); cell.appendChild(box);
+      host.appendChild(cell);
+    }
+    var N = a.length, z = $("zones");
+    z.innerHTML =
+      '<span class="z"><span class="sw"></span>堆積區：' + (hs > 0 ? '<b>第 0～' + (hs-1) + ' 格</b>（' + hs + ' 格）' : '<b>空</b>') + '</span>' +
+      '<span class="z"><span class="sw done"></span>已排序區：' + (hs < N ? '<b>第 ' + hs + '～' + (N-1) + ' 格</b>（' + (N-hs) + ' 格）' : '<b>還沒有</b>') + '</span>';
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur], N = st.arr.length;
+    $("stHs").textContent = st.hs;
+    $("stDone").textContent = N - st.hs;
+    $("stCmp").textContent = st.cmp;
+    $("stSwp").textContent = st.swp;
+    var fb = firstBuilt();
+    $("phaseNote").textContent = S.cur === 0 ? "" : (S.cur <= fb ? "第一階段：建堆" : (st.kind === "done" ? "完成" : "第二階段：排序"));
+  }
+
+  function renderAlgo(){
+    var ol = $("algo");
+    ol.innerHTML = "";
+    for(var i = 0; i < CODE.length; i++){
+      var li = document.createElement("li");
+      li.textContent = CODE[i];
+      ol.appendChild(li);
+    }
+    var all = $("algoAll");
+    all.innerHTML = "";
+    for(var j = 0; j < CODE.length; j++){
+      var row = document.createElement("li");
+      var no = document.createElement("span");
+      no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span");
+      src.className = "src"; src.textContent = CODE[j].trim();
+      var doc = document.createElement("span");
+      doc.className = "doc"; doc.textContent = CODE_DOC[j] || "";
+      row.appendChild(no); row.appendChild(src); row.appendChild(doc);
+      all.appendChild(row);
+    }
+  }
+
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", KMAP[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){
+    var st = S.steps[S.cur];
+    say(st.kind, st.title, st.msg);
+  }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j];
+      var li = document.createElement("li");
+      li.setAttribute("data-k", KMAP[st.kind] || "start");
+      var tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b");
+      b.textContent = (st.focus >= 0) ? ("i=" + st.focus) : "—";
+      var tail = document.createElement("span");
+      tail.className = "tail";
+      tail.textContent = "hs " + st.hs;
+      li.appendChild(tag); li.appendChild(b); li.appendChild(tail);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintTree(); paintArray(); paintStats();
+    paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 4. 導覽 ---------- */
+
+  function goto_(k){
+    S.cur = Math.max(0, Math.min(S.steps.length - 1, k));
+    render();
+  }
+  function next(){
+    if(S.cur >= S.steps.length - 1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length - 1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+
+  function startPlay(){
+    if(S.cur >= S.steps.length - 1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 900);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 5. 闖關 ---------- */
+
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){
+      if(S.steps[k].quiz) return k;
+    }
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right / S.asked * 100) + "%" : "—";
+
+    if(ni === -1){
+      q.textContent = "這一關結束了。";
+      opts.innerHTML = "";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1 + LEVELS.length) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ loadLevelObj(S.level, S.levelIdx); });
+      opts.appendChild(r);
+      return;
+    }
+
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.innerHTML = st.quiz.q;
+    opts.innerHTML = "";
+    var list = st.quiz.opts, rot = ni % list.length;
+    for(var k = 0; k < list.length; k++){
+      var o = list[(k + rot) % list.length];
+      addOpt(opts, o.t, o.s || "", o.v);
+    }
+  }
+
+  function addOpt(host, label, sub, val){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.textContent = label;
+    if(sub){
+      var sm = document.createElement("small");
+      sm.textContent = sub;
+      b.appendChild(sm);
+    }
+    b.addEventListener("click", function(){ answerQuiz(val); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(val){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.ans, correctLabel = "";
+    for(var k = 0; k < st.quiz.opts.length; k++){
+      if(st.quiz.opts[k].v === correct) correctLabel = st.quiz.opts[k].t;
+    }
+
+    S.asked++;
+    var win = (val === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+
+    goto_(ni);
+
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + correctLabel + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right / S.asked * 100) + "%";
+
+    if(nextQuizIndex() === -1){
+      $("sayText").innerHTML += ' <b style="font-family:inherit">本關 ' + S.right + "/" + S.asked +
+        " 題答對，最長連對 " + S.best + "，得分 " + S.score + "。按上方「下一關」繼續。</b>";
+    }
+  }
+
+  /* ---------- 6. 載入 ---------- */
+
+  function loadLevelObj(lv, idx){
+    stopPlay();
+    S.level = lv;
+    S.levelIdx = (typeof idx === "number") ? idx : -1;
+    S.steps = buildSteps(lv);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    paintChips();
+    render();
+  }
+  function loadLevel(i){ loadLevelObj(LEVELS[i], i); }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    var btns = document.querySelectorAll(".mode-btn");
+    for(var i = 0; i < btns.length; i++){
+      var on = btns[i].getAttribute("data-mode") === m;
+      btns[i].classList.toggle("is-on", on);
+      btns[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著樹和陣列的目前狀態，回答下一步會發生什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 7. 事件綁定 ---------- */
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", function(){ loadLevelObj(S.level, S.levelIdx); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+
+  $("customForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = $("customInput").value.trim();
+    if(!v) return;
+    var arr = [];
+    v.split(/[\s,，、]+/).forEach(function(tok){
+      var m = /^(-?\d{1,3})([a-eA-E])?$/.exec(tok);
+      if(m) arr.push(m[2] ? [Number(m[1]), m[2].toUpperCase()] : Number(m[1]));
+    });
+    arr = arr.slice(0, 10);
+    if(arr.length < 2) return;
+    loadLevelObj({
+      tag:"custom", n:"自訂",
+      d:"你的 " + arr.length + " 個數字：先建堆，再一輪一輪把最大值換到後面。",
+      arr:arr,
+      fin:""
+    }, -1);
+  });
+
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 8. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+})();
+</script>
+</body>
+</html>
