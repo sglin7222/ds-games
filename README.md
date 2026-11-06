@@ -43,7 +43,8 @@
 │  ├─ 21-graph-basics.html         圖的基本概念（圖單元第 1 步：術語、鄰接矩陣 vs 鄰接串列）
 │  ├─ 22-graph-traversal.html      圖的走訪 DFS／BFS（圖單元第 2 步：visited、連通元件）
 │  ├─ 23-topological-sort.html     拓撲排序（圖單元第 3 步：DAG、入度、Kahn 演算法）
-│  └─ 24-mst.html                  最小生成樹（圖單元第 4 步：Kruskal＋併查集、Prim；第 5 步是 17 Dijkstra）
+│  ├─ 24-mst.html                  最小生成樹（圖單元第 4 步：Kruskal＋併查集、Prim；第 5 步是 17 Dijkstra）
+│  └─ 25-rag.html                  RAG 校園問答（向量、餘弦相似度、最小堆積取前 k 名、提示詞）
 └─ README.md
 ```
 

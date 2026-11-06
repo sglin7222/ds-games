@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG 校園問答 — 資料結構遊戲場</title>
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+.vlabel{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.dsgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:10px}
+.dsbox{background:var(--sunken);border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+
+/* 問題卡 */
+.qcard{background:var(--sunken);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+.qtext{font-size:16px;font-weight:700;color:var(--ink)}
+.vec{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+.vcell{display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 0;border-radius:5px;
+  background:var(--surface);font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--ink-faint)}
+.vcell small{font-family:var(--font-sans);font-size:10.5px;font-weight:600}
+.vcell.on{background:var(--accent-soft);color:var(--accent)}
+
+/* 文件清單 */
+.dlist{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.drow{display:grid;grid-template-columns:34px minmax(0,1fr) 92px 62px;gap:8px;align-items:center;
+  padding:6px 8px;border-radius:6px;background:var(--surface-2);border:1.5px solid transparent;font-size:13px}
+.drow .id{font-family:var(--font-mono);font-weight:700;color:var(--ink-soft)}
+.drow .tx{color:var(--ink);min-width:0}
+.drow .sc{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink-soft)}
+.drow .sc i{display:block;height:6px;border-radius:3px;background:var(--line);flex:1;position:relative;overflow:hidden}
+.drow .sc i b{position:absolute;left:0;top:0;bottom:0;background:var(--accent)}
+.drow .st{font-size:11.5px;font-weight:700;text-align:right;color:var(--ink-faint)}
+.drow[data-s="cur"]{border-color:var(--accent);background:var(--accent-soft)}
+.drow[data-s="cur"] .st{color:var(--accent)}
+.drow[data-s="in"]{background:var(--jade-soft)}
+.drow[data-s="in"] .st{color:var(--jade)}
+.drow[data-s="in"] .sc i b{background:var(--jade)}
+.drow[data-s="out"]{opacity:.6}
+.drow[data-s="use"]{background:var(--jade-soft);border-color:var(--jade)}
+.drow[data-s="use"] .st{color:var(--jade)}
+.drow[data-s="use"] .sc i b{background:var(--jade)}
+.drow[data-s="drop"]{background:var(--alarm-soft)}
+.drow[data-s="drop"] .st{color:var(--alarm)}
+@media (max-width:640px){
+  .drow{grid-template-columns:30px minmax(0,1fr) 62px}
+  .drow .sc{grid-column:2 / 4;order:4}
+}
+
+/* 堆積陣列 */
+.hrow{display:flex;gap:5px;flex-wrap:wrap}
+.hcell{display:flex;flex-direction:column;align-items:center;min-width:56px;padding:4px 6px;border-radius:6px;
+  background:var(--surface);font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--ink)}
+.hcell small{font-size:10.5px;color:var(--ink-faint);font-weight:600}
+.hcell.top{outline:2px solid var(--accent)}
+.hint{font-size:12.5px;color:var(--ink-soft)}
+.promptbox{font-family:var(--font-mono);font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;
+  color:var(--ink-soft);background:var(--surface);border-radius:6px;padding:7px 9px;max-height:210px;overflow-y:auto}
+
+/* 回答比較 */
+.ansgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:10px;margin-top:10px}
+.rans{border-radius:8px;padding:9px 11px;font-size:14px;line-height:1.6;display:none}
+.rans.on{display:block}
+.rans[data-k="rag"]{background:var(--jade-soft)}
+.rans[data-k="raw"]{background:var(--alarm-soft)}
+.rans .vlabel{display:block;margin-bottom:3px}
+.note-sim{font-size:12px;color:var(--ink-faint);margin-top:6px}
+
+/* 自己問 */
+.askbar input{flex:1 1 240px;min-width:0}
+
+/* 定義圖 */
+.fig text{font-size:12px;fill:var(--ink)}
+.fig .bx{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5}
+.fig .ok{fill:var(--jade-soft);stroke:var(--jade);stroke-width:1.5}
+.fig .no{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:1.5}
+.fig .ar{stroke:var(--ink-soft);stroke-width:1.6;fill:none}
+</style>
+</head>
+<body>
+
+<nav class="sitebar">
+  <div class="wrap">
+    <a class="home" href="../index.html">← 資料結構遊戲場</a>
+    <span class="crumb">25 · RAG 檢索增強生成</span>
+    <div class="jump">
+      <a href="#s0"><span class="n">00</span>定義</a>
+      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s2"><span class="n">02</span>遊戲</a>
+      <a href="#s3"><span class="n">03</span>原理</a>
+      <a href="#s4"><span class="n">04</span>程式</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Game 25 · Retrieval-Augmented Generation</p>
+    <h1>RAG 校園問答</h1>
+    <p class="lede">AI 不知道海大餐廳幾點開，卻可能一本正經地亂答。RAG 的做法是：先去資料裡找出最相關的幾段，再請 AI 只根據這幾段回答。「找」的那一步，用的就是你學過的陣列和堆積。</p>
+    <div class="facts">
+      <div class="fact"><span>核心結構</span><b>向量＋最小堆積</b></div>
+      <div class="fact"><span>難度</span><b>進階</b></div>
+      <div class="fact"><span>時間</span><b>O(N·d + N log k)</b></div>
+      <div class="fact"><span>空間</span><b>O(N·d)</b></div>
+      <div class="fact"><span>先備知識</span><b>13 堆積、16 雜湊表</b></div>
+    </div>
+  </header>
+
+  <!-- ============ 00 定義 ============ -->
+  <section class="sec" id="s0">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>先搞懂：RAG 到底是什麼</h2>
+        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="block">
+        <h3>一句話定義</h3>
+        <div class="defbox">
+          <span class="deftag">DEFINITION · 定義</span>
+          <div class="defline">RAG 是<em>先檢索相關資料，再把資料交給語言模型，讓它根據資料回答</em>的做法。</div>
+          <p>白話補一句：把閉卷考變成開書考。模型不必背下所有資料，只要會看你翻給它的那幾頁。</p>
+        </div>
+        <div class="callout" data-k="key"><span class="tag">目的</span><span class="txt">語言模型沒讀過你們學校的規定，也不知道昨天才改的事。RAG 讓它能回答<b>自己沒學過的資料</b>，還能指出答案出自哪一段。</span></div>
+      </div>
+      <div class="block">
+        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <div class="terms">
+          <div class="term">
+            <div class="tn">語言模型 <small>LLM</small></div>
+            <div class="td">讀過大量文字、會接著寫出下一段話的程式。ChatGPT、Claude 都是。</div>
+            <div class="ta">像一個讀過很多書、但沒帶書進考場的學生。</div>
+          </div>
+          <div class="term">
+            <div class="tn">幻覺 <small>hallucination</small></div>
+            <div class="td">模型不知道答案，卻講出一段聽起來合理的錯誤內容。</div>
+            <div class="ta">考試不會寫，還是把答案卷寫得滿滿的。</div>
+          </div>
+          <div class="term">
+            <div class="tn">文件塊 <small>chunk</small></div>
+            <div class="td">把長文件切成的一小段。檢索時一次拿一段，不拿整份。</div>
+            <div class="ta">不是把整本書交給學生，而是翻到有用的那一頁。</div>
+          </div>
+          <div class="term">
+            <div class="tn">向量 <small>vector</small></div>
+            <div class="td">一串數字，就是一個陣列。每一格代表一個特徵。</div>
+            <div class="ta">像體檢表：身高、體重、視力，幾個數字描述一個人。</div>
+          </div>
+          <div class="term">
+            <div class="tn">嵌入 <small>embedding</small></div>
+            <div class="td">把一段文字變成向量。意思接近的文字，會變成接近的向量。</div>
+            <div class="ta">幫每段文字在地圖上標座標，主題相近的就住得近。</div>
+          </div>
+          <div class="term">
+            <div class="tn">相似度 <small>cosine similarity</small></div>
+            <div class="td">用一個數字表示兩個向量多接近。本關的分數在 0 到 1 之間，越大越像。</div>
+            <div class="ta">比較兩個人走的方向：同方向 1 分，完全不同方向 0 分。</div>
+          </div>
+          <div class="term">
+            <div class="tn">前 k 名 <small>top-k</small></div>
+            <div class="td">分數最高的 k 段文字。k 是我們自己決定的數字。</div>
+            <div class="ta">班上取前三名，不必把全班從頭排到尾。</div>
+          </div>
+          <div class="term">
+            <div class="tn">提示詞 <small>prompt</small></div>
+            <div class="td">實際送給模型的文字：規則＋找到的資料＋使用者的問題。</div>
+            <div class="ta">開書考的考卷：作答規則、參考資料、題目都印在上面。</div>
+          </div>
+        </div>
+      </div>
+      <div class="block">
+        <h3>看圖判斷：哪些是 RAG？</h3>
+        <div class="figs">
+          <figure class="fig" data-k="ok">
+            <svg viewBox="0 0 240 140" role="img" aria-label="問題先查資料，再交給模型">
+              <rect class="bx" x="6" y="52" width="50" height="34" rx="6"/><text x="31" y="73" text-anchor="middle">問題</text>
+              <rect class="ok" x="90" y="52" width="58" height="34" rx="6"/><text x="119" y="73" text-anchor="middle">查資料</text>
+              <rect class="bx" x="182" y="52" width="52" height="34" rx="6"/><text x="208" y="73" text-anchor="middle">模型</text>
+              <path class="ar" d="M56 69H88M148 69H180"/>
+            </svg>
+            <figcaption><b class="verdict">✔ 是 RAG。</b>先檢索，再讓模型根據資料回答。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 240 140" role="img" aria-label="問題直接交給模型">
+              <rect class="bx" x="30" y="52" width="50" height="34" rx="6"/><text x="55" y="73" text-anchor="middle">問題</text>
+              <rect class="no" x="150" y="52" width="58" height="34" rx="6"/><text x="179" y="73" text-anchor="middle">模型</text>
+              <path class="ar" d="M80 69H148"/>
+            </svg>
+            <figcaption><b class="verdict">✘ 不是。</b>沒有檢索，模型只能憑印象回答。</figcaption>
+          </figure>
+          <figure class="fig" data-k="no">
+            <svg viewBox="0 0 240 140" role="img" aria-label="查到資料後直接顯示">
+              <rect class="bx" x="30" y="52" width="50" height="34" rx="6"/><text x="55" y="73" text-anchor="middle">問題</text>
+              <rect class="no" x="150" y="52" width="58" height="34" rx="6"/><text x="179" y="73" text-anchor="middle">查資料</text>
+              <path class="ar" d="M80 69H148"/>
+            </svg>
+            <figcaption><b class="verdict">✘ 不是。</b>這是搜尋，只有檢索，沒有模型生成回答。</figcaption>
+          </figure>
+        </div>
+      </div>
+      <div class="block">
+        <h3>容易搞混的幾件事</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>常被搞混的東西</th><th>一樣嗎？</th><th>差在哪</th></tr></thead>
+          <tbody>
+            <tr><td>RAG 和搜尋引擎</td><td class="verdict no">不一樣</td><td>搜尋把資料列給你看。RAG 多一步，由模型讀過資料後寫出回答。</td></tr>
+            <tr><td>RAG 和再訓練模型</td><td class="verdict no">不一樣</td><td>再訓練會改變模型本身。RAG 不動模型，只換餵給它的資料，資料更新時改資料就好。</td></tr>
+            <tr><td>向量比對和關鍵字比對</td><td class="verdict no">不一樣</td><td>關鍵字要字面相同才找得到。向量比的是意思，「肚子餓」也能找到「午餐」。</td></tr>
+            <tr><td>找到相關資料和資料裡有答案</td><td class="verdict no">不一樣</td><td>分數高只代表主題接近。第 5 關的問題就找得到宿舍規定，但規定裡沒寫答案。</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="block">
+        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <div class="check">
+          <details><summary>學校昨天改了圖書館的開放時間，RAG 系統要重新訓練模型嗎？</summary><div class="ans">不用。更新那段文件和它的向量就好，模型本身不動。這是 RAG 最大的好處之一。</div></details>
+          <details><summary>用了 RAG，模型就不會答錯了嗎？</summary><div class="ans">不是。找錯資料、沒找到關鍵的那段、或模型讀錯，都可能答錯。RAG 能減少亂編，也讓人能回頭查證，但不保證正確。</div></details>
+          <details><summary>為什麼不把全部資料都貼給模型？</summary><div class="ans">資料一多就放不下，就算放得下也又慢又貴，無關的內容還可能干擾回答。所以先挑出最相關的 k 段。</div></details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 01 玩法 ============ -->
+  <section class="sec" id="s1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>怎麼玩・你會學到什麼</h2>
+        <p class="sub">先看這一段，再往下玩。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="cols">
+        <div class="block">
+          <h3>怎麼玩</h3>
+          <p>畫面上方是問題和它的向量，中間是 10 段校園資料，下方是堆積和送給模型的提示詞。</p>
+          <h4>演示模式</h4>
+          <ol class="steps">
+            <li>挑一個<b>關卡</b>，或在「自己問」輸入問題。</li>
+            <li>按 <b>下一步</b>，看問題變成向量，再和每段資料一段一段算分數。</li>
+            <li>看最小堆積怎麼留下前 k 名：新分數比堆頂高，才能把堆頂換掉。</li>
+            <li>最後看提示詞怎麼組出來，以及有 RAG 和沒有 RAG 的回答差在哪。</li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="steps">
+            <li>先不給答案，由你判斷：問題最接近哪個主題？這段資料進得了前 k 名嗎？這題該回答還是說找不到？</li>
+            <li>答對得分、連對加分；答錯立刻解釋理由。</li>
+          </ol>
+          <div class="callout" data-k="key">
+            <span class="tag">操作</span>
+            <span class="txt">鍵盤 <b>→</b> 下一步、<b>←</b> 上一步、<b>空白鍵</b> 播放／暫停。</span>
+          </div>
+        </div>
+        <div class="block">
+          <h3>你會學到什麼</h3>
+          <ul class="bullets">
+            <li><b>RAG 的流程</b> —— 切塊、向量化、檢索、組提示詞、生成回答。</li>
+            <li><b>向量與相似度</b> —— 文字怎麼變成陣列，餘弦相似度怎麼算。</li>
+            <li><b>用大小為 k 的最小堆積取前 k 名</b> —— 為什麼堆頂放最低分，而不是最高分。</li>
+            <li><b>k 怎麼影響答案</b> —— k 太小會漏掉資料，太大會混入雜訊。</li>
+            <li><b>相似度門檻</b> —— 找不到就說找不到，不要硬答。</li>
+            <li><b>RAG 的極限</b> —— 找到相關資料，不代表資料裡有答案。</li>
+          </ul>
+          <div class="callout" data-k="ok">
+            <span class="tag">建議順序</span>
+            <span class="txt">第 1 關看完整流程 → 第 2 關比較字面和意思 → 第 4、5 關看「找不到」的兩種情況 → 第 6、7 關比較 k=1 和 k=2。</span>
+          </div>
+          <div class="callout" data-k="no">
+            <span class="tag">注意</span>
+            <span class="txt">本關的校園資料是<b>教學用的虛構內容</b>，不是學校的真實規定。本頁也沒有連到真的語言模型，回答是為了示範而預先寫好的。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 遊戲 ============ -->
+  <section class="sec" id="s2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>開始玩</h2>
+        <p class="sub">選關卡 → 一步一步走 → 看資料被挑進前 k 名，再變成回答。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="bar">
+        <span class="bar-label">模式</span>
+        <div class="modes" role="tablist" aria-label="模式">
+          <button class="mode-btn is-on" data-mode="demo" role="tab" aria-selected="true">演示模式</button>
+          <button class="mode-btn" data-mode="quiz" role="tab" aria-selected="false">闖關模式</button>
+        </div>
+        <div class="ctl">
+          <label for="kSel">k（取前幾名）</label>
+          <select id="kSel"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="bar-label">關卡</span>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <form class="bar opbar askbar" id="askForm" autocomplete="off">
+        <span class="bar-label">自己問</span>
+        <input id="askIn" type="text" maxlength="40" placeholder="例如：校車多久一班？" aria-label="輸入你的問題">
+        <button class="btn btn-primary" type="submit">開始檢索</button>
+      </form>
+
+      <div class="game">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="panel-title">校園問答</h3>
+            <span class="panel-note">資料為教學用虛構內容</span>
+          </div>
+
+          <div class="qcard">
+            <div class="vlabel">QUESTION</div>
+            <div class="qtext" id="qText"></div>
+            <div class="vlabel" id="qVecLabel">問題的向量（還沒計算）</div>
+            <div class="vec" id="qVec"></div>
+          </div>
+
+          <div class="vlabel" style="margin-bottom:5px">DOCUMENTS · 10 段文件</div>
+          <div class="dlist" id="dlist"></div>
+
+          <div class="dsgrid">
+            <div class="dsbox">
+              <div class="vlabel">MIN-HEAP · 目前前 k 名</div>
+              <div class="hrow" id="heap"></div>
+              <div class="hint" id="heapHint"></div>
+            </div>
+            <div class="dsbox">
+              <div class="vlabel">PROMPT · 送給模型的文字</div>
+              <div class="promptbox" id="prompt"></div>
+            </div>
+          </div>
+
+          <div class="ansgrid">
+            <div class="rans" data-k="rag" id="ansRag"><span class="vlabel">有 RAG 的回答（示意）</span><span id="ansRagT"></span></div>
+            <div class="rans" data-k="raw" id="ansRaw"><span class="vlabel">沒有 RAG 的回答（示意）</span><span id="ansRawT"></span></div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">← 上一步</button>
+            <button class="btn btn-primary" id="btnNext" type="button">下一步 <span class="kbd">→</span></button>
+            <button class="btn" id="btnPlay" type="button">▶ 自動播放</button>
+            <button class="btn" id="btnReset" type="button">↺ 重來</button>
+            <div class="progress"><i id="progBar"></i></div>
+            <span class="step-count" id="stepCount">0 / 0</span>
+          </div>
+
+          <div class="quiz" id="quiz">
+            <div class="score">
+              <div><b id="sScore">0</b><span>分數</span></div>
+              <div><b id="sStreak">0</b><span>連對</span></div>
+              <div><b id="sAcc">—</b><span>正確率</span></div>
+            </div>
+            <p class="quiz-q" id="quizQ"></p>
+            <div class="quiz-opts" id="quizOpts"></div>
+          </div>
+
+          <div class="say" id="say" data-k="start" aria-live="polite">
+            <span class="say-badge" id="sayBadge">START</span>
+            <div class="say-body">
+              <div class="say-title" id="sayTitle">選一個關卡開始</div>
+              <div class="say-text" id="sayText">按「下一步」一格一格走。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">統計</h3>
+              <span class="panel-note">門檻 0.30</span>
+            </div>
+            <div class="stats">
+              <div class="stat" data-k="hot"><div class="k">已比對</div><div class="v" id="stCnt">0</div></div>
+              <div class="stat" data-k="ok"><div class="k">最高分</div><div class="v" id="stMax">—</div></div>
+              <div class="stat" data-k="ok"><div class="k">k</div><div class="v" id="stK">2</div></div>
+              <div class="stat" data-k="no"><div class="k">被擠掉</div><div class="v" id="stOut">0</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="panel-title">歷程</h3>
+              <span class="panel-note" id="logNote"></span>
+            </div>
+            <ol class="log" id="log"><li class="log-empty">還沒開始。</li></ol>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel algo-panel">
+        <div class="panel-head">
+          <h3 class="panel-title">檢索（C++）——玩到哪，亮到哪</h3>
+          <span class="panel-note">O(N·d + N log k)</span>
+        </div>
+        <ol class="algo" id="algo"></ol>
+        <div class="algo-doc idle" id="algoDoc">
+          <span class="ln" id="algoDocLn">—</span>
+          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+        </div>
+        <details class="algo-all" open>
+          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <ol id="algoAll"></ol>
+        </details>
+      </div>
+
+      <div class="block">
+        <h3>這個遊戲跑的程式（完整版）</h3>
+        <p>把視覺化全部拿掉，檢索就這麼短。只有 <code>embed</code> 和 <code>llm</code> 要靠模型，其他都是本課學過的資料結構。</p>
+        <pre class="code">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef pair&lt;double,int&gt; P;                  <i>// (分數, 文件編號)</i>
+const double THRESHOLD = 0.30;               <i>// 最高分低於門檻就不回答</i>
+
+double cosine(const vector&lt;double&gt;&amp; a, const vector&lt;double&gt;&amp; b) {
+    double dot = 0, na = 0, nb = 0;
+    for (size_t i = 0; i &lt; a.size(); i++) {
+        dot += a[i] * b[i];                  <i>// 對應的格子相乘再加總</i>
+        na += a[i] * a[i];
+        nb += b[i] * b[i];
+    }
+    if (na == 0 || nb == 0) return 0;        <i>// 全部是 0 的向量沒有方向</i>
+    return dot / (sqrt(na) * sqrt(nb));
+}
+
+vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vector&lt;double&gt;&gt;&amp; docs, int k) {
+    priority_queue&lt;P, vector&lt;P&gt;, greater&lt;P&gt;&gt; pq;   <i>// 最小堆積：堆頂是目前第 k 名</i>
+    for (int i = 0; i &lt; (int)docs.size(); i++) {
+        double s = cosine(q, docs[i]);
+        if ((int)pq.size() &lt; k) pq.push({s, i});     <i>// 還沒滿，直接放</i>
+        else if (s &gt; pq.top().first) {               <i>// 比第 k 名高，才換掉它</i>
+            pq.pop();
+            pq.push({s, i});
+        }
+    }
+    vector&lt;P&gt; top;
+    while (!pq.empty()) { top.push_back(pq.top()); pq.pop(); }
+    reverse(top.begin(), top.end());         <i>// 改成由高到低</i>
+    return top;
+}</pre>
+        <p>遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 原理 ============ -->
+  <section class="sec" id="s3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>這個功能是怎麼做到的</h2>
+        <p class="sub">分成事先準備和每次回答兩段，再看每一段用到哪個資料結構。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>完整流程：準備一次，回答很多次</h3>
+        <h4>事先準備（資料更新時才做）</h4>
+        <div class="arch">
+          <div class="node" data-k="in">原始文件 <small>規定、公告、手冊</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">切成文件塊 <small>chunk</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">算出向量 <small>embedding</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">存進向量庫 <small>文字＋向量</small></div>
+        </div>
+        <h4>每次回答</h4>
+        <div class="arch">
+          <div class="node" data-k="in">使用者問題</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">問題也算向量</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">取相似度前 k 名</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">組成提示詞</div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">模型根據資料回答</div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>手算一次餘弦相似度</h3>
+        <p>只看三個主題：吃、時間、書。問題向量 q＝(1, 1, 0)，文件向量 d＝(1, 0, 1)。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>步驟</th><th>算式</th><th class="mono">結果</th></tr></thead>
+          <tbody>
+            <tr><td>內積：對應格子相乘再相加</td><td class="mono">1×1 + 1×0 + 0×1</td><td class="mono">1</td></tr>
+            <tr><td>q 的長度</td><td class="mono">√(1² + 1² + 0²)</td><td class="mono">√2</td></tr>
+            <tr><td>d 的長度</td><td class="mono">√(1² + 0² + 1²)</td><td class="mono">√2</td></tr>
+            <tr><td>相似度＝內積 ÷ 兩個長度相乘</td><td class="mono">1 ÷ (√2 × √2)</td><td class="mono">0.5</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout" data-k="key"><span class="tag">重點</span><span class="txt">除以長度，是為了比「方向」而不是「大小」。長文件的數字通常比較大，但不代表比較相關。</span></div>
+      </div>
+
+      <div class="block">
+        <h3>為什麼前 k 名要用最小堆積</h3>
+        <p>我們要留下分數<b>最高</b>的 k 筆，堆頂卻放<b>最低分</b>。因為新資料來時，只需要和「目前第 k 名」比；它就是最容易被換掉的那一筆，放在堆頂一眼就看得到。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>做法</th><th class="mono">時間</th><th class="mono">額外空間</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>全部排序再取前 k</td><td class="mono">O(N log N)</td><td class="mono">O(N)</td><td>把用不到的名次也排好了</td></tr>
+            <tr><td>大小為 k 的最小堆積</td><td class="mono">O(N log k)</td><td class="mono">O(k)</td><td>k 通常很小，堆積很淺</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="block">
+        <h3>RAG 裡的資料結構，你都學過</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>RAG 的環節</th><th>用到的結構</th><th>對應關卡</th></tr></thead>
+          <tbody>
+            <tr><td>向量本身</td><td>陣列</td><td>全課基礎</td></tr>
+            <tr><td>用文件編號取回原文</td><td>雜湊表，平均 O(1)</td><td><a href="16-hash-table.html">16 雜湊表</a></td></tr>
+            <tr><td>留下前 k 名</td><td>最小堆積</td><td><a href="13-heap.html">13 堆積</a></td></tr>
+            <tr><td>分數排名</td><td>排序</td><td><a href="14-sorting-arena.html">14 排序競技場</a></td></tr>
+            <tr><td>大量向量的快速搜尋</td><td>圖：從一個點沿著邊走向更近的鄰居</td><td><a href="21-graph-basics.html">21 圖的基本概念</a></td></tr>
+            <tr><td>排隊處理大量文件</td><td>佇列</td><td><a href="18-queue-basics.html">18 佇列排隊入門</a></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="block">
+        <h3>複雜度</h3>
+        <ul class="bullets">
+          <li><b>時間 O(N·d + N log k)</b> —— N 段文件各算一次 d 維相似度，每段最多動一次大小為 k 的堆積。</li>
+          <li><b>空間 O(N·d)</b> —— 所有向量都要存。100 萬段、每段 768 維、每格 4 位元組，大約 3 GB。</li>
+          <li><b>資料很多時</b> —— 逐段比對太慢，真實系統會用近似最近鄰搜尋：只看一部分的點，換來速度，代價是偶爾漏掉真正的第一名。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>常見誤解</h3>
+        <ul class="bullets no">
+          <li><b>「用了 RAG 就不會有幻覺」</b> —— 第 5 關就是反例。系統找到了宿舍資料，資料卻沒有答案，所以還要靠提示詞要求模型「資料沒寫就說不知道」。</li>
+          <li><b>「k 越大越好」</b> —— 第 1 關的第二名是體育館，和餐廳無關。k 太大只會塞進更多雜訊，還更花錢。</li>
+          <li><b>「分數最高的就是答案」</b> —— 第 6 關的第一名只有圖書館，要回答問題還需要宿舍那段。</li>
+          <li><b>「文件切得越細越好」</b> —— 切太細會把一句完整的規定切斷，切太粗又會混進無關內容。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 程式 ============ -->
+  <section class="sec" id="s4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>程式架構與說明</h2>
+        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>整體設計：先算完，再播放</h3>
+        <p>檢索先一次跑完產生「步驟陣列」，畫面只負責把第 N 步畫出來。</p>
+        <div class="arch">
+          <div class="node" data-k="in">關卡 <small>問題、k、預寫回答</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="core">buildSteps() <small>算向量、分數、堆積</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">steps[] <small>每一格是當下的快照</small></div>
+          <div class="arrow"></div>
+          <div class="node">畫面只畫 steps[目前步數]</div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>這一關的向量是手做的</h3>
+        <p>真實的 embedding 由模型算出，常有幾百到幾千維，而且每一維沒有人看得懂的意思。為了看清楚，本關改成 8 個主題，每個主題有一張同義詞表，算一段文字命中幾個詞。</p>
+        <div class="callout" data-k="no"><span class="tag">代價</span><span class="txt">同義詞表沒列到的詞就認不得，這點比真正的 embedding 差很多。「自己問」時如果問題完全沒命中，向量就會全部是 0。</span></div>
+      </div>
+
+      <div class="block">
+        <h3>模組分工</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>層</th><th class="mono">主要函式</th><th>負責什麼</th></tr></thead>
+            <tbody>
+              <tr><td><b>資料</b></td><td class="mono">DOCS / AXES / LEVELS</td><td>文件、主題同義詞表、關卡。</td></tr>
+              <tr><td><b>檢索</b></td><td class="mono">embed / cosine / heapPush / heapPop</td><td>文字變向量、算分數、維護最小堆積。</td></tr>
+              <tr><td><b>流程</b></td><td class="mono">buildSteps()</td><td>唯一真正跑檢索的地方。</td></tr>
+              <tr><td><b>畫面</b></td><td class="mono">paintDocs / paintHeap / paintAnswer</td><td>各自只讀 steps[S.cur]。</td></tr>
+              <tr><td><b>闖關</b></td><td class="mono">renderQuiz / answerQuiz</td><td>出題、對答案、計分。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>你可以怎麼改</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
+            <tbody>
+              <tr><td>換成自己的資料</td><td><code>DOCS</code> 陣列</td><td>每段 1 行</td></tr>
+              <tr><td>讓系統認得新的詞</td><td><code>AXES</code> 的同義詞表</td><td>1 行</td></tr>
+              <tr><td>加新關卡</td><td><code>LEVELS</code> 陣列</td><td>1 筆</td></tr>
+              <tr><td>調整門檻</td><td><code>THRESHOLD</code></td><td>1 行</td></tr>
+              <tr><td>接真的模型</td><td>換掉 <code>embed</code>，並把回答改成呼叫 API</td><td>需要後端保管金鑰</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="sitefoot">
+    <span>資料結構遊戲場 · 25 RAG 校園問答</span>
+    <a href="../index.html">← 回到所有遊戲</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. 常數 ---------- */
+
+  var THRESHOLD = 0.30;
+
+  /* 教學用虛構資料，不是學校的真實規定 */
+  var DOCS = [
+    "海大餐廳平日午餐供餐時間是 11:00 到 13:30，晚餐是 17:00 到 19:00。",
+    "餐廳可以用學生證儲值付款，也可以付現金。",
+    "圖書館平日開放到晚上 22:00，週末開放到 17:00。",
+    "大學部學生一次可以借 10 本書，借期是 30 天。",
+    "借的書逾期未還，每本每天罰 5 元。",
+    "宿舍門禁時間是晚上 23:30，晚歸要先登記。",
+    "宿舍費用每學期 12000 元，開學前要繳費。",
+    "校車每 20 分鐘一班，從校門開到基隆火車站。",
+    "體育館平日開放到 21:00，進場要帶學生證。",
+    "機車停車證每學期 500 元，要在網路上申請。"
+  ];
+
+  /* 8 個主題＝向量的 8 格。真實 embedding 由模型算出，這裡手做才看得懂 */
+  var AXES = [
+    {k:"吃",   w:["餐廳","供餐","午餐","晚餐","吃","用餐","肚子餓","便當"]},
+    {k:"時間", w:["時間","幾點","開放","關門","多晚","什麼時候","比較晚","多久"]},
+    {k:"書",   w:["圖書館","書","借","還","看書","自習"]},
+    {k:"錢",   w:["元","費用","付款","繳費","罰","多少錢","現金","儲值"]},
+    {k:"住",   w:["宿舍","門禁","晚歸","住","室友"]},
+    {k:"車",   w:["校車","公車","火車站","停車","機車","搭車"]},
+    {k:"運動", w:["體育館","運動","健身","打球"]},
+    {k:"證件", w:["學生證","申請","登記","辦"]}
+  ];
+
+  var RULE = "規則：只能根據下面的資料回答，並標出資料編號。資料沒寫就說不知道。";
+
+  var LEVELS = [
+    {tag:"基本", n:"完整流程", q:"餐廳幾點開放？", k:2,
+     ans:"平日午餐 11:00 到 13:30，晚餐 17:00 到 19:00。[D1]",
+     raw:"學校餐廳通常早上 7 點就開了，營業到晚上 8 點。",
+     fin:"第一名就是答案。第二名的體育館只是剛好也有「開放」，和餐廳無關，模型要自己忽略它。"},
+    {tag:"換句話", n:"字面不同", q:"肚子餓了，中午哪裡可以吃便當？", k:2,
+     ans:"可以到海大餐廳，平日午餐供餐時間是 11:00 到 13:30。[D1] 資料沒有提到便當。",
+     raw:"校門口右轉有一家很受歡迎的便當店。",
+     fin:"問題和 D1 一個兩字詞都沒有相同，靠「吃」這個主題才找到。這就是向量比對勝過關鍵字比對的地方。"},
+    {tag:"借書", n:"第一名滿分", q:"一次可以借幾本書？", k:2,
+     ans:"大學部學生一次可以借 10 本書。[D4]",
+     raw:"大學部學生一般可以借 20 本書。",
+     fin:"D4 的方向和問題完全相同，所以是 1.00。"},
+    {tag:"無關", n:"什麼都沒找到", q:"校長的生日是哪一天？", k:2,
+     ans:"資料裡找不到這個問題的答案。",
+     raw:"校長的生日是 3 月 15 日。",
+     fin:"最高分是 0，低於門檻，系統直接說找不到，根本不必問模型。"},
+    {tag:"有資料沒答案", n:"相關但沒寫", q:"宿舍可以養貓嗎？", k:2,
+     ans:"資料提到宿舍的門禁和費用，但沒有寫到能不能養寵物，所以我無法回答。",
+     raw:"宿舍禁止飼養任何寵物。",
+     fin:"分數過了門檻，資料卻沒有答案。這時只能靠提示詞裡「資料沒寫就說不知道」這條規則。"},
+    {tag:"k=1", n:"資料不夠", q:"宿舍門禁和圖書館關門，哪個比較晚？", k:1,
+     ans:"圖書館平日開放到 22:00。[D3] 資料沒有宿舍門禁的時間，所以無法比較。",
+     raw:"宿舍門禁比較晚，大約是半夜 12 點。",
+     fin:"這題要兩段資料才答得出來，k=1 只留下圖書館。到下一關把 k 改成 2 比比看。"},
+    {tag:"k=2", n:"資料剛好", q:"宿舍門禁和圖書館關門，哪個比較晚？", k:2,
+     ans:"宿舍門禁比較晚：門禁是 23:30 [D6]，圖書館平日開放到 22:00。[D3]",
+     raw:"宿舍門禁比較晚，大約是半夜 12 點。",
+     fin:"同一個問題，k 從 1 變 2，答案就完整了，而且每個時間都有出處。"}
+  ];
+
+  var CODE = [
+    "vector<double> q = embed(question);",
+    "priority_queue<P, vector<P>, greater<P>> pq;",
+    "for (int i = 0; i < n; i++) {",
+    "    double s = cosine(q, docs[i]);",
+    "    if (pq.size() < k) pq.push({s, i});",
+    "    else if (s > pq.top().first) { pq.pop(); pq.push({s, i}); }",
+    "}",
+    "vector<P> top = takeAll(pq);",
+    "if (top[0].first < THRESHOLD) return \"資料裡找不到\";",
+    "string prompt = buildPrompt(rule, top, question);",
+    "return llm(prompt);"
+  ];
+  var CODE_DOC = [
+    "把使用者的問題變成向量 q，也就是一串數字。",
+    "準備一個最小堆積 pq，它的堆頂永遠是裡面分數最低的那一筆。",
+    "從第一段文件看到最後一段，一段都不跳過。",
+    "算出問題和這段文件的相似度 s。",
+    "如果堆積還沒裝滿 k 筆，不用比，直接放進去。",
+    "堆積滿了：s 比堆頂高，就把堆頂丟掉、放入新的；不然這段就被淘汰。",
+    "所有文件都看完了。",
+    "把堆積裡的資料全部拿出來，排成分數由高到低。",
+    "第一名的分數還低於門檻，代表沒有相關資料，直接說找不到。",
+    "把規則、找到的資料、問題組成一段文字，這就是提示詞。",
+    "把提示詞送給語言模型，它的回答就是最後的答案。"
+  ];
+
+  var BADGE = {start:"START", embed:"EMBED", push:"PUSH", swap:"SWAP", skip:"SKIP", rank:"RANK", stop:"STOP", pass:"PASS", prompt:"PROMPT", done:"DONE"};
+  var KMAP  = {start:"start", embed:"hot", push:"push", swap:"push", skip:"start", rank:"hot", stop:"no", pass:"ok", prompt:"hot", done:"done"};
+
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function f2(x){ return x.toFixed(2); }
+  function did(i){ return "D" + (i + 1); }
+
+  /* ---------- 2. 狀態 ---------- */
+
+  var S = {steps:[], cur:0, mode:"demo", level:null, levelIdx:0, k:2,
+           playing:false, timer:null, score:0, streak:0, best:0, asked:0, right:0, pendingIndex:null};
+
+  /* ---------- 3. 資料層 ---------- */
+
+  function embed(text){
+    return AXES.map(function(a){
+      return a.w.filter(function(w){ return text.indexOf(w) >= 0; }).length;
+    });
+  }
+  function cosine(a, b){
+    var dot = 0, na = 0, nb = 0;
+    for(var i = 0; i < a.length; i++){ dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    if(na === 0 || nb === 0) return 0;
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  }
+  /* 字面重疊：兩字詞相同的個數（不算數字和標點） */
+  function bigrams(t){
+    var o = {}, c = t.replace(/[^一-鿿]/g, " ");
+    for(var i = 0; i + 1 < c.length; i++){
+      if(c[i] !== " " && c[i + 1] !== " ") o[c.substr(i, 2)] = 1;
+    }
+    return o;
+  }
+  function overlap(a, b){
+    var x = bigrams(a), y = bigrams(b), n = 0;
+    for(var w in x){ if(y[w]) n++; }
+    return n;
+  }
+
+  /* 最小堆積：陣列表示，[0] 是最低分 */
+  function heapPush(h, it){
+    h.push(it);
+    var i = h.length - 1;
+    while(i > 0){
+      var p = (i - 1) >> 1;
+      if(h[p].s <= h[i].s) break;
+      var t = h[p]; h[p] = h[i]; h[i] = t; i = p;
+    }
+  }
+  function heapPop(h){
+    var top = h[0], last = h.pop();
+    if(h.length){
+      h[0] = last;
+      var i = 0;
+      for(;;){
+        var l = 2 * i + 1, r = l + 1, m = i;
+        if(l < h.length && h[l].s < h[m].s) m = l;
+        if(r < h.length && h[r].s < h[m].s) m = r;
+        if(m === i) break;
+        var t = h[m]; h[m] = h[i]; h[i] = t; i = m;
+      }
+    }
+    return top;
+  }
+
+  function buildPrompt(q, use){
+    var body = use.length
+      ? use.map(function(u){ return "[" + did(u.i) + "] " + DOCS[u.i]; }).join("\n")
+      : "（沒有資料）";
+    return RULE + "\n\n資料：\n" + body + "\n\n問題：" + q;
+  }
+
+  function extractive(use){
+    if(!use.length) return "資料裡找不到這個問題的答案。";
+    return "根據資料：" + DOCS[use[0].i] + "[" + did(use[0].i) + "]";
+  }
+
+  function topAxisQuiz(qv){
+    var best = 0;
+    qv.forEach(function(v, i){ if(v > qv[best]) best = i; });
+    if(qv[best] === 0) return null;
+    var tied = qv.filter(function(v){ return v === qv[best]; }).length;
+    if(tied > 1) return null;
+    var opts = [{t:AXES[best].k, v:best}];
+    for(var d = 1; opts.length < 3 && d < AXES.length; d++){
+      var i = (best + d * 3) % AXES.length;
+      if(qv[i] === 0) opts.push({t:AXES[i].k, v:i});
+    }
+    return {q:"這個問題的向量，哪一個主題的數字最大？", opts:opts, ans:best};
+  }
+
+  function buildSteps(lv, k){
+    var steps = [], qv = embed(lv.q), n = DOCS.length;
+    var scores = DOCS.map(function(){ return null; });
+    var heap = [], dvec = DOCS.map(embed), kicked = 0, cnt = 0, phase = "scan", use = [], cur = -1, prompt = "", ans = null;
+    function inHeap(i){ return heap.some(function(h){ return h.i === i; }); }
+    function put(o){
+      var st = {};
+      for(var key in o) st[key] = o[key];
+      st.scores = scores.slice();
+      st.heap = heap.map(function(h){ return {s:h.s, i:h.i}; });
+      st.state = DOCS.map(function(_, i){
+        if(phase === "final"){
+          if(use.some(function(u){ return u.i === i; })) return "use";
+          if(st.dropped && st.dropped.indexOf(i) >= 0) return "drop";
+          return scores[i] === null ? "" : "out";
+        }
+        if(i === cur) return "cur";
+        if(inHeap(i)) return "in";
+        return scores[i] === null ? "" : "out";
+      });
+      st.cnt = cnt; st.kicked = kicked; st.use = use.slice(); st.prompt = prompt; st.ans = ans; st.qv = o.qv || null;
+      st.max = scores.reduce(function(m, v){ return v !== null && v > m ? v : m; }, -1);
+      steps.push(st);
+    }
+
+    put({kind:"start", title:"問題進來了", line:0, msg:"問題是「" + esc(lv.q) + "」。這裡有 10 段文件，我們要從中挑出最相關的 " + k + " 段。"});
+
+    var hits = AXES.map(function(a, i){ return qv[i] ? a.k + " " + qv[i] : ""; }).filter(Boolean).join("、");
+    put({kind:"embed", title:"把問題變成向量", line:1, qv:qv, quiz:topAxisQuiz(qv),
+         msg: hits ? "問題命中了這些主題：<b>" + hits + "</b>。這 8 個數字就是問題的向量。"
+                   : "問題一個主題都沒命中，向量全部是 0。全部是 0 的向量沒有方向，和誰的相似度都是 0。"});
+
+    for(var i = 0; i < n; i++){
+      var s = cosine(qv, dvec[i]);
+      var full = heap.length >= k, top = full ? heap[0] : null, wins = full ? s > top.s : true;
+      var quiz = null;
+      if(full){
+        quiz = {q:"堆頂是 " + did(top.i) + "（" + f2(top.s) + "）。" + did(i) + " 的分數是 " + f2(s) + "，它進得了前 " + k + " 名嗎？",
+                opts:[{t:"進得了，換掉堆頂", v:1},{t:"進不了，直接淘汰", v:0}], ans:wins ? 1 : 0};
+      }
+      scores[i] = s; cnt++; cur = i;
+      var head = did(i) + " 的相似度是 <b>" + f2(s) + "</b>，字面相同的兩字詞有 " + overlap(lv.q, DOCS[i]) + " 個。";
+      if(!full){
+        heapPush(heap, {s:s, i:i});
+        put({kind:"push", title:"堆積還沒滿，直接放", line:5, cur:i, qv:qv, label:did(i) + " " + f2(s), quiz:quiz,
+             msg:head + "堆積裡只有 " + (heap.length - 1) + " 筆，還裝得下，不用比較。"});
+      } else if(wins){
+        var old = heapPop(heap); heapPush(heap, {s:s, i:i}); kicked++;
+        put({kind:"swap", title:"比堆頂高，換掉它", line:6, cur:i, qv:qv, label:did(i) + " " + f2(s), quiz:quiz,
+             msg:head + "比目前第 " + k + " 名 " + did(old.i) + "（" + f2(old.s) + "）高，" + did(old.i) + " 被擠出去。"});
+      } else {
+        put({kind:"skip", title:"沒有比堆頂高，淘汰", line:6, cur:i, qv:qv, label:did(i) + " " + f2(s), quiz:quiz,
+             msg:head + "沒有超過堆頂 " + did(top.i) + "（" + f2(top.s) + "），不用動堆積。"});
+      }
+    }
+
+    cur = -1;
+    var ranked = heap.slice().sort(function(a, b){ return b.s - a.s || a.i - b.i; });
+    put({kind:"rank", title:"全部看完，排出名次", line:8, qv:qv,
+         msg:"前 " + k + " 名由高到低是：" + ranked.map(function(r){ return did(r.i) + "（" + f2(r.s) + "）"; }).join("、") + "。"});
+
+    var pass = ranked[0].s >= THRESHOLD;
+    var gate = {q:"最高分是 " + f2(ranked[0].s) + "，門檻是 " + f2(THRESHOLD) + "。系統接下來要怎麼做？",
+                opts:[{t:"繼續，把資料交給模型", v:1},{t:"停止，說資料裡找不到", v:0}], ans:pass ? 1 : 0};
+    use = ranked.filter(function(r){ return r.s >= THRESHOLD; });
+    var dropped = ranked.filter(function(r){ return r.s < THRESHOLD; }).map(function(r){ return r.i; });
+    phase = "final";
+    if(!pass){
+      ans = {rag:lv.ans || extractive(use), raw:lv.raw || "（模型憑印象編出一個答案。）"};
+      put({kind:"stop", title:"低於門檻，不回答", line:9, qv:qv, dropped:dropped, quiz:gate,
+           msg:"最高分 " + f2(ranked[0].s) + " 低於門檻，資料裡沒有相關內容。" + (lv.fin ? " " + lv.fin : "")});
+      return steps;
+    }
+    put({kind:"pass", title:"通過門檻", line:9, qv:qv, dropped:dropped, quiz:gate,
+         msg:"最高分 " + f2(ranked[0].s) + " 達到門檻。留下 " + use.length + " 段資料" + (dropped.length ? "，低於門檻的 " + dropped.map(did).join("、") + " 不用。" : "。")});
+
+    prompt = buildPrompt(lv.q, use);
+    put({kind:"prompt", title:"組成提示詞", line:10, qv:qv, dropped:dropped,
+         msg:"規則、資料、問題組成一段文字。模型看不到其他 " + (n - use.length) + " 段文件，只看得到這裡的內容。"});
+
+    ans = {rag:lv.ans || extractive(use), raw:lv.raw || "（模型憑印象編出一個答案。）"};
+    put({kind:"done", title:"模型回答", line:11, qv:qv, dropped:dropped,
+         msg:lv.fin || "這是直接引用第一名資料的示意回答。真的語言模型會讀完全部資料，再用自己的話回答。"});
+    return steps;
+  }
+
+  /* ---------- 4. 畫面層 ---------- */
+
+  function paintQuestion(){
+    var st = S.steps[S.cur], v = st.qv;
+    $("qText").textContent = S.level.q;
+    $("qVecLabel").textContent = v ? "問題的向量（8 個主題）" : "問題的向量（還沒計算）";
+    var host = $("qVec");
+    host.innerHTML = "";
+    AXES.forEach(function(a, i){
+      var c = document.createElement("div");
+      c.className = "vcell" + (v && v[i] ? " on" : "");
+      c.textContent = v ? v[i] : "·";
+      var sm = document.createElement("small"); sm.textContent = a.k;
+      c.appendChild(sm);
+      host.appendChild(c);
+    });
+  }
+
+  var ST_TXT = {cur:"比對中", "in":"在堆積裡", out:"淘汰", use:"採用", drop:"低於門檻"};
+  function paintDocs(){
+    var st = S.steps[S.cur], host = $("dlist");
+    host.innerHTML = "";
+    DOCS.forEach(function(t, i){
+      var r = document.createElement("div"), s = st.scores[i], k = st.state[i];
+      r.className = "drow";
+      if(k) r.setAttribute("data-s", k);
+      var bar = s === null ? "" : '<i><b style="width:' + Math.round(s * 100) + '%"></b></i>' + f2(s);
+      r.innerHTML = '<span class="id">' + did(i) + '</span><span class="tx">' + esc(t) + '</span><span class="sc">' + bar + '</span><span class="st">' + (ST_TXT[k] || "") + "</span>";
+      host.appendChild(r);
+    });
+  }
+
+  function paintHeap(){
+    var st = S.steps[S.cur], host = $("heap");
+    host.innerHTML = "";
+    st.heap.forEach(function(h, i){
+      var c = document.createElement("div");
+      c.className = "hcell" + (i === 0 ? " top" : "");
+      c.textContent = did(h.i) + " " + f2(h.s);
+      var sm = document.createElement("small"); sm.textContent = i === 0 ? "堆頂 [0]" : "[" + i + "]";
+      c.appendChild(sm);
+      host.appendChild(c);
+    });
+    $("heapHint").textContent = st.heap.length
+      ? "裝了 " + st.heap.length + " / " + S.k + " 筆。堆頂是其中分數最低的，新資料只要和它比。"
+      : "最多裝 " + S.k + " 筆，現在是空的。";
+  }
+
+  function paintAnswer(){
+    var st = S.steps[S.cur];
+    $("prompt").textContent = st.prompt || "還沒組好。檢索完才知道要放哪些資料。";
+    var on = !!st.ans;
+    $("ansRag").classList.toggle("on", on);
+    $("ansRaw").classList.toggle("on", on);
+    if(on){ $("ansRagT").textContent = st.ans.rag; $("ansRawT").textContent = st.ans.raw; }
+  }
+
+  function paintStats(){
+    var st = S.steps[S.cur];
+    $("stCnt").textContent = st.cnt;
+    $("stMax").textContent = st.max >= 0 ? f2(st.max) : "—";
+    $("stK").textContent = S.k;
+    $("stOut").textContent = st.kicked;
+  }
+
+  function renderAlgo(){
+    var ol = $("algo"), all = $("algoAll");
+    ol.innerHTML = ""; all.innerHTML = "";
+    CODE.forEach(function(c, j){
+      var li = document.createElement("li");
+      li.textContent = c;
+      ol.appendChild(li);
+      var row = document.createElement("li");
+      var no = document.createElement("span"); no.className = "no"; no.textContent = j + 1;
+      var src = document.createElement("span"); src.className = "src"; src.textContent = c.trim();
+      var d = document.createElement("span"); d.className = "doc"; d.textContent = CODE_DOC[j];
+      row.appendChild(no); row.appendChild(src); row.appendChild(d);
+      all.appendChild(row);
+    });
+  }
+
+  function paintAlgo(){
+    var line = S.steps[S.cur].line, lis = $("algo").children, rows = $("algoAll").children;
+    for(var i = 0; i < lis.length; i++) lis[i].classList.toggle("is-now", (i + 1) === line);
+    for(var j = 0; j < rows.length; j++) rows[j].classList.toggle("is-now", (j + 1) === line);
+    var box = $("algoDoc");
+    if(line >= 1 && line <= CODE_DOC.length){
+      box.classList.remove("idle");
+      $("algoDocLn").textContent = "行 " + line;
+      $("algoDocTxt").textContent = CODE_DOC[line - 1];
+    } else {
+      box.classList.add("idle");
+      $("algoDocLn").textContent = "—";
+      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+    }
+  }
+
+  function say(kind, title, text){
+    $("say").setAttribute("data-k", KMAP[kind] || "start");
+    $("sayBadge").textContent = BADGE[kind] || "STEP";
+    $("sayTitle").textContent = title;
+    $("sayText").innerHTML = text;
+  }
+  function paintSay(){ var st = S.steps[S.cur]; say(st.kind, st.title, st.msg); }
+
+  function paintLog(){
+    var ol = $("log");
+    ol.innerHTML = "";
+    if(S.cur === 0){
+      ol.innerHTML = '<li class="log-empty">還沒開始。</li>';
+      $("logNote").textContent = "";
+      return;
+    }
+    for(var j = 1; j <= S.cur; j++){
+      var st = S.steps[j], li = document.createElement("li");
+      li.setAttribute("data-k", KMAP[st.kind] || "start");
+      var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = BADGE[st.kind];
+      var b = document.createElement("b"); b.textContent = st.label || st.title;
+      li.appendChild(tag); li.appendChild(b);
+      ol.appendChild(li);
+    }
+    ol.scrollTop = ol.scrollHeight;
+    $("logNote").textContent = S.cur + " 步";
+  }
+
+  function paintProgress(){
+    var total = S.steps.length - 1;
+    $("progBar").style.width = (total > 0 ? S.cur / total * 100 : 0) + "%";
+    $("stepCount").textContent = S.cur + " / " + total;
+    $("btnPrev").disabled = (S.cur === 0);
+    $("btnNext").disabled = (S.cur >= S.steps.length - 1);
+  }
+
+  function render(){
+    paintQuestion(); paintDocs(); paintHeap(); paintAnswer(); paintStats();
+    paintAlgo(); paintSay(); paintLog(); paintProgress();
+    if(S.mode === "quiz") renderQuiz();
+  }
+
+  /* ---------- 5. 導覽 ---------- */
+
+  function goto_(k){ S.cur = Math.max(0, Math.min(S.steps.length - 1, k)); render(); }
+  function next(){
+    if(S.cur >= S.steps.length - 1){ stopPlay(); return; }
+    goto_(S.cur + 1);
+    if(S.cur >= S.steps.length - 1) stopPlay();
+  }
+  function prev(){ stopPlay(); goto_(S.cur - 1); }
+  function startPlay(){
+    if(S.cur >= S.steps.length - 1) goto_(0);
+    S.playing = true;
+    $("btnPlay").textContent = "❚❚ 暫停";
+    S.timer = setInterval(next, 1100);
+  }
+  function stopPlay(){
+    S.playing = false;
+    clearInterval(S.timer); S.timer = null;
+    $("btnPlay").textContent = "▶ 自動播放";
+  }
+  function togglePlay(){ if(S.playing) stopPlay(); else startPlay(); }
+
+  /* ---------- 6. 闖關 ---------- */
+
+  function nextQuizIndex(){
+    for(var k = S.cur + 1; k < S.steps.length; k++){ if(S.steps[k].quiz) return k; }
+    return -1;
+  }
+
+  function renderQuiz(){
+    var q = $("quizQ"), opts = $("quizOpts"), ni = nextQuizIndex();
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = S.asked ? Math.round(S.right / S.asked * 100) + "%" : "—";
+    if(ni === -1){
+      opts.innerHTML = "";
+      if(S.cur < S.steps.length - 1){
+        q.textContent = "題目答完了，看看模型最後怎麼回答。";
+        var v = document.createElement("button");
+        v.className = "btn btn-primary"; v.type = "button"; v.textContent = "看最後的回答 →";
+        v.addEventListener("click", function(){ goto_(S.steps.length - 1); });
+        opts.appendChild(v);
+        return;
+      }
+      q.textContent = "這一關結束了。";
+      var b = document.createElement("button");
+      b.className = "btn btn-primary"; b.type = "button"; b.textContent = "下一關 →";
+      b.addEventListener("click", function(){ loadLevel((S.levelIdx + 1) % LEVELS.length); });
+      opts.appendChild(b);
+      var r = document.createElement("button");
+      r.className = "btn"; r.type = "button"; r.textContent = "↺ 這關重來";
+      r.addEventListener("click", function(){ reload(); });
+      opts.appendChild(r);
+      return;
+    }
+    var st = S.steps[ni];
+    S.pendingIndex = ni;
+    q.textContent = st.quiz.q;
+    opts.innerHTML = "";
+    var list = st.quiz.opts, rot = ni % list.length;
+    for(var k = 0; k < list.length; k++){
+      var o = list[(k + rot) % list.length];
+      addOpt(opts, o.t, o.v);
+    }
+  }
+
+  function addOpt(host, label, val){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button"; b.textContent = label;
+    b.addEventListener("click", function(){ answerQuiz(val); });
+    host.appendChild(b);
+  }
+
+  function answerQuiz(val){
+    var ni = S.pendingIndex;
+    if(ni == null || ni < 0) return;
+    var st = S.steps[ni], correct = st.quiz.ans, correctLabel = "";
+    st.quiz.opts.forEach(function(o){ if(o.v === correct) correctLabel = o.t; });
+    S.asked++;
+    var win = (val === correct);
+    if(win){
+      S.right++; S.streak++;
+      if(S.streak > S.best) S.best = S.streak;
+      S.score += 10 + Math.max(0, S.streak - 1) * 5;
+    } else {
+      S.streak = 0;
+    }
+    goto_(ni);
+    var pre = win
+      ? '<span class="verdict ok">✓ 答對了。</span> '
+      : '<span class="verdict no">✗ 不對，正確答案是「' + esc(correctLabel) + '」。</span> ';
+    $("sayText").innerHTML = pre + st.msg;
+    $("sScore").textContent = S.score;
+    $("sStreak").textContent = S.streak;
+    $("sAcc").textContent = Math.round(S.right / S.asked * 100) + "%";
+  }
+
+  /* ---------- 7. 載入 ---------- */
+
+  function reload(){
+    stopPlay();
+    S.steps = buildSteps(S.level, S.k);
+    S.cur = 0;
+    if(S.mode === "quiz"){ S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0; }
+    $("kSel").value = String(S.k);
+    paintChips();
+    render();
+  }
+  function loadLevel(i){
+    S.level = LEVELS[i];
+    S.levelIdx = i;
+    S.k = S.level.k;
+    reload();
+  }
+  function askCustom(text){
+    S.level = {tag:"自訂", n:"", q:text, k:S.k};
+    S.levelIdx = -1;
+    reload();
+  }
+
+  function paintChips(){
+    var host = $("chips");
+    host.innerHTML = "";
+    LEVELS.forEach(function(lv, i){
+      var b = document.createElement("button");
+      b.className = "chip" + (i === S.levelIdx ? " is-on" : "");
+      b.type = "button";
+      var code = document.createElement("code"); code.textContent = (i + 1) + " " + lv.tag;
+      var sp = document.createElement("span"); sp.textContent = lv.n;
+      b.appendChild(code); b.appendChild(sp);
+      b.addEventListener("click", function(){ loadLevel(i); });
+      host.appendChild(b);
+    });
+  }
+
+  function setMode(m){
+    S.mode = m;
+    Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+      var on = b.getAttribute("data-mode") === m;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    $("quiz").classList.toggle("is-on", m === "quiz");
+    $("btnNext").style.display = (m === "quiz") ? "none" : "";
+    $("btnPlay").style.display = (m === "quiz") ? "none" : "";
+    stopPlay();
+    if(m === "quiz"){
+      S.score = 0; S.streak = 0; S.best = 0; S.asked = 0; S.right = 0;
+      goto_(0);
+      say("start", "闖關開始", "看著問題和文件，判斷下一步會發生什麼。連續答對會加分。");
+    } else {
+      render();
+    }
+  }
+
+  /* ---------- 8. 事件綁定 ---------- */
+
+  $("btnNext").addEventListener("click", function(){ stopPlay(); next(); });
+  $("btnPrev").addEventListener("click", prev);
+  $("btnPlay").addEventListener("click", togglePlay);
+  $("btnReset").addEventListener("click", reload);
+  $("kSel").addEventListener("change", function(){ S.k = parseInt(this.value, 10); reload(); });
+  $("askForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var t = $("askIn").value.trim();
+    if(t) askCustom(t);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+    b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+  });
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+    if(S.mode === "demo"){
+      if(e.key === "ArrowRight"){ e.preventDefault(); stopPlay(); next(); }
+      else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+      else if(e.key === " "){ e.preventDefault(); togglePlay(); }
+    } else if(e.key === "ArrowLeft"){ e.preventDefault(); prev(); }
+  });
+
+  /* ---------- 9. 啟動 ---------- */
+  renderAlgo();
+  loadLevel(0);
+
+})();
+</script>
+</body>
+</html>
