@@ -74,6 +74,12 @@
 .fig .ok{fill:var(--jade-soft);stroke:var(--jade);stroke-width:1.5}
 .fig .no{fill:var(--alarm-soft);stroke:var(--alarm);stroke-width:1.5}
 .fig .ar{stroke:var(--ink-soft);stroke-width:1.6;fill:none}
+
+/* 算式與參考文獻 */
+.term .ta::before{content:"本關　"}
+.fml{font-family:var(--font-mono);font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;
+  color:var(--ink);background:var(--sunken);border-radius:8px;padding:10px 12px}
+.refs{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -84,10 +90,11 @@
     <span class="crumb">25 · RAG 檢索增強生成</span>
     <div class="jump">
       <a href="#s0"><span class="n">00</span>定義</a>
-      <a href="#s1"><span class="n">01</span>玩法</a>
+      <a href="#s1"><span class="n">01</span>練習</a>
       <a href="#s2"><span class="n">02</span>遊戲</a>
       <a href="#s3"><span class="n">03</span>原理</a>
       <a href="#s4"><span class="n">04</span>程式</a>
+      <a href="#s5"><span class="n">05</span>應用</a>
     </div>
   </div>
 </nav>
@@ -97,7 +104,7 @@
   <header class="hero">
     <p class="eyebrow">Game 25 · Retrieval-Augmented Generation</p>
     <h1>RAG 校園問答</h1>
-    <p class="lede">AI 不知道海大餐廳幾點開，卻可能一本正經地亂答。RAG 的做法是：先去資料裡找出最相關的幾段，再請 AI 只根據這幾段回答。「找」的那一步，用的就是你學過的陣列和堆積。</p>
+    <p class="lede">語言模型的知識受限於訓練資料，無法掌握私有或最新的資訊，也可能生成看似合理但錯誤的內容。RAG 在生成前先從外部知識庫檢索相關段落，再要求模型依據這些段落回答。本單元從資料結構的角度拆解檢索流程，並延伸至實際系統的設計與應用。</p>
     <div class="facts">
       <div class="fact"><span>核心結構</span><b>向量＋最小堆積</b></div>
       <div class="fact"><span>難度</span><b>進階</b></div>
@@ -112,67 +119,102 @@
     <div class="sec-head">
       <span class="sec-num">00</span>
       <div>
-        <h2>先搞懂：RAG 到底是什麼</h2>
-        <p class="sub">沒學過程式也看得懂。先把名詞和定義弄清楚，後面的遊戲才不會霧煞煞。</p>
+        <h2>RAG 的定義與基本概念</h2>
+        <p class="sub">說明 RAG 要解決的問題、形式定義，以及後續章節使用的術語。</p>
       </div>
     </div>
     <div class="sec-body">
       <div class="block">
-        <h3>一句話定義</h3>
+        <h3>定義</h3>
         <div class="defbox">
           <span class="deftag">DEFINITION · 定義</span>
-          <div class="defline">RAG 是<em>先檢索相關資料，再把資料交給語言模型，讓它根據資料回答</em>的做法。</div>
-          <p>白話補一句：把閉卷考變成開書考。模型不必背下所有資料，只要會看你翻給它的那幾頁。</p>
+          <div class="defline">RAG（Retrieval-Augmented Generation，檢索增強生成）是結合<em>外部知識檢索</em>與<em>語言模型生成</em>的架構：系統先依查詢從知識庫取回相關段落，再以這些段落為依據生成回答。</div>
+          <p>此架構由 Lewis 等人於 2020 年提出。模型參數中的知識稱為參數化記憶（parametric memory），外部知識庫稱為非參數化記憶（non-parametric memory）。前者須重新訓練才能更新，後者只需更新資料。</p>
         </div>
-        <div class="callout" data-k="key"><span class="tag">目的</span><span class="txt">語言模型沒讀過你們學校的規定，也不知道昨天才改的事。RAG 讓它能回答<b>自己沒學過的資料</b>，還能指出答案出自哪一段。</span></div>
+        <div class="fml">給定查詢 x 與知識庫 C：
+Z = Retrieve(x, C, k)     // 取回最相關的 k 個段落
+y = Generate(x, Z)        // 以 x 與 Z 為條件生成回答</div>
       </div>
       <div class="block">
-        <h3>先認識這些詞（照順序讀，後面的詞會用到前面的）</h3>
+        <h3>為什麼需要 RAG</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>語言模型的限制</th><th>具體情境</th><th>RAG 的處理方式</th></tr></thead>
+          <tbody>
+            <tr><td><b>知識有截止時間</b></td><td>訓練後才公布的法規、公告或價格</td><td>更新知識庫即可反映，不需重新訓練</td></tr>
+            <tr><td><b>未學過私有資料</b></td><td>公司規章、病歷、內部程式碼</td><td>資料留在自有系統，查詢時才取用所需段落</td></tr>
+            <tr><td><b>可能產生幻覺</b></td><td>編造不存在的條文、數字或文獻</td><td>限定依據檢索內容作答，資料不足時拒答</td></tr>
+            <tr><td><b>回答難以查證</b></td><td>使用者無從判斷答案的來源</td><td>回答附上段落編號，可回到原文核對</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout" data-k="key"><span class="tag">真實案例</span><span class="txt">2023 年美國 <i>Mata v. Avianca</i> 案中，律師提交的書狀引用了 ChatGPT 編造的判例，遭法院裁罰 5,000 美元。在高風險領域，答案能否回溯到原始資料，與答案本身同樣重要。</span></div>
+      </div>
+      <div class="block">
+        <h3>核心術語</h3>
         <div class="terms">
           <div class="term">
             <div class="tn">語言模型 <small>LLM</small></div>
-            <div class="td">讀過大量文字、會接著寫出下一段話的程式。ChatGPT、Claude 都是。</div>
-            <div class="ta">像一個讀過很多書、但沒帶書進考場的學生。</div>
+            <div class="td">以大量文本訓練，依上下文預測下一個 token 的模型。token 是模型處理文字的基本單位。</div>
+            <div class="ta">未連線真實模型，回答為預先撰寫的示意內容。</div>
           </div>
           <div class="term">
             <div class="tn">幻覺 <small>hallucination</small></div>
-            <div class="td">模型不知道答案，卻講出一段聽起來合理的錯誤內容。</div>
-            <div class="ta">考試不會寫，還是把答案卷寫得滿滿的。</div>
+            <div class="td">模型生成語句流暢、但與事實或所給資料不符的內容。</div>
+            <div class="ta">「沒有 RAG 的回答」即示範此現象。</div>
+          </div>
+          <div class="term">
+            <div class="tn">上下文視窗 <small>context window</small></div>
+            <div class="td">模型單次可處理的 token 上限。規則、資料、問題與回答都會占用此額度。</div>
+            <div class="ta">提示詞面板的內容，就是模型可見的全部資料。</div>
           </div>
           <div class="term">
             <div class="tn">文件塊 <small>chunk</small></div>
-            <div class="td">把長文件切成的一小段。檢索時一次拿一段，不拿整份。</div>
-            <div class="ta">不是把整本書交給學生，而是翻到有用的那一頁。</div>
-          </div>
-          <div class="term">
-            <div class="tn">向量 <small>vector</small></div>
-            <div class="td">一串數字，就是一個陣列。每一格代表一個特徵。</div>
-            <div class="ta">像體檢表：身高、體重、視力，幾個數字描述一個人。</div>
+            <div class="td">將長文件切分後的檢索單位。切分方式直接影響檢索品質。</div>
+            <div class="ta">10 段文件各為一個 chunk。</div>
           </div>
           <div class="term">
             <div class="tn">嵌入 <small>embedding</small></div>
-            <div class="td">把一段文字變成向量。意思接近的文字，會變成接近的向量。</div>
-            <div class="ta">幫每段文字在地圖上標座標，主題相近的就住得近。</div>
+            <div class="td">將文字映射為固定維度的實數向量，語意相近的文字在向量空間中距離相近。</div>
+            <div class="ta">以 8 個主題的同義詞表手動產生 8 維向量。</div>
           </div>
           <div class="term">
-            <div class="tn">相似度 <small>cosine similarity</small></div>
-            <div class="td">用一個數字表示兩個向量多接近。本關的分數在 0 到 1 之間，越大越像。</div>
-            <div class="ta">比較兩個人走的方向：同方向 1 分，完全不同方向 0 分。</div>
+            <div class="tn">餘弦相似度 <small>cosine similarity</small></div>
+            <div class="td">兩向量夾角的餘弦值，只比較方向、不受長度影響，一般值域為 −1 到 1。</div>
+            <div class="ta">向量各維皆非負，因此分數落在 0 到 1。</div>
           </div>
           <div class="term">
             <div class="tn">前 k 名 <small>top-k</small></div>
-            <div class="td">分數最高的 k 段文字。k 是我們自己決定的數字。</div>
-            <div class="ta">班上取前三名，不必把全班從頭排到尾。</div>
+            <div class="td">相似度最高的 k 個 chunk。k 是超參數，需在召回與雜訊之間取捨。</div>
+            <div class="ta">以大小為 k 的最小堆積維護，k 可調整為 1 到 4。</div>
+          </div>
+          <div class="term">
+            <div class="tn">相似度門檻 <small>threshold</small></div>
+            <div class="td">低於此分數的段落視為不相關，用以避免把雜訊交給模型。</div>
+            <div class="ta">門檻為 0.30，第 4 關因此直接拒答。</div>
+          </div>
+          <div class="term">
+            <div class="tn">稠密／稀疏檢索 <small>dense / sparse</small></div>
+            <div class="td">稠密檢索比對 embedding，擅長語意；稀疏檢索比對詞彙（如 BM25），擅長專有名詞與編號。</div>
+            <div class="ta">第 2 關顯示稠密檢索可跨越字面差異。</div>
+          </div>
+          <div class="term">
+            <div class="tn">重排序 <small>reranking</small></div>
+            <div class="td">先以快速方法取回較多候選，再以較精確但較慢的模型重新排序。</div>
+            <div class="ta">未實作，原理見 03。</div>
           </div>
           <div class="term">
             <div class="tn">提示詞 <small>prompt</small></div>
-            <div class="td">實際送給模型的文字：規則＋找到的資料＋使用者的問題。</div>
-            <div class="ta">開書考的考卷：作答規則、參考資料、題目都印在上面。</div>
+            <div class="td">實際送入模型的文字，通常包含作答規則、檢索到的資料與使用者問題。</div>
+            <div class="ta">由 RULE、前 k 段資料與問題組成。</div>
+          </div>
+          <div class="term">
+            <div class="tn">依據性 <small>groundedness</small></div>
+            <div class="td">回答的每項主張都能由所給資料支持的程度，常以引用來源來呈現與驗證。</div>
+            <div class="ta">回答中的 [D1] 即為引用標記。</div>
           </div>
         </div>
       </div>
       <div class="block">
-        <h3>看圖判斷：哪些是 RAG？</h3>
+        <h3>架構判別：哪些屬於 RAG</h3>
         <div class="figs">
           <figure class="fig" data-k="ok">
             <svg viewBox="0 0 240 140" role="img" aria-label="問題先查資料，再交給模型">
@@ -181,7 +223,7 @@
               <rect class="bx" x="182" y="52" width="52" height="34" rx="6"/><text x="208" y="73" text-anchor="middle">模型</text>
               <path class="ar" d="M56 69H88M148 69H180"/>
             </svg>
-            <figcaption><b class="verdict">✔ 是 RAG。</b>先檢索，再讓模型根據資料回答。</figcaption>
+            <figcaption><b class="verdict">✔ 是 RAG。</b>先檢索，再由模型依據資料生成回答。</figcaption>
           </figure>
           <figure class="fig" data-k="no">
             <svg viewBox="0 0 240 140" role="img" aria-label="問題直接交給模型">
@@ -189,7 +231,7 @@
               <rect class="no" x="150" y="52" width="58" height="34" rx="6"/><text x="179" y="73" text-anchor="middle">模型</text>
               <path class="ar" d="M80 69H148"/>
             </svg>
-            <figcaption><b class="verdict">✘ 不是。</b>沒有檢索，模型只能憑印象回答。</figcaption>
+            <figcaption><b class="verdict">✘ 不是。</b>沒有檢索，回答僅依賴模型參數中的知識。</figcaption>
           </figure>
           <figure class="fig" data-k="no">
             <svg viewBox="0 0 240 140" role="img" aria-label="查到資料後直接顯示">
@@ -197,28 +239,28 @@
               <rect class="no" x="150" y="52" width="58" height="34" rx="6"/><text x="179" y="73" text-anchor="middle">查資料</text>
               <path class="ar" d="M80 69H148"/>
             </svg>
-            <figcaption><b class="verdict">✘ 不是。</b>這是搜尋，只有檢索，沒有模型生成回答。</figcaption>
+            <figcaption><b class="verdict">✘ 不是。</b>這是資訊檢索，只有查詢，沒有生成回答。</figcaption>
           </figure>
         </div>
       </div>
       <div class="block">
-        <h3>容易搞混的幾件事</h3>
+        <h3>易混淆的概念</h3>
         <div class="tablewrap"><table>
-          <thead><tr><th>常被搞混的東西</th><th>一樣嗎？</th><th>差在哪</th></tr></thead>
+          <thead><tr><th>比較對象</th><th>相同嗎</th><th>差異</th></tr></thead>
           <tbody>
-            <tr><td>RAG 和搜尋引擎</td><td class="verdict no">不一樣</td><td>搜尋把資料列給你看。RAG 多一步，由模型讀過資料後寫出回答。</td></tr>
-            <tr><td>RAG 和再訓練模型</td><td class="verdict no">不一樣</td><td>再訓練會改變模型本身。RAG 不動模型，只換餵給它的資料，資料更新時改資料就好。</td></tr>
-            <tr><td>向量比對和關鍵字比對</td><td class="verdict no">不一樣</td><td>關鍵字要字面相同才找得到。向量比的是意思，「肚子餓」也能找到「午餐」。</td></tr>
-            <tr><td>找到相關資料和資料裡有答案</td><td class="verdict no">不一樣</td><td>分數高只代表主題接近。第 5 關的問題就找得到宿舍規定，但規定裡沒寫答案。</td></tr>
+            <tr><td>RAG 與搜尋引擎</td><td class="verdict no">不同</td><td>搜尋引擎回傳文件清單，由使用者閱讀判斷。RAG 再由模型整合內容、生成回答。</td></tr>
+            <tr><td>RAG 與微調</td><td class="verdict no">不同</td><td>微調改變模型參數，較適合調整行為與格式。RAG 不改模型，較適合提供事實與常更新的知識。</td></tr>
+            <tr><td>向量比對與關鍵字比對</td><td class="verdict no">不同</td><td>關鍵字比對需要字面相符；向量比對的是語意。兩者互補，實務上常併用。</td></tr>
+            <tr><td>相關與可回答</td><td class="verdict no">不同</td><td>相似度高僅表示主題接近。第 5 關檢索到宿舍規定，但其中沒有答案。</td></tr>
           </tbody>
         </table></div>
       </div>
       <div class="block">
-        <h3>自我檢查（先自己想，再點開看答案）</h3>
+        <h3>觀念檢核</h3>
         <div class="check">
-          <details><summary>學校昨天改了圖書館的開放時間，RAG 系統要重新訓練模型嗎？</summary><div class="ans">不用。更新那段文件和它的向量就好，模型本身不動。這是 RAG 最大的好處之一。</div></details>
-          <details><summary>用了 RAG，模型就不會答錯了嗎？</summary><div class="ans">不是。找錯資料、沒找到關鍵的那段、或模型讀錯，都可能答錯。RAG 能減少亂編，也讓人能回頭查證，但不保證正確。</div></details>
-          <details><summary>為什麼不把全部資料都貼給模型？</summary><div class="ans">資料一多就放不下，就算放得下也又慢又貴，無關的內容還可能干擾回答。所以先挑出最相關的 k 段。</div></details>
+          <details><summary>學校更新了圖書館開放時間，RAG 系統需要重新訓練模型嗎？</summary><div class="ans">不需要。只要更新對應 chunk 的文字與向量，模型本身不變。這是 RAG 相較於微調的主要優勢之一。</div></details>
+          <details><summary>導入 RAG 後，模型就不會產生錯誤回答嗎？</summary><div class="ans">不會。知識庫可能缺資料，檢索可能漏掉關鍵段落，模型也可能誤讀內容。RAG 能降低幻覺並提高可查證性，但無法保證正確，相關的失敗類型見 03。</div></details>
+          <details><summary>上下文視窗足夠大時，為何不把全部資料都放進提示詞？</summary><div class="ans">成本與延遲會隨輸入 token 增加，無關內容也可能干擾模型。研究顯示，關鍵資訊位於長輸入中段時，模型的表現常會下降。此外，權限控管也要求只提供使用者有權看到的段落。</div></details>
         </div>
       </div>
     </div>
@@ -229,26 +271,49 @@
     <div class="sec-head">
       <span class="sec-num">01</span>
       <div>
-        <h2>怎麼玩・你會學到什麼</h2>
-        <p class="sub">先看這一段，再往下玩。</p>
+        <h2>練習目的、作法與步驟</h2>
+        <p class="sub">操作遊戲前，請先了解本練習的設計與預期成果。</p>
       </div>
     </div>
     <div class="sec-body">
+      <div class="block">
+        <h3>練習總覽</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>項目</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><b>目的</b></td><td>逐步觀察檢索過程，理解向量比對、前 k 名選取與門檻判斷如何決定模型看得到的資料，並能分析回答失敗的原因。</td></tr>
+            <tr><td><b>作法</b></td><td>以 10 段虛構校園資料作為知識庫。7 個關卡各聚焦一個因素：語意比對、相似度、無關問題、資料缺漏與 k 值。</td></tr>
+            <tr><td><b>架構</b></td><td>資料層（文件、向量）→ 檢索層（相似度、最小堆積、門檻）→ 生成層（提示詞、回答）。完整流程見 03，程式架構見 04。</td></tr>
+            <tr><td><b>成果</b></td><td>完成手算驗證、不同 k 值的比較，以及一則失敗案例分析。</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="block">
+        <h3>練習步驟</h3>
+        <ol class="steps">
+          <li><b>研讀定義。</b>閱讀 00，確認能說明各術語的意義。</li>
+          <li><b>觀察完整流程。</b>以演示模式執行第 1 關，記錄問題向量、各文件分數與堆積的變化。</li>
+          <li><b>手算驗證。</b>依 03 的算式驗算 D1 與 D9 的分數，並與畫面比對。</li>
+          <li><b>比較關鍵情境。</b>第 2 關比較字面與語意；第 4、5 關區分「查無資料」與「有資料但無答案」；第 6、7 關比較 k=1 與 k=2。</li>
+          <li><b>檢驗理解。</b>切換闖關模式，在答案揭曉前自行判斷每一步的結果。</li>
+          <li><b>分析失敗案例。</b>在「自己問」輸入問題，找出一題回答不理想的例子，對照 03 的失敗類型說明原因與改善方式。</li>
+        </ol>
+      </div>
       <div class="cols">
         <div class="block">
-          <h3>怎麼玩</h3>
-          <p>畫面上方是問題和它的向量，中間是 10 段校園資料，下方是堆積和送給模型的提示詞。</p>
+          <h3>操作方式</h3>
+          <p>畫面由上而下依序為問題與向量、10 段校園資料、最小堆積與提示詞。</p>
           <h4>演示模式</h4>
           <ol class="steps">
-            <li>挑一個<b>關卡</b>，或在「自己問」輸入問題。</li>
-            <li>按 <b>下一步</b>，看問題變成向量，再和每段資料一段一段算分數。</li>
-            <li>看最小堆積怎麼留下前 k 名：新分數比堆頂高，才能把堆頂換掉。</li>
-            <li>最後看提示詞怎麼組出來，以及有 RAG 和沒有 RAG 的回答差在哪。</li>
+            <li>選擇<b>關卡</b>，或在「自己問」輸入問題。</li>
+            <li>按<b>下一步</b>，觀察問題轉為向量，並與每段資料計算相似度。</li>
+            <li>觀察最小堆積的更新：新分數高於堆頂時才取代堆頂。</li>
+            <li>檢視組成的提示詞，比較有無 RAG 的回答。</li>
           </ol>
           <h4>闖關模式</h4>
           <ol class="steps">
-            <li>先不給答案，由你判斷：問題最接近哪個主題？這段資料進得了前 k 名嗎？這題該回答還是說找不到？</li>
-            <li>答對得分、連對加分；答錯立刻解釋理由。</li>
+            <li>系統隱藏結果，由學習者判斷主要主題、能否進入前 k 名，以及應回答或拒答。</li>
+            <li>答對得分，連續答對有加分；答錯時顯示說明。</li>
           </ol>
           <div class="callout" data-k="key">
             <span class="tag">操作</span>
@@ -256,22 +321,19 @@
           </div>
         </div>
         <div class="block">
-          <h3>你會學到什麼</h3>
+          <h3>學習目標</h3>
+          <p>完成本單元後，應能：</p>
           <ul class="bullets">
-            <li><b>RAG 的流程</b> —— 切塊、向量化、檢索、組提示詞、生成回答。</li>
-            <li><b>向量與相似度</b> —— 文字怎麼變成陣列，餘弦相似度怎麼算。</li>
-            <li><b>用大小為 k 的最小堆積取前 k 名</b> —— 為什麼堆頂放最低分，而不是最高分。</li>
-            <li><b>k 怎麼影響答案</b> —— k 太小會漏掉資料，太大會混入雜訊。</li>
-            <li><b>相似度門檻</b> —— 找不到就說找不到，不要硬答。</li>
-            <li><b>RAG 的極限</b> —— 找到相關資料，不代表資料裡有答案。</li>
+            <li><b>說明 RAG 的流程</b> —— 切塊、向量化、檢索、組提示詞、生成回答。</li>
+            <li><b>計算餘弦相似度</b> —— 並解釋為何比較方向而非長度。</li>
+            <li><b>分析前 k 名演算法</b> —— 說明堆頂為何存最低分，並推導 O(N log k)。</li>
+            <li><b>評估參數影響</b> —— 判斷 k 值、門檻與切塊大小對結果的影響。</li>
+            <li><b>診斷失敗原因</b> —— 區分問題出在資料、檢索或生成。</li>
+            <li><b>規劃實際應用</b> —— 針對特定領域提出資料來源、檢索方式與風險控管。</li>
           </ul>
-          <div class="callout" data-k="ok">
-            <span class="tag">建議順序</span>
-            <span class="txt">第 1 關看完整流程 → 第 2 關比較字面和意思 → 第 4、5 關看「找不到」的兩種情況 → 第 6、7 關比較 k=1 和 k=2。</span>
-          </div>
           <div class="callout" data-k="no">
             <span class="tag">注意</span>
-            <span class="txt">本關的校園資料是<b>教學用的虛構內容</b>，不是學校的真實規定。本頁也沒有連到真的語言模型，回答是為了示範而預先寫好的。</span>
+            <span class="txt">本關的校園資料是<b>教學用的虛構內容</b>，不是學校的真實規定。本頁也沒有連到真實語言模型，回答是為了示範而預先撰寫的；「自己問」或改變 k 時，則直接列出取回的資料。</span>
           </div>
         </div>
       </div>
@@ -283,8 +345,8 @@
     <div class="sec-head">
       <span class="sec-num">02</span>
       <div>
-        <h2>開始玩</h2>
-        <p class="sub">選關卡 → 一步一步走 → 看資料被挑進前 k 名，再變成回答。</p>
+        <h2>互動練習</h2>
+        <p class="sub">選擇關卡後逐步執行，觀察資料如何進入前 k 名並組成提示詞。</p>
       </div>
     </div>
     <div class="sec-body">
@@ -407,17 +469,17 @@
         <ol class="algo" id="algo"></ol>
         <div class="algo-doc idle" id="algoDoc">
           <span class="ln" id="algoDocLn">—</span>
-          <span id="algoDocTxt">按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。</span>
+          <span id="algoDocTxt">按「下一步」後，這裡會說明目前亮起的程式行。</span>
         </div>
         <details class="algo-all" open>
-          <summary>整份程式逐行白話說明（寫給完全沒學過程式的你）</summary>
+          <summary>程式逐行說明</summary>
           <ol id="algoAll"></ol>
         </details>
       </div>
 
       <div class="block">
-        <h3>這個遊戲跑的程式（完整版）</h3>
-        <p>把視覺化全部拿掉，檢索就這麼短。只有 <code>embed</code> 和 <code>llm</code> 要靠模型，其他都是本課學過的資料結構。</p>
+        <h3>檢索核心程式（完整版）</h3>
+        <p>去除視覺化後的檢索核心如下。實際系統中只有 <code>embed</code> 與 <code>llm</code> 需要模型，其餘都是本課介紹過的資料結構與演算法。</p>
         <pre class="code">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 typedef pair&lt;double,int&gt; P;                  <i>// (分數, 文件編號)</i>
@@ -449,7 +511,7 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
     reverse(top.begin(), top.end());         <i>// 改成由高到低</i>
     return top;
 }</pre>
-        <p>遊戲頁面多出來的幾百行，全部都是為了「讓過程看得見」。</p>
+        <p>遊戲頁面其餘的程式碼，都用於呈現上述過程。</p>
       </div>
     </div>
   </section>
@@ -459,76 +521,255 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
     <div class="sec-head">
       <span class="sec-num">03</span>
       <div>
-        <h2>這個功能是怎麼做到的</h2>
-        <p class="sub">分成事先準備和每次回答兩段，再看每一段用到哪個資料結構。</p>
+        <h2>原理與系統設計</h2>
+        <p class="sub">依資料流順序說明各環節的方法、取捨與資料結構，最後討論評估、失敗診斷與安全。</p>
       </div>
     </div>
     <div class="sec-body">
 
       <div class="block">
-        <h3>完整流程：準備一次，回答很多次</h3>
-        <h4>事先準備（資料更新時才做）</h4>
+        <h3>系統流程：離線索引與線上查詢</h3>
+        <p>RAG 分為兩條管線。離線索引只在資料異動時執行；線上查詢則在每次提問時執行，直接影響回應延遲。</p>
+        <h4>離線索引（資料更新時執行）</h4>
         <div class="arch">
           <div class="node" data-k="in">原始文件 <small>規定、公告、手冊</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="core">切成文件塊 <small>chunk</small></div>
+          <div class="node" data-k="core">解析與清理 <small>PDF、表格、版面</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="core">算出向量 <small>embedding</small></div>
+          <div class="node" data-k="core">切成文件塊 <small>chunk ＋ 中繼資料</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="data">存進向量庫 <small>文字＋向量</small></div>
+          <div class="node" data-k="core">計算向量 <small>embedding</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">建立索引 <small>向量索引、倒排索引</small></div>
         </div>
-        <h4>每次回答</h4>
+        <h4>線上查詢（每次提問時執行）</h4>
         <div class="arch">
           <div class="node" data-k="in">使用者問題</div>
           <div class="arrow"></div>
-          <div class="node" data-k="core">問題也算向量</div>
+          <div class="node" data-k="core">查詢處理 <small>改寫、計算向量、權限過濾</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="core">取相似度前 k 名</div>
+          <div class="node" data-k="core">檢索候選 <small>稠密＋稀疏</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="core">組成提示詞</div>
+          <div class="node" data-k="core">融合與重排序 <small>選出前 k 名</small></div>
           <div class="arrow"></div>
-          <div class="node" data-k="data">模型根據資料回答</div>
+          <div class="node" data-k="core">組成提示詞 <small>規則、資料、問題</small></div>
+          <div class="arrow"></div>
+          <div class="node" data-k="data">生成並附上引用</div>
         </div>
+        <div class="callout"><span class="tag">本關範圍</span><span class="txt">遊戲實作了計算向量、線性掃描、最小堆積、門檻與組提示詞。切塊、權限過濾、稀疏檢索、重排序與真實模型，則由本節說明。</span></div>
       </div>
 
       <div class="block">
-        <h3>手算一次餘弦相似度</h3>
-        <p>只看三個主題：吃、時間、書。問題向量 q＝(1, 1, 0)，文件向量 d＝(1, 0, 1)。</p>
+        <h3>切塊策略</h3>
+        <p>chunk 是檢索的最小單位。太大時向量會混合多個主題，且占用較多上下文；太小時則失去前後文，規定的條件與結論可能被切開。</p>
         <div class="tablewrap"><table>
-          <thead><tr><th>步驟</th><th>算式</th><th class="mono">結果</th></tr></thead>
+          <thead><tr><th>策略</th><th>作法</th><th>優點</th><th>缺點</th><th>適用資料</th></tr></thead>
           <tbody>
-            <tr><td>內積：對應格子相乘再相加</td><td class="mono">1×1 + 1×0 + 0×1</td><td class="mono">1</td></tr>
-            <tr><td>q 的長度</td><td class="mono">√(1² + 1² + 0²)</td><td class="mono">√2</td></tr>
-            <tr><td>d 的長度</td><td class="mono">√(1² + 0² + 1²)</td><td class="mono">√2</td></tr>
-            <tr><td>相似度＝內積 ÷ 兩個長度相乘</td><td class="mono">1 ÷ (√2 × √2)</td><td class="mono">0.5</td></tr>
+            <tr><td><b>固定長度</b></td><td>每 N 個 token 切一段</td><td>實作簡單、大小一致</td><td>可能切斷語句</td><td>結構鬆散的長文</td></tr>
+            <tr><td><b>固定長度＋重疊</b></td><td>相鄰塊共用部分內容</td><td>降低邊界資訊遺失</td><td>增加儲存量與重複內容</td><td>一般文件</td></tr>
+            <tr><td><b>依文件結構</b></td><td>依章節、條文、段落切分</td><td>語意單位完整</td><td>需要解析結構，長度不一</td><td>法規、手冊</td></tr>
+            <tr><td><b>依程式結構</b></td><td>依函式、類別切分</td><td>保留可理解的程式單位</td><td>每種語言都需要解析器</td><td>程式碼</td></tr>
+            <tr><td><b>父子塊</b></td><td>以小塊檢索，回傳所屬大塊</td><td>兼顧檢索精度與上下文</td><td>索引與對應關係較複雜</td><td>長篇技術文件</td></tr>
           </tbody>
         </table></div>
-        <div class="callout" data-k="key"><span class="tag">重點</span><span class="txt">除以長度，是為了比「方向」而不是「大小」。長文件的數字通常比較大，但不代表比較相關。</span></div>
+        <div class="fml">切塊大小 s、重疊 o，每次前進 s − o 個 token：
+儲存量約增為 s / (s − o) 倍
+例：s = 500、o = 100 → 500 / 400 = 1.25 倍</div>
+        <div class="callout" data-k="key"><span class="tag">中繼資料</span><span class="txt">每個 chunk 應同時保存來源、章節、版本、生效日與存取權限。這些欄位支援引用、過濾舊版資料與權限控管，是正式系統不可省略的部分。</span></div>
       </div>
 
       <div class="block">
-        <h3>為什麼前 k 名要用最小堆積</h3>
-        <p>我們要留下分數<b>最高</b>的 k 筆，堆頂卻放<b>最低分</b>。因為新資料來時，只需要和「目前第 k 名」比；它就是最容易被換掉的那一筆，放在堆頂一眼就看得到。</p>
+        <h3>相似度計算</h3>
+        <div class="fml">cos(q, d) = (q · d) / (‖q‖ × ‖d‖)</div>
+        <p>以第 1 關實際數值驗算。問題「餐廳幾點開放？」的向量 q 命中「吃 1、時間 2」；D1 命中「吃 4、時間 1」；D9 命中「時間 1、運動 1、證件 1」。</p>
         <div class="tablewrap"><table>
-          <thead><tr><th>做法</th><th class="mono">時間</th><th class="mono">額外空間</th><th>說明</th></tr></thead>
+          <thead><tr><th>步驟</th><th class="mono">D1</th><th class="mono">D9</th></tr></thead>
           <tbody>
-            <tr><td>全部排序再取前 k</td><td class="mono">O(N log N)</td><td class="mono">O(N)</td><td>把用不到的名次也排好了</td></tr>
-            <tr><td>大小為 k 的最小堆積</td><td class="mono">O(N log k)</td><td class="mono">O(k)</td><td>k 通常很小，堆積很淺</td></tr>
+            <tr><td>內積 q · d</td><td class="mono">1×4 + 2×1 = 6</td><td class="mono">2×1 = 2</td></tr>
+            <tr><td>長度 ‖q‖</td><td class="mono">√(1² + 2²) = √5</td><td class="mono">√5</td></tr>
+            <tr><td>長度 ‖d‖</td><td class="mono">√(4² + 1²) = √17</td><td class="mono">√(1² + 1² + 1²) = √3</td></tr>
+            <tr><td>相似度</td><td class="mono">6 ÷ √85 ≈ 0.651</td><td class="mono">2 ÷ √15 ≈ 0.516</td></tr>
           </tbody>
         </table></div>
+        <ul class="bullets">
+          <li><b>為何除以長度</b> —— 內積會隨向量長度增加。正規化後，長文件不會僅因詞彙多而得到高分。</li>
+          <li><b>預先正規化</b> —— 若向量已先轉為單位長度，餘弦相似度等於內積，查詢時可省去長度計算。</li>
+          <li><b>向量空間不可混用</b> —— 查詢與文件必須使用同一個 embedding 模型。更換模型時，整個知識庫都要重新計算向量。</li>
+          <li><b>手做與真實向量的差異</b> —— 本關每一維都有明確主題；真實 embedding 常有數百至數千維，單一維度通常沒有可直接解讀的意義。</li>
+        </ul>
       </div>
 
       <div class="block">
-        <h3>RAG 裡的資料結構，你都學過</h3>
+        <h3>前 k 名：最小堆積的分析</h3>
+        <p>目標是保留分數<b>最高</b>的 k 筆，堆頂卻存放其中<b>最低分</b>。新資料只需與目前第 k 名比較，而該筆正是下一個被取代的對象，因此可在 O(1) 時間讀取。</p>
         <div class="tablewrap"><table>
-          <thead><tr><th>RAG 的環節</th><th>用到的結構</th><th>對應關卡</th></tr></thead>
+          <thead><tr><th>方法</th><th class="mono">時間</th><th class="mono">額外空間</th><th>特性</th></tr></thead>
           <tbody>
-            <tr><td>向量本身</td><td>陣列</td><td>全課基礎</td></tr>
-            <tr><td>用文件編號取回原文</td><td>雜湊表，平均 O(1)</td><td><a href="16-hash-table.html">16 雜湊表</a></td></tr>
-            <tr><td>留下前 k 名</td><td>最小堆積</td><td><a href="13-heap.html">13 堆積</a></td></tr>
-            <tr><td>分數排名</td><td>排序</td><td><a href="14-sorting-arena.html">14 排序競技場</a></td></tr>
-            <tr><td>大量向量的快速搜尋</td><td>圖：從一個點沿著邊走向更近的鄰居</td><td><a href="21-graph-basics.html">21 圖的基本概念</a></td></tr>
-            <tr><td>排隊處理大量文件</td><td>佇列</td><td><a href="18-queue-basics.html">18 佇列排隊入門</a></td></tr>
+            <tr><td>全部排序</td><td class="mono">O(N log N)</td><td class="mono">O(N)</td><td>同時排好不需要的名次</td></tr>
+            <tr><td>大小為 k 的最小堆積</td><td class="mono">O(N log k)</td><td class="mono">O(k)</td><td>可串流處理，不必保留所有分數</td></tr>
+            <tr><td>快速選擇（如 <code>nth_element</code>）</td><td class="mono">平均 O(N)</td><td class="mono">O(N)</td><td>分數須全部在記憶體中，前 k 名還要再排序</td></tr>
+          </tbody>
+        </table></div>
+        <div class="fml">以 N = 1,000,000、k = 10 估算：
+全部排序：  N log₂N ≈ 2 × 10⁷ 次比較
+最小堆積：  最壞情況 N log₂k ≈ 3.3 × 10⁶ 次
+隨機順序：  期望更新次數 ≈ k(1 + ln(N/k)) ≈ 125 次</div>
+        <p>最壞情況發生在分數遞增時，每筆都會更新堆積。若資料順序隨機，絕大多數文件只需與堆頂比較一次，實際成本接近 O(N)。</p>
+      </div>
+
+      <div class="block">
+        <h3>稠密、稀疏與混合檢索</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>方法</th><th>原理</th><th>擅長</th><th>較弱</th><th>主要資料結構</th></tr></thead>
+          <tbody>
+            <tr><td><b>稀疏（BM25）</b></td><td>依詞頻、逆文件頻率與文件長度計分</td><td>專有名詞、編號、法條字號</td><td>同義詞、換句話說</td><td>倒排索引：雜湊表＋文件清單</td></tr>
+            <tr><td><b>稠密（embedding）</b></td><td>比較語意向量的相似度</td><td>同義改寫、自然語句</td><td>罕見代號、精確字串</td><td>向量索引</td></tr>
+            <tr><td><b>混合</b></td><td>兩者分別檢索後融合排名</td><td>涵蓋語意與精確比對</td><td>系統較複雜、需要調校</td><td>兩種索引並用</td></tr>
+          </tbody>
+        </table></div>
+        <p>兩種方法的分數尺度不同，不宜直接相加。常用的倒數排名融合（Reciprocal Rank Fusion，RRF）只使用名次：</p>
+        <div class="fml">RRF(d) = Σ 1 / (c + rank_i(d))     // c 為常數，實作常用 60
+
+BM25 排名：A、B、C      向量排名：B、D、A
+B：1/62 + 1/61 ≈ 0.03252   → 第 1 名
+A：1/61 + 1/63 ≈ 0.03227   → 第 2 名
+D：1/62        ≈ 0.01613   → 第 3 名
+C：1/63        ≈ 0.01587   → 第 4 名</div>
+        <p>B 在兩份排名中都靠前，因此超過只在 BM25 排第一的 A。融合會獎勵被多種方法同時認可的文件。實作見 04。</p>
+      </div>
+
+      <div class="block">
+        <h3>大規模向量索引</h3>
+        <p>線性掃描每次查詢需 O(N·d)。以 N = 10⁶、d = 768 計算，一次查詢約需 7.7 × 10⁸ 次乘加，且資料量持續成長時難以維持低延遲。近似最近鄰（Approximate Nearest Neighbor，ANN）索引以少量準確度換取大幅的速度提升。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>索引</th><th>核心結構</th><th>查詢方式</th><th>取捨</th></tr></thead>
+          <tbody>
+            <tr><td><b>Flat</b></td><td>陣列</td><td>逐一比對，即本關作法</td><td>結果精確；資料量大時過慢</td></tr>
+            <tr><td><b>IVF</b></td><td>分群＋倒排清單</td><td>先找最近的幾個群，只掃描群內向量</td><td>掃描的群越多越準，也越慢</td></tr>
+            <tr><td><b>HNSW</b></td><td>多層鄰近圖</td><td>由上層往下，每層貪婪走向較近的鄰居</td><td>速度快、召回率高；圖結構占用額外記憶體</td></tr>
+            <tr><td><b>PQ</b></td><td>分段量化編碼</td><td>以短編碼近似計算距離</td><td>大幅節省記憶體，但會損失精度</td></tr>
+          </tbody>
+        </table></div>
+        <ul class="bullets">
+          <li><b>HNSW 與課程的關聯</b> —— 分層方式類似跳躍串列：上層節點少，負責長距離移動；下層節點多，負責精細搜尋。查詢本身是圖上的貪婪走訪。</li>
+          <li><b>記憶體估算</b> —— 100 萬段 × 768 維 × 4 位元組約 3 GB。若以 PQ 將每個向量壓縮到 96 位元組，約降至 96 MB。</li>
+          <li><b>評估方式</b> —— ANN 的品質以 recall@k 衡量，也就是結果中包含多少精確搜尋的前 k 名。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>重排序與提示詞組裝</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>模型類型</th><th>運作方式</th><th>速度</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><b>雙編碼器</b>（bi-encoder）</td><td>問題與文件分別編碼，文件向量可事先算好</td><td>快</td><td>從大量資料取回候選</td></tr>
+            <tr><td><b>交叉編碼器</b>（cross-encoder）</td><td>問題與文件一起輸入，直接判斷相關性</td><td>慢，但較精確</td><td>對少量候選重排序</td></tr>
+          </tbody>
+        </table></div>
+        <p>常見設計是先取回約 50 到 100 筆候選，重排序後保留 5 到 10 筆；實際數字須依資料與預算調整。組裝提示詞時還須注意：</p>
+        <ul class="bullets">
+          <li><b>預算控管</b> —— 例如 k = 8、每塊 500 token，資料就占約 4,000 token，並排擠問題與回答的空間。</li>
+          <li><b>段落位置</b> —— Liu 等人（2024）發現，關鍵資訊位於輸入中段時，模型表現常低於位於開頭或結尾時。</li>
+          <li><b>去除重複</b> —— 內容相近的段落會浪費預算，應去除重複或挑選內容互補的段落。</li>
+          <li><b>行為規則</b> —— 明確規定只依資料回答、標示來源，以及資料不足時拒答。第 5 關即仰賴此規則。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>系統評估</h3>
+        <p>檢索與生成要分開評估，否則無法判斷錯誤來自哪一段。下表以本關結果計算檢索指標。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>關卡</th><th>應取回</th><th>實際取回</th><th class="mono">Precision@k</th><th class="mono">Recall@k</th><th>解讀</th></tr></thead>
+          <tbody>
+            <tr><td>第 1 關，k=2</td><td>D1</td><td>D1、D9</td><td class="mono">1/2</td><td class="mono">1/1</td><td>找到答案，但混入一筆雜訊</td></tr>
+            <tr><td>第 6 關，k=1</td><td>D3、D6</td><td>D3</td><td class="mono">1/1</td><td class="mono">1/2</td><td>結果精準，但資料不完整</td></tr>
+            <tr><td>第 7 關，k=2</td><td>D3、D6</td><td>D3、D6</td><td class="mono">2/2</td><td class="mono">2/2</td><td>資料足以回答</td></tr>
+          </tbody>
+        </table></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>層面</th><th>指標</th><th>回答的問題</th></tr></thead>
+          <tbody>
+            <tr><td><b>檢索</b></td><td>Precision@k、Recall@k</td><td>取回的資料有多少相關？相關資料取回了多少？</td></tr>
+            <tr><td><b>檢索</b></td><td>MRR、nDCG</td><td>相關資料是否排在前面？</td></tr>
+            <tr><td><b>生成</b></td><td>忠實度（faithfulness）</td><td>回答是否都有資料支持？</td></tr>
+            <tr><td><b>生成</b></td><td>答案相關性</td><td>回答是否切中問題？</td></tr>
+            <tr><td><b>系統</b></td><td>延遲、成本、拒答率</td><td>是否符合服務需求？該拒答時是否拒答？</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout" data-k="key"><span class="tag">實務</span><span class="txt">應建立一組含標準答案與應取回段落的測試題，每次調整切塊、模型或 k 值後重新測試。測試題須包含<b>資料中沒有答案</b>的問題，才能檢驗拒答能力。</span></div>
+      </div>
+
+      <div class="block">
+        <h3>失敗類型與診斷</h3>
+        <p>Barnett 等人（2024）從三個案例研究歸納出七種 RAG 失敗點。下表整理其現象與常見改善方向。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>失敗點</th><th>現象</th><th>本關對應</th><th>改善方向</th></tr></thead>
+          <tbody>
+            <tr><td><b>缺少內容</b></td><td>知識庫沒有答案</td><td>第 4、5 關</td><td>補充資料；要求拒答</td></tr>
+            <tr><td><b>未排進前段</b></td><td>相關段落的排名低於 k</td><td>第 6 關</td><td>調整 k；混合檢索；重排序</td></tr>
+            <tr><td><b>未進入上下文</b></td><td>已取回，但整併時遭截斷</td><td>—</td><td>去除重複；調整預算</td></tr>
+            <tr><td><b>未能擷取</b></td><td>資料在提示詞中，模型未採用</td><td>第 1 關的雜訊風險</td><td>減少雜訊；調整段落順序</td></tr>
+            <tr><td><b>格式錯誤</b></td><td>未依要求輸出表格或 JSON</td><td>—</td><td>結構化輸出；輸出驗證</td></tr>
+            <tr><td><b>具體程度不當</b></td><td>回答過於籠統或過於細節</td><td>—</td><td>調整規則；釐清問題</td></tr>
+            <tr><td><b>回答不完整</b></td><td>只回答多部分問題的一部分</td><td>第 6 關</td><td>拆解問題，分別檢索</td></tr>
+          </tbody>
+        </table></div>
+        <div class="fml">診斷順序：
+1. 知識庫是否有答案？        否 → 資料問題
+2. 檢索結果是否包含答案？    否 → 切塊、embedding 或檢索問題
+3. 提示詞是否包含該段落？    否 → 組裝或預算問題
+4. 回答是否正確使用該段落？  否 → 模型或提示詞問題</div>
+      </div>
+
+      <div class="block">
+        <h3>安全與治理</h3>
+        <ul class="bullets no">
+          <li><b>權限控管</b> —— 應在檢索時依使用者權限過濾。若先取回再要求模型保密，機密內容已經進入提示詞。</li>
+          <li><b>間接提示注入</b> —— 攻擊者可將指令藏在會被檢索到的文件或網頁中（Greshake 等人，2023）。檢索內容應視為資料，不得視為指令，並限制模型可呼叫的工具。</li>
+          <li><b>個人資料</b> —— 建立索引前應評估去識別化，並確保刪除原文時，對應的向量與快取也一併刪除。</li>
+          <li><b>版本與時效</b> —— 新舊規定同時存在時，檢索可能取得失效內容。應保存生效日並過濾舊版本。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>RAG、微調與長上下文的選擇</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>比較項目</th><th>RAG</th><th>微調</th><th>長上下文</th></tr></thead>
+          <tbody>
+            <tr><td><b>主要用途</b></td><td>提供外部事實知識</td><td>調整行為、語氣與格式</td><td>完整閱讀少量文件</td></tr>
+            <tr><td><b>知識更新</b></td><td>更新索引</td><td>重新訓練</td><td>下次呼叫時放入新內容</td></tr>
+            <tr><td><b>來源追溯</b></td><td>容易</td><td>困難</td><td>可行，但定位較粗</td></tr>
+            <tr><td><b>資料規模</b></td><td>可達大量文件</td><td>受訓練資料與成本限制</td><td>受上下文視窗限制</td></tr>
+            <tr><td><b>權限控管</b></td><td>可在檢索層控管</td><td>難以按使用者區分</td><td>由呼叫端控管</td></tr>
+            <tr><td><b>主要成本</b></td><td>索引、檢索基礎設施</td><td>資料準備、訓練</td><td>每次呼叫的 token 費用</td></tr>
+          </tbody>
+        </table></div>
+        <p>這些方法可以並用，例如以微調固定輸出格式、以 RAG 提供最新知識，再以長上下文容納較完整的段落。</p>
+      </div>
+
+      <div class="block">
+        <h3>進階架構</h3>
+        <ul class="bullets">
+          <li><b>查詢改寫</b> —— 將口語或含代名詞的問題改寫為完整查詢，或展開成多個查詢。</li>
+          <li><b>多跳檢索</b> —— 問題需要串接多段資料時，先取得中間結果再進行下一次檢索。第 7 關的比較題即需要多段資料。</li>
+          <li><b>代理式 RAG</b> —— 由模型決定是否檢索、查詢哪個資料來源，以及結果是否足夠。</li>
+          <li><b>圖式 RAG</b> —— 從文件抽取實體與關係建成知識圖譜，適合需要追蹤關聯的問題。</li>
+          <li><b>多模態 RAG</b> —— 將圖片、表格與掃描文件一併納入檢索。</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3>RAG 中的資料結構</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>RAG 環節</th><th>資料結構</th><th>對應關卡</th></tr></thead>
+          <tbody>
+            <tr><td>向量儲存與線性掃描</td><td>陣列</td><td>全課基礎</td></tr>
+            <tr><td>由編號取回原文、中繼資料</td><td>雜湊表，平均 O(1)</td><td><a href="16-hash-table.html">16 雜湊表</a></td></tr>
+            <tr><td>BM25 倒排索引</td><td>雜湊表＋文件清單</td><td><a href="16-hash-table.html">16 雜湊表</a></td></tr>
+            <tr><td>維護前 k 名</td><td>最小堆積</td><td><a href="13-heap.html">13 堆積</a></td></tr>
+            <tr><td>候選排名、融合排序</td><td>排序</td><td><a href="14-sorting-arena.html">14 排序競技場</a></td></tr>
+            <tr><td>HNSW 向量索引</td><td>分層鄰近圖</td><td><a href="21-graph-basics.html">21 圖的基本概念</a></td></tr>
+            <tr><td>批次處理文件與 embedding 工作</td><td>佇列</td><td><a href="18-queue-basics.html">18 佇列排隊入門</a></td></tr>
           </tbody>
         </table></div>
       </div>
@@ -536,19 +777,21 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
       <div class="block">
         <h3>複雜度</h3>
         <ul class="bullets">
-          <li><b>時間 O(N·d + N log k)</b> —— N 段文件各算一次 d 維相似度，每段最多動一次大小為 k 的堆積。</li>
-          <li><b>空間 O(N·d)</b> —— 所有向量都要存。100 萬段、每段 768 維、每格 4 位元組，大約 3 GB。</li>
-          <li><b>資料很多時</b> —— 逐段比對太慢，真實系統會用近似最近鄰搜尋：只看一部分的點，換來速度，代價是偶爾漏掉真正的第一名。</li>
+          <li><b>時間 O(N·d + N log k)</b> —— N 段文件各計算一次 d 維相似度，每段最多更新一次大小為 k 的堆積。當 d 遠大於 log k 時，相似度計算是主要成本。</li>
+          <li><b>空間 O(N·d)</b> —— 需要儲存所有向量。堆積本身只需 O(k)。</li>
+          <li><b>規模擴大時</b> —— 線性掃描改為 ANN 索引。查詢不再逐一比對，但結果變成近似值。</li>
         </ul>
       </div>
 
       <div class="block">
         <h3>常見誤解</h3>
         <ul class="bullets no">
-          <li><b>「用了 RAG 就不會有幻覺」</b> —— 第 5 關就是反例。系統找到了宿舍資料，資料卻沒有答案，所以還要靠提示詞要求模型「資料沒寫就說不知道」。</li>
-          <li><b>「k 越大越好」</b> —— 第 1 關的第二名是體育館，和餐廳無關。k 太大只會塞進更多雜訊，還更花錢。</li>
-          <li><b>「分數最高的就是答案」</b> —— 第 6 關的第一名只有圖書館，要回答問題還需要宿舍那段。</li>
-          <li><b>「文件切得越細越好」</b> —— 切太細會把一句完整的規定切斷，切太粗又會混進無關內容。</li>
+          <li><b>「使用 RAG 後就不會產生幻覺」</b> —— 第 5 關取回了宿舍資料，但其中沒有答案，仍須依賴拒答規則。</li>
+          <li><b>「k 越大越好」</b> —— 第 1 關的第二名 D9 與餐廳無關。k 增加會提高召回，也會帶入雜訊並增加成本。</li>
+          <li><b>「分數最高的段落就是答案」</b> —— 第 6 關的第一名只有圖書館資料，完整回答還需要宿舍門禁。</li>
+          <li><b>「切得越細越好」</b> —— 過細會切斷條件與結論，過粗則混入無關內容，應依資料結構調整。</li>
+          <li><b>「向量檢索一定優於關鍵字」</b> —— 查詢零件編號或法條字號時，精確比對通常更可靠。</li>
+          <li><b>「門檻可以固定使用」</b> —— 不同 embedding 模型的分數分布不同，門檻須以測試資料校正。</li>
         </ul>
       </div>
     </div>
@@ -560,7 +803,7 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
       <span class="sec-num">04</span>
       <div>
         <h2>程式架構與說明</h2>
-        <p class="sub">只講流程與分工，不逐行拆解。看懂這一段，你就能自己改這個遊戲。</p>
+        <p class="sub">說明程式的流程與分工，並對照教學版與正式系統的差異。</p>
       </div>
     </div>
     <div class="sec-body">
@@ -602,7 +845,7 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
       </div>
 
       <div class="block">
-        <h3>你可以怎麼改</h3>
+        <h3>修改與擴充</h3>
         <div class="tablewrap">
           <table>
             <thead><tr><th>想做的事</th><th>改哪裡</th><th>要動幾行</th></tr></thead>
@@ -615,6 +858,162 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
             </tbody>
           </table>
         </div>
+      </div>
+      <div class="block">
+        <h3>從教學版到正式系統</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>環節</th><th>本關作法</th><th>正式系統</th></tr></thead>
+            <tbody>
+              <tr><td><b>文件來源</b></td><td><code>DOCS</code> 陣列</td><td>文件解析流程與資料庫</td></tr>
+              <tr><td><b>向量化</b></td><td>8 維同義詞計數</td><td>embedding 模型，常見數百至數千維</td></tr>
+              <tr><td><b>檢索</b></td><td>線性掃描＋最小堆積</td><td>向量資料庫的 ANN 索引，常併用 BM25</td></tr>
+              <tr><td><b>排序</b></td><td>餘弦相似度</td><td>RRF 融合＋重排序模型</td></tr>
+              <tr><td><b>權限</b></td><td>無</td><td>依使用者身分過濾中繼資料</td></tr>
+              <tr><td><b>生成</b></td><td>預先撰寫的回答</td><td>由後端呼叫模型 API，金鑰不放在前端</td></tr>
+              <tr><td><b>品質控管</b></td><td>固定門檻</td><td>測試題集、線上監控與使用者回饋</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>延伸實作：RRF 排名融合</h3>
+        <p>以下函式融合多份排名，其中累加分數的部分使用雜湊表。此程式碼不屬於遊戲，供延伸閱讀，須以 C++17 編譯。</p>
+        <pre class="code"><i>// lists：多份排名，每份由高到低存放文件編號</i>
+vector&lt;pair&lt;double,int&gt;&gt; rrf(const vector&lt;vector&lt;int&gt;&gt;&amp; lists, int c = 60) {
+    unordered_map&lt;int,double&gt; score;             <i>// 文件編號 → 累積分數</i>
+    for (const auto&amp; list : lists)
+        for (int r = 0; r &lt; (int)list.size(); r++)
+            score[list[r]] += 1.0 / (c + r + 1); <i>// r 從 0 起算，名次要加 1</i>
+
+    vector&lt;pair&lt;double,int&gt;&gt; out;
+    for (const auto&amp; [id, s] : score) out.push_back({s, id});
+    sort(out.rbegin(), out.rend());              <i>// 分數由高到低</i>
+    return out;
+}</pre>
+        <p>設文件總數為 M、所有排名合計 L 筆，平均時間為 O(L + M log M)。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 應用 ============ -->
+  <section class="sec" id="s5">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <div>
+        <h2>應用案例</h2>
+        <p class="sub">比較不同領域的資料特性與設計重點，再以三個案例說明完整的設計過程。</p>
+      </div>
+    </div>
+    <div class="sec-body">
+
+      <div class="block">
+        <h3>各領域應用</h3>
+        <p>下表為常見應用情境的設計重點，不代表特定產品或機構的實作。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>領域</th><th>知識來源</th><th>典型問題</th><th>設計重點</th><th>主要風險</th></tr></thead>
+          <tbody>
+            <tr><td><b>企業知識庫</b></td><td>規章、流程、會議紀錄</td><td>出差費用如何申請？</td><td>權限過濾、版本管理</td><td>洩漏機密；引用舊規定</td></tr>
+            <tr><td><b>客服中心</b></td><td>產品手冊、歷史工單</td><td>錯誤碼 E12 如何排除？</td><td>依型號過濾；無法解決時轉人工</td><td>答錯型號；承諾未授權事項</td></tr>
+            <tr><td><b>法律</b></td><td>法條、判決、契約</td><td>此條款的相關判決有哪些？</td><td>依條文切塊；逐筆驗證引用</td><td>引用不存在或已失效的法源</td></tr>
+            <tr><td><b>醫療</b></td><td>臨床指引、藥品仿單</td><td>此藥物的交互作用為何？</td><td>使用審核過的來源；由專業人員判斷</td><td>病患安全；個資保護</td></tr>
+            <tr><td><b>金融</b></td><td>財報、法遵文件、研究報告</td><td>今年毛利率變化的原因？</td><td>保留表格結構；標示期間與頁碼</td><td>數字錯置；混淆年度</td></tr>
+            <tr><td><b>軟體開發</b></td><td>程式碼、API 文件、issue</td><td>這個函式在哪裡被呼叫？</td><td>依函式切塊；結合符號索引</td><td>引用不存在的 API；索引過期</td></tr>
+            <tr><td><b>學術研究</b></td><td>論文、專利、實驗紀錄</td><td>近年有哪些方法處理此問題？</td><td>保留書目資料；引用到段落</td><td>錯誤歸因；漏掉重要文獻</td></tr>
+            <tr><td><b>教育</b></td><td>講義、題庫、課程公告</td><td>這題和上週哪個概念有關？</td><td>依單元限定範圍；引導而非代答</td><td>教材錯誤被放大；影響學習</td></tr>
+            <tr><td><b>政府服務</b></td><td>法規、申辦須知、公告</td><td>這項補助需要哪些文件？</td><td>標示生效日；提供原始連結</td><td>錯誤資訊影響民眾權益</td></tr>
+            <tr><td><b>電子商務</b></td><td>商品規格、評論、政策</td><td>這款行李箱符合登機尺寸嗎？</td><td>結合屬性查詢與語意檢索</td><td>庫存或價格過期</td></tr>
+            <tr><td><b>資訊安全</b></td><td>漏洞公告、事件報告、日誌規則</td><td>這個漏洞影響哪些版本？</td><td>精確比對漏洞編號；保持資料即時</td><td>文件含惡意指令；漏報</td></tr>
+            <tr><td><b>海事航運</b></td><td>維修手冊、安全管理文件、公約</td><td>主機排氣溫度過高如何檢查？</td><td>依機型過濾；支援離線運作</td><td>手冊版本不符；影響航行安全</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="block">
+        <h3>案例一：船舶輪機維修助理</h3>
+        <p><b>需求：</b>輪機人員在船上查詢故障排除步驟。手冊數量多、以 PDF 為主，海上網路頻寬有限。此為設計示例。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>設計項目</th><th>決策</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr><td><b>切塊</b></td><td>依章節與故障代碼切分，步驟表不拆開</td><td>維修步驟的順序與警告必須完整</td></tr>
+            <tr><td><b>中繼資料</b></td><td>船名、機型、手冊版本、章節頁碼</td><td>先縮小到該船實際裝備</td></tr>
+            <tr><td><b>檢索</b></td><td>BM25＋向量的混合檢索</td><td>零件編號需要精確比對，故障描述需要語意比對</td></tr>
+            <tr><td><b>部署</b></td><td>索引與模型放在船上，靠港時同步更新</td><td>不依賴連續的網路連線</td></tr>
+            <tr><td><b>風險控管</b></td><td>回答附手冊頁碼；安全相關操作要求核對原文</td><td>系統僅為輔助，決定權在現場人員</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="block">
+        <h3>案例二：企業內部規章問答</h3>
+        <p><b>需求：</b>員工查詢人事、差旅與資安規定。不同部門可見資料不同，規定每年修訂。此為設計示例。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>設計項目</th><th>決策</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr><td><b>權限</b></td><td>同步文件的存取清單，檢索時過濾</td><td>未授權內容不得進入提示詞</td></tr>
+            <tr><td><b>版本</b></td><td>保存生效日，預設只查有效版本</td><td>避免引用舊規定</td></tr>
+            <tr><td><b>更新</b></td><td>文件異動時增量更新受影響的 chunk</td><td>不必重算整個知識庫</td></tr>
+            <tr><td><b>拒答</b></td><td>資料不足時提供承辦單位</td><td>避免模型推測規定</td></tr>
+            <tr><td><b>監控</b></td><td>統計無法回答的問題</td><td>發現知識庫缺口，回饋給文件負責人</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="block">
+        <h3>案例三：程式碼庫問答</h3>
+        <p><b>需求：</b>新進工程師查詢大型專案的功能位置與呼叫關係。此為設計示例。</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>設計項目</th><th>決策</th><th>使用的資料結構</th></tr></thead>
+          <tbody>
+            <tr><td><b>切塊</b></td><td>解析語法樹，依函式與類別切分</td><td>樹</td></tr>
+            <tr><td><b>精確查詢</b></td><td>建立函式名稱到定義位置的索引</td><td>雜湊表</td></tr>
+            <tr><td><b>關聯查詢</b></td><td>建立呼叫關係，由定義向外走訪</td><td>圖、BFS</td></tr>
+            <tr><td><b>語意查詢</b></td><td>以 embedding 比對功能描述</td><td>向量索引</td></tr>
+            <tr><td><b>增量更新</b></td><td>比對檔案雜湊值，只重算有變更的檔案</td><td>雜湊表</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout" data-k="key"><span class="tag">重點</span><span class="txt">此案例顯示，檢索不一定只靠向量。資料本身具有結構時，應優先運用樹、圖與雜湊表等對應的結構。</span></div>
+      </div>
+
+      <div class="block">
+        <h3>不適合單獨使用 RAG 的情境</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>情境</th><th>原因</th><th>較適合的方法</th></tr></thead>
+          <tbody>
+            <tr><td>統計全校各系平均成績</td><td>前 k 名只涵蓋部分資料，無法做完整彙總</td><td>SQL 查詢，再由模型說明結果</td></tr>
+            <tr><td>查詢即時庫存或航班狀態</td><td>索引內容可能已過期</td><td>呼叫即時 API</td></tr>
+            <tr><td>精確計算費用或稅額</td><td>語言模型不適合擔任計算器</td><td>由程式計算</td></tr>
+            <tr><td>歸納整份文件集的主題</td><td>答案分散在全部資料，不在少數段落</td><td>階層式摘要、圖式 RAG</td></tr>
+            <tr><td>知識庫內容錯誤或互相矛盾</td><td>檢索只會放大資料問題</td><td>先進行資料治理</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="block">
+        <h3>綜合思考題</h3>
+        <div class="check">
+          <details><summary>將門檻從 0.30 提高到 0.70，第 7 關的回答會發生什麼變化？</summary><div class="ans">D3（0.775）仍會保留，D6（0.696）則被濾除，資料只剩圖書館，結果與第 6 關相同。門檻過高會降低召回，使可回答的問題變得無法回答。</div></details>
+          <details><summary>若文件依分數由低到高依序進入，N = 10⁶、k = 10 時，堆積會更新幾次？</summary><div class="ans">前 k 筆直接放入，之後每筆都高於堆頂，因此全部 N 筆都要進入堆積，這就是 O(N log k) 的最壞情況。隨機順序下的期望更新次數則只有約 125 次。</div></details>
+          <details><summary>使用者問「他的申請期限是什麼時候？」，為什麼檢索容易失敗？</summary><div class="ans">問題中的「他」與「申請」缺少上下文，向量無法反映實際指涉的對象。應先結合對話紀錄改寫為完整查詢，再進行檢索。</div></details>
+          <details><summary>海大要建置航運法規問答系統，檢索應採用向量、BM25 還是兩者併用？</summary><div class="ans">建議併用。法條字號與公約名稱需要精確比對，由 BM25 處理；口語描述的問題需要語意比對，由向量處理。再以 RRF 融合，並依生效日過濾。</div></details>
+          <details><summary>系統更換 embedding 模型時，為何不能只重算新文件的向量？</summary><div class="ans">不同模型產生的向量位於不同空間，彼此的距離沒有意義，連維度都可能不同。整個知識庫都要用新模型重新計算，查詢也必須使用同一個模型。</div></details>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>參考文獻</h3>
+        <ol class="refs">
+          <li>Lewis, P., et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. <i>NeurIPS</i>.</li>
+          <li>Robertson, S., &amp; Zaragoza, H. (2009). The Probabilistic Relevance Framework: BM25 and Beyond. <i>Foundations and Trends in Information Retrieval</i>.</li>
+          <li>Cormack, G. V., Clarke, C. L. A., &amp; Büttcher, S. (2009). Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods. <i>SIGIR</i>, 758–759.</li>
+          <li>Malkov, Y. A., &amp; Yashunin, D. A. (2020). Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs. <i>IEEE TPAMI</i>, 42(4), 824–836.</li>
+          <li>Jégou, H., Douze, M., &amp; Schmid, C. (2011). Product Quantization for Nearest Neighbor Search. <i>IEEE TPAMI</i>.</li>
+          <li>Liu, N. F., et al. (2024). Lost in the Middle: How Language Models Use Long Contexts. <i>TACL</i>, 12, 157–173.</li>
+          <li>Barnett, S., et al. (2024). Seven Failure Points When Engineering a Retrieval Augmented Generation System. <i>CAIN</i>, 194–199.</li>
+          <li>Greshake, K., et al. (2023). Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection. arXiv:2302.12173.</li>
+          <li><i>Mata v. Avianca, Inc.</i>, No. 22-cv-1461 (S.D.N.Y. June 22, 2023).</li>
+        </ol>
       </div>
     </div>
   </section>
@@ -794,7 +1193,7 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
 
   function extractive(use){
     if(!use.length) return "資料裡找不到這個問題的答案。";
-    return "根據資料：" + DOCS[use[0].i] + "[" + did(use[0].i) + "]";
+    return "根據資料：" + use.map(function(u){ return DOCS[u.i] + "[" + did(u.i) + "]"; }).join(" ");
   }
 
   function topAxisQuiz(qv){
@@ -891,9 +1290,13 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
     put({kind:"prompt", title:"組成提示詞", line:10, qv:qv, dropped:dropped,
          msg:"規則、資料、問題組成一段文字。模型看不到其他 " + (n - use.length) + " 段文件，只看得到這裡的內容。"});
 
-    ans = {rag:lv.ans || extractive(use), raw:lv.raw || "（模型憑印象編出一個答案。）"};
+    /* 預寫的回答只對該關預設的 k 成立；k 改了就改成直接列出取回的資料 */
+    var canned = lv.ans && k === lv.k;
+    ans = {rag:canned ? lv.ans : extractive(use), raw:lv.raw || "（模型憑印象編出一個答案。）"};
     put({kind:"done", title:"模型回答", line:11, qv:qv, dropped:dropped,
-         msg:lv.fin || "這是直接引用第一名資料的示意回答。真的語言模型會讀完全部資料，再用自己的話回答。"});
+         msg:canned ? lv.fin
+            : (lv.ans ? "本關的回答是依 k=" + lv.k + " 撰寫的。k 改成 " + k + " 後，這裡改為直接列出取回的資料。" : "這是直接列出取回資料的示意回答。")
+              + "真的語言模型會讀完這些資料，再用自己的話回答。"});
     return steps;
   }
 
@@ -990,7 +1393,7 @@ vector&lt;P&gt; retrieve(const vector&lt;double&gt;&amp; q, const vector&lt;vect
     } else {
       box.classList.add("idle");
       $("algoDocLn").textContent = "—";
-      $("algoDocTxt").textContent = "按「下一步」，這裡會用白話解釋目前亮起的那一行程式在做什麼。";
+      $("algoDocTxt").textContent = "按「下一步」後，這裡會說明目前亮起的程式行。";
     }
   }
 
